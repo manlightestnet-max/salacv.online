@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="smlab — Lab d'innovation tech basé en RDC. On construit des produits qui fonctionnent.">
+  <title>smlab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <nav>
+    <div class="logo">sm<span>lab</span></div>
+    <div class="nav-right">
+      <select class="theme-select" id="themeSelect" onchange="setTheme(this.value)" title="Changer la couleur d'accent">
+        <option value="blue">Bleu tech</option>
+        <option value="violet">Violet</option>
+        <option value="terra">Terracotta</option>
+        <option value="noir">Noir pur</option>
+      </select>
+      <a href="#projets" class="nav-cta">Voir mes projets</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="badge"><span class="badge-dot"></span> v1.0 — Congo, 2026</div>
+      <h1>Build fast.<br>Ship <em>real</em> things.</h1>
+      <p class="sub">
+        smlab est un lab d'innovation tech basé en RDC.<br>
+        On construit des produits qui fonctionnent — outils, plateformes, agents.
+      </p>
+      <div class="hero-actions">
+        <a href="#projets" class="btn-primary">Voir mes projets ↗</a>
+        <a href="#about" class="btn-ghost">En savoir plus</a>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="features" id="projets">
+      <div class="section-label">Modules / 04</div>
+      <div class="feature-grid">
+
+        <div class="feature-card">
+          <div class="f-tag">MODULE 01</div>
+          <div class="f-title">WhatsApp Admin Bot</div>
+          <div class="f-desc">Connecte ton groupe WhatsApp et laisse le bot gérer l'administration — bans, règles, réponses automatiques.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="f-tag">MODULE 02</div>
+          <div class="f-title">Congo Store</div>
+          <div class="f-desc">App store dédié aux apps made in Congo. Distribution locale, paiement mobile money intégré.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="f-tag">MODULE 03</div>
+          <div class="f-title">Ivy Agent</div>
+          <div class="f-desc">Agent IA Android avec interface Claude-like. Conçu pour le marché congolais.</div>
+        </div>
+
+        <div class="feature-card">
+          <div class="f-tag">MODULE 04</div>
+          <div class="f-title">+ à venir</div>
+          <div class="f-desc">Le lab tourne en continu. Nouveaux modules en développement permanent.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="cta-section" id="about">
+      <div class="cta-box">
+        <div class="cta-text">
+          <h3>Tu veux voir ce qu'on construit ?</h3>
+          <p>Tous les projets sont accessibles. Pas de waitlist, pas de bullshit.</p>
+        </div>
+        <a href="#projets" class="btn-accent">Voir mes projets ↗</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-l">smlab © 2026</div>
+    <div class="footer-r">Made in Congo 🇨🇩</div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>
