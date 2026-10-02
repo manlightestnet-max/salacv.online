@@ -1,31 +1,34 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>salacv — moteur</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+  <title>salacv — éditeur de CV</title>
+  <script>
+    // Thème appliqué avant le premier rendu pour éviter un flash clair.
+    try { document.documentElement.dataset.theme = localStorage.getItem('salacv:theme') || 'dark'; } catch {}
+  </script>
+  <link rel="stylesheet" href="./tokens.css">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <nav>
-    <span class="logo">sala<span>cv</span></span>
-    <div class="nav-right">
+  <header class="topbar">
+    <span class="logo"><span class="logo-mark">S</span>salacv</span>
+    <div class="actions">
       <label class="toggle"><input type="checkbox" id="watermark" checked> Filigrane aperçu</label>
+      <button id="theme" class="btn-ghost" aria-label="Changer de thème" title="Changer de thème">◐</button>
       <button id="export" class="btn-primary">Exporter PDF <kbd>Ctrl S</kbd></button>
     </div>
-  </nav>
+  </header>
   <main>
-    <section class="editor">
-      <div class="panel-label">DSL / JSON</div>
+    <section class="panel editor">
+      <div class="panel-head">DSL / JSON</div>
       <textarea id="source" spellcheck="false"></textarea>
-      <div id="status" class="status"></div>
+      <div id="status" class="status">Chargement du moteur…</div>
     </section>
-    <section class="preview">
-      <div class="panel-label">APERÇU / SKIA <span id="pages"></span></div>
-      <div id="canvases"></div>
+    <section class="panel preview">
+      <div class="panel-head">APERÇU / SKIA <span id="pages"></span></div>
+      <div id="canvases"><div class="page-skeleton skeleton"></div></div>
     </section>
   </main>
   <script type="module" src="./main.js"></script>

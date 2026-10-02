@@ -17,6 +17,13 @@ const watermark = $('watermark');
 
 const WATERMARK = 'salacv.online · aperçu';
 const DRAFT_KEY = 'salacv:draft';
+const THEME_KEY = 'salacv:theme';
+
+$('theme').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  store(THEME_KEY, next);
+});
 
 const [CK, fonts] = await Promise.all([
   CanvasKitInit({ locateFile: () => wasmUrl }),
@@ -66,7 +73,7 @@ function render() {
   }
   current = result;
   paint(result.doc);
-  saveDraft(source.value);
+  store(DRAFT_KEY, source.value);
   setStatus(`OK · ${result.doc.pages.length} page(s) · layout + rendu en ${Math.round(performance.now() - t0)} ms`);
 }
 
@@ -118,6 +125,7 @@ async function exportPdf() {
 function setStatus(msg, error = false) {
   status.textContent = msg;
   status.classList.toggle('error', error);
+  status.classList.toggle('ok', !error);
 }
 
 function slug(s) {
@@ -132,9 +140,9 @@ function readDraft() {
   }
 }
 
-function saveDraft(value) {
+function store(key, value) {
   try {
-    localStorage.setItem(DRAFT_KEY, value);
+    localStorage.setItem(key, value);
   } catch {
     // stockage indisponible (navigation privée) : on ignore
   }

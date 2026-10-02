@@ -24,7 +24,7 @@ test('le DSL applique les valeurs par défaut', () => {
 
 test('wrap ne dépasse jamais la largeur demandée', () => {
   const kit = createKit(fonts);
-  const style = { font: 'sora-300', size: 9 };
+  const style = { font: 'sans-400', size: 9 };
   const text = 'Supercalifragilisticexpialidocious '.repeat(8) + 'mot-tres-long-sans-espace'.repeat(6);
   for (const line of kit.wrap(text, style.font, style.size, 120)) {
     assert.ok(fonts.measure(line, style.font, style.size) <= 120, line);
@@ -57,5 +57,5 @@ test('le PDF contient le vrai texte et le bon nombre de pages', async () => {
 });
 
 test('les caractères absents de la police sont retirés (pas de carrés vides)', () => {
-  assert.equal(fonts.sanitize('Salut 🚀 Kin', 'sora-400'), 'Salut  Kin');
+  assert.equal(fonts.sanitize('Salut 🚀 Kin', 'sans-400'), 'Salut  Kin');
 });

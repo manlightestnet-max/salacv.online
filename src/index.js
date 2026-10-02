@@ -2,6 +2,7 @@
 import { parseResume } from './dsl/schema.js';
 import { createKit, paginate, PAGE_SIZES } from './layout/engine.js';
 import { templates } from './templates/index.js';
+import { DEFAULT_ACCENT } from './templates/minimal.js';
 
 export { parseResume } from './dsl/schema.js';
 export { loadFontSet, createFontSet, FONT_FILES } from './fonts.js';
@@ -20,18 +21,18 @@ export function layoutResume(input, fonts, options = {}) {
   const total = doc.pages.length;
   doc.pages.forEach((ops, i) => {
     if (total > 1) {
-      const style = { font: 'mono-400', size: 7, color: '#8A8A85' };
+      const style = { font: 'mono-400', size: 7, color: '#A1A1AA' };
       const label = `${i + 1} / ${total}`;
       kit.text(ops, label, size.width - template.margin.right - kit.width(label, style), size.height - 28, style);
     }
-    if (options.watermark) addWatermark(ops, kit, size, options.watermark);
+    if (options.watermark) addWatermark(ops, kit, size, options.watermark, resume.theme.accent ?? DEFAULT_ACCENT);
   });
 
   return { ok: true, resume, doc };
 }
 
-function addWatermark(ops, kit, size, text) {
-  const style = { font: 'sora-600', size: 30, color: '#0066FF', opacity: 0.07 };
+function addWatermark(ops, kit, size, text, color) {
+  const style = { font: 'sans-600', size: 30, color, opacity: 0.07 };
   const w = kit.width(text, style);
   for (let row = 0; row < 5; row++) {
     const y = 150 + row * 160;

@@ -1,15 +1,18 @@
-// Template "minimal" : le style de la landing smlab (Sora + DM Mono, accent
-// bleu, labels mono en capitales du type "EXPÉRIENCES / 02" dans une colonne
-// de gauche).
+// Template "minimal" : thème Salacope (Geist + Geist Mono, gris zinc, accent
+// vert émeraude), labels mono en capitales du type "EXPÉRIENCES / 02" dans une
+// colonne de gauche. Couleurs = tokens clairs de Salacope (le CV s'imprime).
 import { block } from '../layout/engine.js';
 
 const C = {
-  text: '#1A1A18',
-  soft: '#3A3A37',
-  muted: '#6B6B67',
-  border: '#E4E3DF',
-  chipBg: '#FAFAF8',
+  text: '#18181B', // gray-900
+  soft: '#3F3F46', // gray-700
+  muted: '#71717A', // gray-500
+  border: '#E4E4E7', // gray-200
+  chipBg: '#FAFAFA', // gray-50
+  status: '#10B981', // primary-500, pastille de statut
 };
+
+export const DEFAULT_ACCENT = '#047857'; // accent clair Salacope (primary-700)
 
 const M = { top: 50, bottom: 50, left: 48, right: 48 };
 const GUTTER = 112; // colonne des labels
@@ -20,27 +23,28 @@ export const minimal = {
   margin: M,
 
   build(resume, kit, page) {
-    const accent = resume.theme.accent ?? '#0066FF';
+    const accent = resume.theme.accent ?? DEFAULT_ACCENT;
     const fullW = page.width - M.left - M.right;
     const bodyX = M.left + GUTTER + GAP;
     const bodyW = page.width - M.right - bodyX;
 
     const S = {
-      name: { font: 'sora-600', size: 25, color: C.text, tracking: -0.5 },
-      title: { font: 'sora-400', size: 11.5, color: accent },
-      contact: { font: 'mono-400', size: 7.8, color: C.muted },
-      badge: { font: 'mono-400', size: 7.2, color: C.muted },
-      summary: { font: 'sora-300', size: 9.4, color: C.soft },
-      label: { font: 'mono-400', size: 7.2, color: C.muted, tracking: 1.1 },
-      itemTitle: { font: 'sora-500', size: 10, color: C.text },
-      period: { font: 'mono-400', size: 7.4, color: C.muted },
-      org: { font: 'sora-400', size: 8.8, color: accent },
-      place: { font: 'sora-300', size: 8.8, color: C.muted },
-      bullet: { font: 'sora-300', size: 8.9, color: C.soft },
-      chip: { font: 'mono-400', size: 7.6, color: C.text },
-      groupLabel: { font: 'mono-400', size: 6.8, color: C.muted, tracking: 0.8 },
-      listName: { font: 'sora-400', size: 9.2, color: C.text },
-      listLevel: { font: 'mono-400', size: 7.2, color: C.muted, tracking: 0.6 },
+      // Titres : letter-spacing -0.011em comme les h1-h4 de Salacope.
+      name: { font: 'sans-600', size: 25, color: C.text, tracking: -0.011 * 25 },
+      title: { font: 'sans-400', size: 11.5, color: accent },
+      contact: { font: 'mono-400', size: 7.6, color: C.muted },
+      badge: { font: 'mono-400', size: 7, color: C.muted },
+      summary: { font: 'sans-400', size: 9.2, color: C.soft },
+      label: { font: 'mono-500', size: 7, color: C.muted, tracking: 0.9 },
+      itemTitle: { font: 'sans-500', size: 10, color: C.text },
+      period: { font: 'mono-400', size: 7.2, color: C.muted },
+      org: { font: 'sans-500', size: 8.8, color: accent },
+      place: { font: 'sans-400', size: 8.8, color: C.muted },
+      bullet: { font: 'sans-400', size: 8.8, color: C.soft },
+      chip: { font: 'mono-400', size: 7.4, color: C.text },
+      groupLabel: { font: 'mono-400', size: 6.6, color: C.muted, tracking: 0.7 },
+      listName: { font: 'sans-500', size: 9, color: C.text },
+      listLevel: { font: 'mono-400', size: 7, color: C.muted, tracking: 0.5 },
     };
 
     const blocks = [header()];
@@ -56,7 +60,7 @@ export const minimal = {
         const tw = kit.width(p.badge, S.badge);
         const h = 16;
         ops.push({ t: 'rect', x: M.left, y, w: tw + 26, h, r: h / 2, fill: C.chipBg, stroke: C.border, lw: 0.75 });
-        ops.push({ t: 'circle', cx: M.left + 9.5, cy: y + h / 2, r: 2.1, fill: accent });
+        ops.push({ t: 'circle', cx: M.left + 9.5, cy: y + h / 2, r: 2.1, fill: C.status });
         kit.text(ops, p.badge, M.left + 17, kit.baseline(y, S.badge, h), S.badge);
         y += h + 14;
       }
@@ -151,7 +155,7 @@ export const minimal = {
           x = bodyX;
           y += h + 4;
         }
-        ops.push({ t: 'rect', x, y, w, h, r: 3.5, fill: C.chipBg, stroke: C.border, lw: 0.75 });
+        ops.push({ t: 'rect', x, y, w, h, r: 4, fill: C.chipBg, stroke: C.border, lw: 0.75 });
         kit.text(ops, item, x + padX, kit.baseline(y, S.chip, h), S.chip);
         x += w + 4;
       }

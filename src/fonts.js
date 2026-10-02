@@ -6,12 +6,11 @@
 import fontkit from '@pdf-lib/fontkit';
 
 export const FONT_FILES = {
-  'sora-300': 'Sora_300Light.ttf',
-  'sora-400': 'Sora_400Regular.ttf',
-  'sora-500': 'Sora_500Medium.ttf',
-  'sora-600': 'Sora_600SemiBold.ttf',
-  'mono-400': 'DMMono_400Regular.ttf',
-  'mono-500': 'DMMono_500Medium.ttf',
+  'sans-400': 'Geist_400Regular.ttf',
+  'sans-500': 'Geist_500Medium.ttf',
+  'sans-600': 'Geist_600SemiBold.ttf',
+  'mono-400': 'GeistMono_400Regular.ttf',
+  'mono-500': 'GeistMono_500Medium.ttf',
 };
 
 // Désactive toute substitution pour que pdf-lib encode glyphe par caractère.

@@ -49,7 +49,7 @@ Créer `src/templates/<nom>.js` qui exporte `{ id, margin, build(resume, kit, pa
 
 ## Polices
 
-Sora et DM Mono (SIL Open Font License, voir `fonts/OFL-*.txt`).
+Geist et Geist Mono (SIL Open Font License, voir `fonts/OFL-*.txt`). Thème : tokens Salacope (`app/tokens.css`).
 
 ## Déploiement
 
