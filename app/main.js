@@ -2,6 +2,7 @@
 // sheet. PC : formulaire dans une barre de gauche redimensionnable. Aperçu
 // zoomable partout ; tant que l'étudiant n'a rien saisi, l'exemple s'affiche
 // en grisé pour montrer le format.
+import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import { loadEngine } from './lib/engine.js';
 import { createProject, getProject, listProjects, read, saveProject, write as store } from './lib/store.js';
@@ -22,7 +23,6 @@ const stepEl = $('step');
 const desktop = window.matchMedia('(min-width: 960px)');
 
 const WATERMARK = 'salacv.online · aperçu';
-const THEME_KEY = 'salacv:theme';
 const SIDEBAR_KEY = 'salacv:sidebar';
 const SIDEBAR = { min: 320, default: 440, max: 760 };
 const ZOOM = { min: 0.25, max: 4, step: 1.2 };
@@ -36,6 +36,9 @@ let current = null; // dernier layout valide
 let engine = null; // { CK, fonts, skia } une fois chargé
 let pages = []; // [{ el, surface }]
 let zoom = { fit: true, value: 1 };
+let finalView = false; // « Rendu final » : le CV sans le texte d'exemple en gris
+const SIDE_HIDDEN_KEY = 'salacv:sidebar-hidden';
+const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 const ctx = {
   get state() {
@@ -51,6 +54,7 @@ const ctx = {
     empty?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   },
   doc: () => current?.doc,
+  photoShape,
   download,
   loadExample() {
     // Seul cas où tout le formulaire change : on reconstruit l'étape.
@@ -66,11 +70,7 @@ setSheet('collapsed');
 renderStep();
 initEngine();
 
-$('theme').addEventListener('click', () => {
-  const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-  root.dataset.theme = next;
-  store(THEME_KEY, next);
-});
+$('theme').addEventListener('click', () => openThemePicker());
 $('assistant').addEventListener('click', () => (agentOpen ? closeAgent() : openAgent()));
 $('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded'));
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
@@ -80,6 +80,14 @@ $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
 $('zoom-fit').addEventListener('click', zoomFit);
 $('zoom-label').addEventListener('click', () => setZoom(1));
+$('final-view').addEventListener('click', () => {
+  finalView = !finalView;
+  $('final-view').setAttribute('aria-pressed', String(finalView));
+  update();
+});
+$('hide-side').addEventListener('click', () => setSideHidden(true));
+$('show-side').addEventListener('click', () => setSideHidden(false));
+setSideHidden(read(SIDE_HIDDEN_KEY) === '1');
 window.addEventListener('resize', repaint);
 desktop.addEventListener('change', () => {
   setSheet(sheet.dataset.state);
@@ -93,7 +101,10 @@ initPreviewGestures();
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   const key = e.key.toLowerCase();
-  if (mod && key === 's') {
+  if (mod && key === 'b' && desktop.matches) {
+    e.preventDefault();
+    setSideHidden(!root.classList.contains('side-hidden'));
+  } else if (mod && key === 's') {
     e.preventDefault();
     goTo(STEPS.length - 1);
     setSheet('expanded');
@@ -133,6 +144,7 @@ async function initEngine() {
       changed: schedule,
       // Le formulaire reflète ce qui vient d'être modifié sur le CV.
       onClose: () => !agentOpen && renderStep(),
+      photoShape,
     });
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
@@ -209,7 +221,7 @@ function initSplitter() {
   });
   splitter.addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    setSidebarWidth(e.clientX);
+    setSidebarWidth(e.clientX - 12); // le panneau flotte à 12 px du bord
     repaint();
   });
   const end = () => {
@@ -367,10 +379,19 @@ function update() {
   project.state = state;
   saveProject(project);
   if (!engine) return;
-  const result = layoutResume(toResume(state, { mockup: example }), engine.fonts, { watermark: WATERMARK });
-  if (!result.ok) return; // le formulaire limite déjà les saisies ; on garde le dernier aperçu valide
+  const result = layoutResume(toResume(state, finalView ? {} : { mockup: example }), engine.fonts, { watermark: WATERMARK });
+  const note = $('ghost-note');
+  if (!result.ok) {
+    // Rendu final sans nom : rien à montrer encore, on le dit.
+    if (finalView) {
+      note.textContent = 'Écris au moins ton nom pour voir le rendu final';
+      note.hidden = false;
+    }
+    return; // on garde le dernier aperçu valide
+  }
   current = result;
-  $('ghost-note').hidden = !hasGhost(result.resume);
+  note.textContent = finalView ? 'Rendu final : seulement ce que tu as rempli' : 'Touche le CV pour modifier · en gris : exemple';
+  note.hidden = !finalView && !hasGhost(result.resume);
   paint(result.doc);
   paintThumbs();
 }
@@ -391,6 +412,8 @@ const thumbs = TEMPLATES.map((t) => {
         state.template = t.id;
         thumbs.forEach((x) => x.card.setAttribute('aria-pressed', String(x.id === t.id)));
         schedule();
+        // La vignette photo de l'étape Identité prend la forme du nouveau modèle.
+        if (STEPS[stepIndex].id === 'identite' && !agentOpen) renderStep();
       },
     },
     canvas,
@@ -538,6 +561,27 @@ function initPreviewGestures() {
     const [a, b] = [...touches.values()];
     return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
   }
+}
+
+// --- Panneau (PC) -----------------------------------------------------------------
+// Comme dans les grandes applis : le panneau de gauche se masque pour laisser tout
+// l'écran au CV, et revient d'un clic (ou Ctrl B).
+function setSideHidden(hidden) {
+  root.classList.toggle('side-hidden', hidden);
+  $('show-side').hidden = !hidden;
+  store(SIDE_HIDDEN_KEY, hidden ? '1' : '0');
+  if (engine) repaint();
+}
+
+// Forme de la photo dans le modèle choisi (rond, carré arrondi, rectangle), lue dans la
+// mise en page elle-même : le recadrage montre exactement ce que le modèle affichera.
+function photoShape() {
+  if (!engine) return null;
+  const base = toResume(state, { mockup: example });
+  const r = layoutResume({ ...base, profile: { ...base.profile, photo: TINY_PNG } }, engine.fonts);
+  const op = r.ok && r.doc.pages[0].find((o) => o.t === 'image');
+  if (!op) return null;
+  return { aspect: op.w / op.h, round: (op.r ?? 0) >= Math.min(op.w, op.h) / 2 - 0.5, radius: (op.r ?? 0) / op.w };
 }
 
 // --- Projet et export -----------------------------------------------------------

@@ -1,10 +1,11 @@
 // Tableau de bord : mes CV enregistrés, l'explorateur de formats (gratuits et premium à
 // venir) et la gestion des crédits. Les miniatures sont rendues par le vrai moteur.
+import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { deleteProject, duplicateProject, inviteLink, listProjects, relativeDate, wallet, write } from './lib/store.js';
+import { deleteProject, duplicateProject, inviteLink, listProjects, relativeDate, wallet } from './lib/store.js';
 import { TEMPLATES, toResume } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -29,11 +30,7 @@ const DESCRIPTIONS = {
   contraste: 'Nom en capitales, bandeau noir.',
 };
 
-$('theme').addEventListener('click', () => {
-  const root = document.documentElement;
-  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-  write('salacv:theme', root.dataset.theme);
-});
+$('theme').addEventListener('click', () => openThemePicker());
 
 // Peint (maintenant ou au chargement du moteur) le CV dans le canvas.
 function thumb(resume, width) {

@@ -532,18 +532,18 @@ kbd {
   .sheet-head { height: 56px; cursor: default; touch-action: auto; border-bottom: 1px solid rgb(var(--gray-200)); }
   .stepper { height: 56px; }
 
-  .preview { left: var(--sidebar-w); }
+  .preview { left: var(--side-space); transition: left 0.3s var(--ease-out); }
   #canvases { padding: 64px 32px 48px; }
 
-  .zoombar { top: auto; bottom: 16px; right: auto; left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2); transform: translateX(-50%); }
-  .ghost-note { top: 16px; left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2); transform: translateX(-50%); max-width: 90vw; white-space: nowrap; }
+  .zoombar { top: auto; bottom: 16px; right: auto; left: calc(var(--side-space) + (100vw - var(--side-space)) / 2); transform: translateX(-50%); }
+  .ghost-note { top: 16px; left: calc(var(--side-space) + (100vw - var(--side-space)) / 2); transform: translateX(-50%); max-width: 90vw; white-space: nowrap; }
 
   .splitter {
     display: block;
     position: fixed;
     top: 0;
     bottom: 0;
-    left: calc(var(--sidebar-w) - 3px);
+    left: calc(var(--side-space) - 9px);
     width: 7px;
     cursor: col-resize;
     z-index: 2;
@@ -704,52 +704,6 @@ kbd {
   .kb-open .sheet-grip,
   .kb-open .step-nav { display: none; }
 }
-
-/* --- Dialogue -------------------------------------------------------------- */
-
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgb(0 0 0 / 0.45);
-  animation: fade-in 0.18s ease-out both;
-}
-.dialog-backdrop.closing { animation: fade-out 0.18s ease-in both; }
-
-.dialog {
-  width: min(100%, 460px);
-  max-height: 92dvh;
-  display: flex;
-  flex-direction: column;
-  background: rgb(var(--surface));
-  color: rgb(var(--gray-900));
-  border: 1px solid rgb(var(--gray-200));
-  border-bottom: none;
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  box-shadow: var(--shadow-lg);
-  animation: sheet-up 0.26s var(--ease-out) both;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.dialog-grip { display: grid; place-items: center; height: 16px; }
-.dialog-grip span { width: 36px; height: 4px; border-radius: 9999px; background: rgb(var(--gray-300)); }
-.dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 0 0.75rem 0.4rem 1rem; }
-.dialog-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.011em; }
-.dialog-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding: 0.25rem 1rem 1rem; }
-.dialog-foot { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.7rem 1rem; border-top: 1px solid rgb(var(--gray-200)); }
-.dialog-foot .btn-text:first-child { margin-right: auto; }
-
-@media (min-width: 960px) {
-  .dialog-backdrop { align-items: center; }
-  .dialog { border-radius: var(--radius-xl); border-bottom: 1px solid rgb(var(--gray-200)); animation: fade-up 0.22s var(--ease-out) both; }
-  .dialog-grip { display: none; }
-  .dialog-head { padding-top: 0.9rem; }
-}
-
-@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
-@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 
 /* --- Période ---------------------------------------------------------------- */
 
@@ -926,4 +880,64 @@ a.logo-mark { text-decoration: none; }
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 35%, #000 30%, transparent 80%);
 }
 #canvases { position: relative; z-index: 1; }
-@media (min-width: 960px) { .preview::before { left: var(--sidebar-w); } }
+@media (min-width: 960px) { .preview::before { left: 0; } }
+
+/* --- PC : panneau flottant, aéré, masquable --------------------------------------- */
+
+:root { --side-space: 0px; }
+@media (min-width: 960px) {
+  :root { --side-space: calc(var(--sidebar-w) + 12px); }
+  .sheet,
+  .sheet[data-state='collapsed'] {
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    transition: transform 0.32s var(--ease-out), opacity 0.2s;
+  }
+  .side-hidden { --side-space: 0px; }
+  .side-hidden .sheet { transform: translateX(calc(-100% - 24px)); opacity: 0; pointer-events: none; }
+  .side-hidden .splitter { display: none; }
+  .sheet-head { padding: 0 0.9rem 0 1.1rem; }
+  .templates { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .stepper { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .step { padding: 1.5rem 1.4rem 2rem; gap: 1.05rem; }
+  .step-nav { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .agent-view { padding: 0 0.4rem; }
+  .sheet-head .side-btn { display: inline-grid; place-items: center; }
+}
+.side-btn { display: none; }
+.home-btn { display: inline-grid; place-items: center; text-decoration: none; }
+
+.show-side {
+  position: fixed; top: 16px; left: 16px; z-index: 5;
+  display: inline-flex; align-items: center; gap: 0.45rem; height: 36px; padding: 0 0.8rem;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 10px;
+  background: rgb(var(--surface) / 0.92); backdrop-filter: blur(8px); box-shadow: var(--shadow-md);
+  color: rgb(var(--gray-800)); font: 500 13px var(--font-sans); animation: fade-up 0.25s var(--ease-out) both;
+}
+.show-side[hidden] { display: none; }
+
+/* Zoom : séparateur et « Rendu final ». */
+.zoom-sep { width: 1px; align-self: stretch; margin: 6px 2px; background: rgb(var(--gray-200)); }
+.final-btn { padding: 0 0.6rem; white-space: nowrap; font-size: 12.5px; }
+.final-btn[aria-pressed='true'] { color: rgb(var(--primary-600)); background: rgb(var(--primary-500) / 0.1); }
+.quick-edit .drag-handle { cursor: grab; user-select: none; }
+.quick-edit.dragging { animation: none; box-shadow: 0 24px 60px -16px rgb(0 0 0 / 0.55); }
+.quick-edit.dragging .drag-handle { cursor: grabbing; }
+.qe-outline { border-radius: 6px; }
+
+/* Mobile : la bulle d'aide passe sous la barre de zoom, l'en-tête respire. */
+@media (max-width: 959px) {
+  .ghost-note { top: calc(max(10px, env(safe-area-inset-top)) + 46px); left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); white-space: nowrap; }
+  .sheet-title span { white-space: nowrap; }
+  .sheet-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 480px) {
+  .assistant-btn { width: 32px; padding: 0; font-size: 0; justify-content: center; }
+  .assistant-btn span { font-size: 14px; }
+  .sheet-head { gap: 0.4rem; }
+}

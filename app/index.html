@@ -7,10 +7,11 @@
   <meta name="description" content="Crée ton CV au format congolais en quelques minutes : sept modèles, aperçu en direct, PDF haute qualité et Word.">
   <meta name="theme-color" content="#0b0b0c">
   <script>
-    try { document.documentElement.dataset.theme = localStorage.getItem('salacv:theme') || 'dark'; } catch {}
+    try { var t = localStorage.getItem('salacv:theme') || 'dark'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch {}
   </script>
   <link rel="stylesheet" href="./tokens.css">
   <link rel="stylesheet" href="./landing.css">
+  <link rel="stylesheet" href="./dialog.css">
 </head>
 <body>
   <div class="grid-bg" aria-hidden="true"></div>

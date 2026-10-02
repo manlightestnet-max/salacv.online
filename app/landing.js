@@ -1,10 +1,11 @@
 // Landing : le CV d'exemple change de style tout seul, le nom tapé par le visiteur y
 // apparaît en direct ; au défilement, le formulaire devient un CV. Rendu avec le vrai
 // moteur (le même que le studio), donc ce que l'on voit est ce que l'on obtient.
+import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { captureReferral, write } from './lib/store.js';
+import { captureReferral } from './lib/store.js';
 import { h } from './dom.js';
 import { TEMPLATES } from './state.js';
 
@@ -14,11 +15,7 @@ const CYCLE_MS = 2600;
 
 captureReferral();
 
-$('theme').addEventListener('click', () => {
-  const root = document.documentElement;
-  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-  write('salacv:theme', root.dataset.theme);
-});
+$('theme').addEventListener('click', () => openThemePicker());
 
 // --- Apparitions au défilement ----------------------------------------------------
 const io = new IntersectionObserver(

@@ -128,7 +128,11 @@ export async function renderPdf(doc, fonts, meta = {}) {
           if (!img) break;
           const y = H - op.y - op.h;
           page.pushOperators(pushGraphicsState(), ...clipRoundedRect(op.x, y, op.w, op.h, op.r ?? 0));
-          page.drawImage(img, { x: op.x, y, width: op.w, height: op.h });
+          // Remplissage « cover » centré (comme l'aperçu) : jamais de photo déformée.
+          const k = Math.max(op.w / img.width, op.h / img.height);
+          const dw = img.width * k;
+          const dh = img.height * k;
+          page.drawImage(img, { x: op.x - (dw - op.w) / 2, y: y - (dh - op.h) / 2, width: dw, height: dh });
           page.pushOperators(popGraphicsState());
           break;
         }

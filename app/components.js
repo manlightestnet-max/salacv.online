@@ -219,7 +219,7 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
 // 360 px gardé dans le brouillon en data URL.
 let photoSource = null; // image d'origine de la session, pour recadrer sans perte
 
-export function photoInput({ profile, onChange }) {
+export function photoInput({ profile, onChange, shape = () => null }) {
   const id = `p${++uid}`;
   const img = h('img', { class: 'photo-img', alt: '' });
   const empty = h('span', { class: 'photo-empty', 'aria-hidden': 'true' }, '＋');
@@ -232,6 +232,10 @@ export function photoInput({ profile, onChange }) {
   const error = h('p', { class: 'hint photo-error', hidden: true });
 
   function sync() {
+    // La vignette a la forme de la photo dans le modèle choisi.
+    const sh = shape();
+    frame.style.aspectRatio = String(sh?.aspect ?? 1);
+    frame.style.borderRadius = sh?.round ? '50%' : `${Math.round((sh?.radius ?? 0.06) * 100)}%`;
     const has = Boolean(profile.photo);
     img.hidden = !has;
     empty.hidden = has;
@@ -245,11 +249,15 @@ export function photoInput({ profile, onChange }) {
     error.hidden = true;
     try {
       const image = await loadImage(await source);
-      openCropper(image, (dataUrl) => {
-        profile.photo = dataUrl;
-        sync();
-        onChange();
-      });
+      openCropper(
+        image,
+        (dataUrl) => {
+          profile.photo = dataUrl;
+          sync();
+          onChange();
+        },
+        shape() ?? undefined,
+      );
       return image;
     } catch {
       error.textContent = "Cette image n'a pas pu être lue. Essaie une photo JPEG ou PNG.";

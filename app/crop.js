@@ -4,7 +4,7 @@
 import { h } from './dom.js';
 import { openDialog } from './dialog.js';
 
-const OUT = 360;
+const OUT = 420;
 const MAX_ZOOM = 4;
 
 // Fichier ou data URL → image décodée (réduite à 1600 px pour rester fluide).
@@ -22,28 +22,33 @@ export async function loadImage(source) {
 }
 
 // onDone(dataUrl) quand l'étudiant valide.
-export function openCropper(image, onDone) {
-  const view = Math.min(300, Math.round(window.innerWidth - 64));
+// shape : forme de la photo dans le modèle choisi ({ aspect: largeur / hauteur, round,
+// radius }) : cadre rond pour un modèle à photo ronde, rectangle pour un modèle carré.
+export function openCropper(image, onDone, shape = { aspect: 1, round: true, radius: 0 }) {
+  const aspect = shape.aspect || 1;
+  const box = Math.min(300, Math.round(window.innerWidth - 64));
+  const vw = aspect >= 1 ? box : Math.round(box * aspect);
+  const vh = aspect >= 1 ? Math.round(box / aspect) : box;
   const dpr = window.devicePixelRatio || 1;
-  const canvas = h('canvas', { class: 'crop-canvas', width: view * dpr, height: view * dpr, style: `width:${view}px;height:${view}px` });
+  const canvas = h('canvas', { class: 'crop-canvas', width: vw * dpr, height: vh * dpr, style: `width:${vw}px;height:${vh}px` });
   const ctx = canvas.getContext('2d');
   const iw = image.width;
   const ih = image.height;
-  const cover = Math.max(view / iw, view / ih); // zoom minimal : l'image remplit le cadre
+  const cover = Math.max(vw / iw, vh / ih); // zoom minimal : l'image remplit le cadre
   let zoom = 1;
-  let x = (view - iw * cover) / 2;
-  let y = (view - ih * cover) / 2;
+  let x = (vw - iw * cover) / 2;
+  let y = (vh - ih * cover) / 2;
 
   const slider = h('input', { type: 'range', min: '1', max: String(MAX_ZOOM), step: '0.01', value: '1', class: 'crop-zoom', 'aria-label': 'Zoom' });
 
   // Garde l'image collée aux bords : jamais de vide dans le cadre.
   function clamp() {
     const s = cover * zoom;
-    x = Math.min(0, Math.max(view - iw * s, x));
-    y = Math.min(0, Math.max(view - ih * s, y));
+    x = Math.min(0, Math.max(vw - iw * s, x));
+    y = Math.min(0, Math.max(vh - ih * s, y));
   }
 
-  function setZoom(next, cx = view / 2, cy = view / 2) {
+  function setZoom(next, cx = vw / 2, cy = vh / 2) {
     next = Math.min(MAX_ZOOM, Math.max(1, next));
     // Zoom autour du point (cx, cy) : ce qui est sous le doigt y reste.
     const ratio = next / zoom;
@@ -58,21 +63,37 @@ export function openCropper(image, onDone) {
   function draw() {
     const s = cover * zoom;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, view, view);
+    ctx.clearRect(0, 0, vw, vh);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(image, x, y, iw * s, ih * s);
-    // Guide rond : la partie visible dans les modèles à photo ronde.
+    // Guide : exactement la forme de la photo dans le modèle (rond, carré arrondi…).
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    const guide = () => {
+      ctx.beginPath();
+      if (shape.round) ctx.ellipse(vw / 2, vh / 2, vw / 2 - 1, vh / 2 - 1, 0, 0, Math.PI * 2);
+      else ctx.roundRect(1, 1, vw - 2, vh - 2, (shape.radius ?? 0) * vw);
+    };
+    if (shape.round || shape.radius) {
+      guide();
+      ctx.rect(0, 0, vw, vh);
+      ctx.fillStyle = 'rgba(0,0,0,0.38)';
+      ctx.fill('evenodd');
+    }
+    // Repères des tiers pour bien centrer le visage.
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.rect(0, 0, view, view);
-    ctx.arc(view / 2, view / 2, view / 2 - 1, 0, Math.PI * 2, true);
-    ctx.fill('evenodd');
+    for (const k of [1 / 3, 2 / 3]) {
+      ctx.moveTo(vw * k, 0);
+      ctx.lineTo(vw * k, vh);
+      ctx.moveTo(0, vh * k);
+      ctx.lineTo(vw, vh * k);
+    }
+    ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    ctx.arc(view / 2, view / 2, view / 2 - 1, 0, Math.PI * 2);
+    guide();
     ctx.stroke();
     ctx.restore();
   }
@@ -125,13 +146,14 @@ export function openCropper(image, onDone) {
 
   function exportJpeg() {
     const out = document.createElement('canvas');
-    out.width = out.height = OUT;
+    out.width = aspect >= 1 ? OUT : Math.round(OUT * aspect);
+    out.height = aspect >= 1 ? Math.round(OUT / aspect) : OUT;
     const s = cover * zoom;
     const o = out.getContext('2d');
     o.imageSmoothingQuality = 'high';
     o.fillStyle = '#fff';
-    o.fillRect(0, 0, OUT, OUT);
-    o.drawImage(image, -x / s, -y / s, view / s, view / s, 0, 0, OUT, OUT);
+    o.fillRect(0, 0, out.width, out.height);
+    o.drawImage(image, -x / s, -y / s, vw / s, vh / s, 0, 0, out.width, out.height);
     return out.toDataURL('image/jpeg', 0.88);
   }
 

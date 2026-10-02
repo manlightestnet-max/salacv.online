@@ -40,18 +40,45 @@ function textLines(ops, kit) {
   return lines;
 }
 
+const PAD = 2.5;
+const lineBox = (l) => ({ x: l.x - PAD, y: l.y - l.size * 0.85 - PAD, w: l.w + PAD * 2, h: l.size * 1.15 + PAD * 2 });
+const inside = (b, px, py) => px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
+
 function hitTest(ops, kit, px, py) {
-  const pad = 2.5;
-  const photo = ops.find((o) => o.t === 'image' && px >= o.x && px <= o.x + o.w && py >= o.y && py <= o.y + o.h);
+  const lines = textLines(ops, kit);
   let best = null;
-  for (const l of textLines(ops, kit)) {
-    const box = { x: l.x - pad, y: l.y - l.size * 0.85 - pad, w: l.w + pad * 2, h: l.size * 1.15 + pad * 2 };
-    if (px < box.x || px > box.x + box.w || py < box.y || py > box.y + box.h) continue;
-    if (!best || box.w * box.h < best.box.w * best.box.h) best = { text: l.s, box };
+  for (const l of lines) {
+    const box = lineBox(l);
+    if (inside(box, px, py) && (!best || box.w * box.h < best.box.w * best.box.h)) best = { text: l.s, box };
   }
-  if (best) return best;
-  if (photo) return { photo: true, box: { x: photo.x, y: photo.y, w: photo.w, h: photo.h } };
+  if (best) return { ...best, lines };
+  const photo = ops.find((o) => o.t === 'image' && inside(o, px, py));
+  if (photo) return { photo: true, box: { x: photo.x, y: photo.y, w: photo.w, h: photo.h }, lines };
+  // Initiales à la place de la photo : on les traite comme la photo.
   return null;
+}
+
+const keyOf = (t) => (t ? `${t.kind}:${t.list ?? ''}:${t.index ?? ''}:${t.ghost ? 1 : 0}` : '');
+
+// Sélection au niveau du groupe (toute l'expérience, tout le bloc contact…), comme
+// une sélection d'objet : le contour englobe toutes les lignes de la même saisie.
+function groupBox(lines, target, resolve) {
+  const key = keyOf(target);
+  let box = null;
+  for (const l of lines) {
+    if (keyOf(resolve(l.s)) !== key) continue;
+    const b = lineBox(l);
+    if (!box) box = { ...b };
+    else {
+      const x2 = Math.max(box.x + box.w, b.x + b.w);
+      const y2 = Math.max(box.y + box.h, b.y + b.h);
+      box.x = Math.min(box.x, b.x);
+      box.y = Math.min(box.y, b.y);
+      box.w = x2 - box.x;
+      box.h = y2 - box.y;
+    }
+  }
+  return box;
 }
 
 // Tout ce que l'étudiant peut saisir, avec la cible d'édition de chaque valeur.
@@ -86,7 +113,7 @@ function candidates(state, ghost) {
   return out;
 }
 
-export function resolveTarget(text, state, mockupState) {
+export function resolveTarget(text, state, mockupState, pools = [candidates(state, false), mockupState ? candidates(mockupState, true) : []]) {
   const f = norm(text);
   if (f.length < 2) return null;
   const score = (c) => {
@@ -95,7 +122,7 @@ export function resolveTarget(text, state, mockupState) {
     if (f.includes(c.v) && c.v.length >= 3) return 200 + c.v.length;
     return 0;
   };
-  for (const pool of [candidates(state, false), mockupState ? candidates(mockupState, true) : []]) {
+  for (const pool of pools) {
     let best = null;
     for (const c of pool) {
       const s = score(c);
@@ -133,7 +160,7 @@ const TITLES = {
   photo: 'Photo',
 };
 
-function editor(target, state, changed, close) {
+function editor(target, state, changed, close, photoShape) {
   const p = state.profile;
   switch (target.kind) {
     case 'identity':
@@ -156,7 +183,7 @@ function editor(target, state, changed, close) {
       return [field('Langue', l, 'name', changed, { placeholder: 'Français' }), choicePills({ label: 'Niveau', options: LEVELS, obj: l, key: 'level', onChange: changed })];
     }
     case 'photo':
-      return [photoInput({ profile: p, onChange: changed })];
+      return [photoInput({ profile: p, onChange: changed, shape: photoShape })];
     case 'item': {
       const it = state[target.list][target.index];
       if (!it) return [];
@@ -189,7 +216,7 @@ function editor(target, state, changed, close) {
 }
 
 // canvases : conteneur des pages ; getDoc() : layout affiché ; getState() : formulaire.
-export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, enabled = () => true }) {
+export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, photoShape = () => null, enabled = () => true }) {
   const kit = createKit(fonts);
   const mockupState = fromResume(mockup);
   const outline = h('div', { class: 'qe-outline', hidden: true });
@@ -205,8 +232,16 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     const k = r.width / doc.width;
     const hit = hitTest(doc.pages[page] ?? [], kit, (e.clientX - r.left) / k, (e.clientY - r.top) / k);
     if (!hit) return null;
-    const box = { left: r.left + hit.box.x * k, top: r.top + hit.box.y * k, width: hit.box.w * k, height: hit.box.h * k };
-    return { hit, box };
+    const state = getState();
+    const pools = [candidates(state, false), candidates(mockupState, true)];
+    const resolve = (text) => resolveTarget(text, state, mockupState, pools);
+    // Initiales affichées à la place de la photo (pas encore de photo) : on ouvre la photo.
+    const initials = !hit.photo && /^[A-ZÀ-Ý]{1,3}$/.test(hit.text.trim());
+    const target = hit.photo || initials ? { kind: 'photo' } : resolve(hit.text);
+    if (!target) return null;
+    const b = (target.kind !== 'photo' && groupBox(hit.lines, target, resolve)) || hit.box;
+    const box = { left: r.left + b.x * k - 3, top: r.top + b.y * k - 3, width: b.w * k + 6, height: b.h * k + 6 };
+    return { target, box };
   }
 
   function show(box, strong = false) {
@@ -222,9 +257,8 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
       const found = locate(e);
-      const ok = found && (found.hit.photo || resolveTarget(found.hit.text, getState(), mockupState));
-      canvases.style.cursor = ok ? 'pointer' : '';
-      if (ok) show(found.box);
+      canvases.style.cursor = found ? 'pointer' : '';
+      if (found) show(found.box);
       else outline.hidden = true;
     });
   });
@@ -235,10 +269,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     if (!enabled()) return;
     const found = locate(e);
     if (!found) return;
-    const state = getState();
-    const raw = found.hit.photo ? { kind: 'photo' } : resolveTarget(found.hit.text, state, mockupState);
-    if (!raw) return;
-    const target = realTarget(raw, state);
+    const target = realTarget(found.target, getState());
     show(found.box, true);
     open(target, found.box);
   });
@@ -252,7 +283,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     dialog = openDialog({
       title,
       className: 'quick-edit',
-      content: editor(target, state, changed, close),
+      content: editor(target, state, changed, close, photoShape),
       footer: [h('button', { type: 'button', class: 'btn-primary', onClick: close }, 'Terminé')],
       onClose: () => {
         editing = null;
@@ -268,8 +299,36 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
       const left = right + w < window.innerWidth - 12 ? right : Math.max(12, box.left - w - 16);
       dialog.el.parentElement.classList.add('qe-backdrop');
       Object.assign(dialog.el.style, { position: 'fixed', width: `${w}px`, left: `${left}px`, top: `${Math.max(12, Math.min(box.top - 20, window.innerHeight - 420))}px` });
+      draggable(dialog.el);
     }
     // Premier champ prêt à la saisie (pas sur mobile : le clavier cacherait le CV d'un coup).
     if (!window.matchMedia('(pointer: coarse)').matches) requestAnimationFrame(() => dialog.el.querySelector('.input')?.focus());
   }
+}
+
+// PC : la fenêtre se déplace en la tenant par son titre, pour dégager la partie du CV
+// que l'on veut voir.
+function draggable(panel) {
+  const handle = panel.querySelector('.dialog-head');
+  handle.classList.add('drag-handle');
+  let start = null;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    start = { x: e.clientX, y: e.clientY, left: panel.offsetLeft, top: panel.offsetTop };
+    handle.setPointerCapture(e.pointerId);
+    panel.classList.add('dragging');
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const left = Math.min(window.innerWidth - 80, Math.max(-panel.offsetWidth + 80, start.left + e.clientX - start.x));
+    const top = Math.min(window.innerHeight - 48, Math.max(0, start.top + e.clientY - start.y));
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  });
+  const end = () => {
+    start = null;
+    panel.classList.remove('dragging');
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
 }

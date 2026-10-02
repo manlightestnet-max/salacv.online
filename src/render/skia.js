@@ -105,9 +105,13 @@ export function createSkiaRenderer(CK, fonts) {
           canvas.clipRRect(CK.RRectXY(CK.XYWHRect(op.x, op.y, op.w, op.h), op.r ?? 0, op.r ?? 0), CK.ClipOp.Intersect, true);
           setColor('#FFFFFF');
           paint.setStyle(CK.PaintStyle.Fill);
+          // Remplissage « cover » : la photo garde ses proportions, centrée, quel que soit le cadre.
+          const iw = img.width();
+          const ih = img.height();
+          const k = Math.min(iw / op.w, ih / op.h);
           canvas.drawImageRectOptions(
             img,
-            CK.XYWHRect(0, 0, img.width(), img.height()),
+            CK.XYWHRect((iw - op.w * k) / 2, (ih - op.h * k) / 2, op.w * k, op.h * k),
             CK.XYWHRect(op.x, op.y, op.w, op.h),
             CK.FilterMode.Linear,
             CK.MipmapMode.Linear,

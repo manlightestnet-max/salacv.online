@@ -48,7 +48,7 @@ function identity(ctx) {
     'div',
     { class: 'step' },
     head('Identité et contacts', 'Ce qui apparaît en haut de ton CV.'),
-    photoInput({ profile: p, onChange: ctx.changed }),
+    photoInput({ profile: p, onChange: ctx.changed, shape: ctx.photoShape }),
     f('Nom complet', 'name', { placeholder: 'Grâce Mbuyi Kalala', autocomplete: 'name' }),
     f('Profession ou domaine', 'title', { placeholder: 'Technicienne en réseaux et télécommunications' }),
     f('Email', 'email', { placeholder: 'grace.mbuyi@gmail.com', type: 'email', autocomplete: 'email' }),
