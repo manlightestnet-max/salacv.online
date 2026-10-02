@@ -285,20 +285,99 @@ textarea.input { resize: vertical; min-height: 72px; }
 
 .hint { font-size: 12px; color: rgb(var(--gray-500)); }
 
-.row { display: flex; gap: 0.6rem; align-items: flex-end; }
-.row .icon-btn { margin-bottom: 7px; }
+/* Liste de valeurs (téléphones, compétences, loisirs) */
+.items { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+.items[hidden] { display: none; }
+.items-chips { flex-direction: row; flex-wrap: wrap; }
 
-.card {
+.item {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.9rem;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 38px;
+  padding: 0 0.2rem 0 0.75rem;
+  border: 1px solid rgb(var(--gray-200));
+  border-radius: var(--radius-md);
+  background: rgb(var(--gray-50));
+  font-size: 14px;
+  animation: fade-up 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.item-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.items-chips .item { min-height: 32px; border-radius: 9999px; padding-left: 0.8rem; font-size: 13.5px; }
+.items-chips .item .icon-btn { width: 26px; height: 26px; border-radius: 9999px; font-size: 11px; }
+
+.items-entry { display: flex; gap: 0.5rem; }
+.items-entry[hidden] { display: none; }
+.items-entry .btn-ghost { height: auto; }
+
+/* Choix par pastilles (niveau de langue) */
+.field-label { font-size: 12.5px; font-weight: 500; color: rgb(var(--gray-700)); }
+.pill-options { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pill-option {
+  height: 34px;
+  padding: 0 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--gray-200));
+  background: transparent;
+  color: rgb(var(--gray-700));
+  font: 500 13.5px var(--font-sans);
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.pill-option:hover { border-color: rgb(var(--gray-300)); color: rgb(var(--gray-900)); }
+.pill-option[aria-pressed='true'] { background: rgb(var(--primary-600)); border-color: transparent; color: #fff; }
+
+/* Blocs repliables (formations, expériences, langues) */
+.accordion-wrap, .accordion { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.acc-card {
   border: 1px solid rgb(var(--gray-200));
   border-radius: var(--radius-lg);
   background: rgb(var(--gray-50));
+  transition: border-color 0.15s;
+  animation: fade-up 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-.card-head { display: flex; align-items: center; justify-content: space-between; }
-.card-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: rgb(var(--primary-700)); }
+.acc-card.open { border-color: rgb(var(--gray-300)); }
+
+.acc-head { display: flex; align-items: center; gap: 0.25rem; padding-right: 0.4rem; }
+
+.acc-toggle {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 0.5rem;
+  row-gap: 0.15rem;
+  padding: 0.7rem 0.4rem 0.7rem 0.9rem;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+.acc-num { grid-column: 1; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; color: rgb(var(--primary-700)); }
+.acc-summary {
+  grid-column: 1;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.acc-summary span + span { margin-left: 0.35rem; }
+.acc-period { font-family: var(--font-mono); font-size: 12.5px; color: rgb(var(--primary-700)); }
+.acc-period::after { content: '  |'; color: rgb(var(--gray-400)); }
+.acc-title { font-weight: 600; }
+.acc-org { color: rgb(var(--gray-500)); }
+.acc-empty { color: rgb(var(--gray-400)); }
+.acc-chevron { grid-column: 2; grid-row: 1 / 3; font-size: 18px; color: rgb(var(--gray-400)); transition: transform 0.2s; }
+.acc-card.open .acc-chevron { transform: rotate(90deg); }
+.acc-card.open .acc-summary { display: none; }
+
+/* Ouverture animée : la ligne de grille passe de 0 à la hauteur du contenu. */
+.acc-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s var(--ease-out); }
+.acc-card.open .acc-body { grid-template-rows: 1fr; }
+.acc-inner { overflow: hidden; display: flex; flex-direction: column; gap: 0.75rem; padding: 0 0.9rem; }
+.acc-card.open .acc-inner { padding-bottom: 0.9rem; }
 
 /* --- Boutons ------------------------------------------------------------ */
 

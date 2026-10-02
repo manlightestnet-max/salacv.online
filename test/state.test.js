@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { emptyState, emptyItem, toResume, fromResume, checklist, sortRecentFirst, hasGhost, SECTION_TITLES } from '../app/state.js';
+import { emptyState, normalizeState, emptyItem, toResume, fromResume, checklist, sortRecentFirst, hasGhost, SECTION_TITLES } from '../app/state.js';
 import { parseResume } from '../src/index.js';
 
 const example = JSON.parse(await readFile(new URL('../examples/etudiant.json', import.meta.url), 'utf8'));
@@ -19,7 +19,7 @@ test("ce que l'étudiant saisit remplace l'exemple, partie par partie", () => {
   const s = emptyState();
   s.profile.name = 'Patrick Ilunga';
   s.profile.phones = ['+243 81 000 0000'];
-  s.skills = 'Excel';
+  s.skills = ['Excel'];
   const r = parseResume(toResume(s, { mockup: example })).resume;
   assert.equal(r.profile.name, 'Patrick Ilunga');
   assert.deepEqual(r.profile.ghost, ['title', 'summary']);
@@ -57,8 +57,8 @@ test('une ligne par détail, compétence et loisir ; plusieurs téléphones', ()
   s.profile.name = 'A';
   s.profile.phones = ['+243 81 000 0000', ' ', '+243 99 000 0000'];
   s.education[0] = { ...emptyItem(), title: 'Licence', details: 'Un\n\n  Deux  ' };
-  s.skills = 'Excel\n\nAnglais ';
-  s.hobbies = 'Football';
+  s.skills = ['Excel', '', 'Anglais '];
+  s.hobbies = ['Football'];
   const r = toResume(s);
   assert.deepEqual(r.profile.phones, ['+243 81 000 0000', '+243 99 000 0000']);
   assert.deepEqual(r.sections[0].items[0].bullets, ['Un', 'Deux']);
@@ -69,4 +69,13 @@ test('une ligne par détail, compétence et loisir ; plusieurs téléphones', ()
 test('la vérification bloque sans nom, profession, contact ni formation', () => {
   const levels = checklist(emptyState()).map((c) => c.level);
   assert.equal(levels.filter((l) => l === 'todo').length, 4);
+});
+
+test('un ancien brouillon (compétences en texte) est converti en listes', () => {
+  const s = normalizeState({ profile: { name: 'A', phones: ['', '+243 81'] }, skills: 'Excel\nWord', hobbies: 'Football', languages: [{ name: 'Lingala', level: 'Natif' }] });
+  assert.deepEqual(s.skills, ['Excel', 'Word']);
+  assert.deepEqual(s.hobbies, ['Football']);
+  assert.deepEqual(s.profile.phones, ['+243 81']);
+  assert.equal(s.languages[0].name, 'Lingala');
+  assert.deepEqual(s.education, emptyState().education);
 });

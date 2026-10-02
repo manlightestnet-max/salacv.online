@@ -9,7 +9,7 @@ import { createSkiaRenderer } from '../src/render/skia.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
-import { emptyState, fromResume, toResume, checklist, hasGhost } from './state.js';
+import { emptyState, normalizeState, fromResume, toResume, checklist, hasGhost } from './state.js';
 
 const fontUrls = import.meta.glob('../fonts/*.ttf', { query: '?url', import: 'default', eager: true });
 const fontUrl = (file) => fontUrls[`../fonts/${file}`];
@@ -43,16 +43,14 @@ const ctx = {
     return state;
   },
   changed: schedule,
-  rerender() {
-    renderStep();
-    schedule();
-  },
-  addItem,
+  onAdd: null, // ajout d'un élément dans l'étape courante (Ctrl+Entrée), déclaré par l'étape
   doc: () => current?.doc,
   download,
   loadExample() {
+    // Seul cas où tout le formulaire change : on reconstruit l'étape.
     state = fromResume(example);
-    ctx.rerender();
+    renderStep();
+    schedule();
   },
 };
 
@@ -253,6 +251,7 @@ function renderStep() {
     ),
   );
   $('stepper').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  ctx.onAdd = null;
   stepEl.replaceChildren(h('div', { class: 'fade' }, step.render(ctx)));
   $('step-title').textContent = step.label;
   $('progress').textContent = `Étape ${stepIndex + 1} sur ${STEPS.length}`;
@@ -260,14 +259,9 @@ function renderStep() {
   $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
 }
 
-// Ajoute un élément à la liste de l'étape courante et place le curseur dedans.
+// Ctrl+Entrée : ajoute un bloc dans l'étape courante (le composant place le curseur dedans).
 function addItem() {
-  const step = STEPS[stepIndex];
-  if (!step.add) return;
-  step.add(state);
-  ctx.rerender();
-  const rows = stepEl.querySelectorAll('.card, .row');
-  rows[rows.length - 1]?.querySelector('.input')?.focus();
+  ctx.onAdd?.();
 }
 
 // --- Aperçu ------------------------------------------------------------------
@@ -428,7 +422,7 @@ function slug(s) {
 function readDraft() {
   try {
     const raw = read(DRAFT_KEY);
-    return raw ? { ...emptyState(), ...JSON.parse(raw) } : null;
+    return raw ? normalizeState(JSON.parse(raw)) : null;
   } catch {
     return null;
   }

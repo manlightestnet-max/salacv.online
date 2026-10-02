@@ -35,8 +35,12 @@ glisser vers le bas pour revenir au CV). PC (≥ 960 px) : formulaire dans une
 barre de gauche redimensionnable (largeur mémorisée, double-clic pour la remettre
 par défaut). Aperçu zoomable partout : boutons, Ctrl + molette, pincement.
 Tant qu'une partie n'est pas remplie, l'aperçu montre celle de l'exemple en
-grisé (`ghost` dans le DSL) ; le PDF ne contient que les saisies. Six étapes dans l'ordre du CV congolais :
-Identité, Profil, Formation, Expérience, Compétences, Vérification.
+grisé (`ghost` dans le DSL) ; le PDF ne contient que les saisies. Sept étapes dans l'ordre du CV congolais :
+Identité, Profil, Formation, Expérience, Compétences, Langues & loisirs, Vérification.
+Formations, expériences et langues sont des blocs repliables (un seul ouvert,
+les autres résumés en une ligne) ; téléphones, compétences et loisirs se
+saisissent un par un (Entrée pour ajouter, ✕ pour supprimer). Les ajouts et
+suppressions ne reconstruisent jamais l'étape (`app/components.js`).
 Formations et expériences sont triées du plus récent au plus ancien.
 Aucun détail technique n'est montré : `app/state.js` convertit le formulaire en DSL.
 

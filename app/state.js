@@ -16,19 +16,37 @@ export function emptyItem() {
   return { period: '', title: '', org: '', details: '' };
 }
 
+export function emptyLanguage() {
+  return { name: '', level: '' };
+}
+
 export function emptyState() {
   return {
-    profile: { name: '', title: '', email: '', phones: [''], address: '', link: '', summary: '' },
+    profile: { name: '', title: '', email: '', phones: [], address: '', link: '', summary: '' },
     education: [emptyItem()],
     experiences: [emptyItem()],
-    skills: '',
-    languages: [{ name: '', level: '' }],
-    hobbies: '',
+    skills: [],
+    languages: [emptyLanguage()],
+    hobbies: [],
   };
 }
 
 const t = (s) => (s ?? '').trim();
 const lines = (s) => t(s).split('\n').map(t).filter(Boolean);
+const list = (a) => (Array.isArray(a) ? a : lines(a)).map(t).filter(Boolean);
+
+// Complète un brouillon enregistré (anciennes versions : compétences et loisirs
+// en texte, une ligne par élément) pour qu'il ait la forme actuelle.
+export function normalizeState(raw) {
+  const s = emptyState();
+  if (!raw || typeof raw !== 'object') return s;
+  Object.assign(s.profile, raw.profile ?? {});
+  s.profile.phones = list(s.profile.phones);
+  for (const key of ['education', 'experiences', 'languages']) if (Array.isArray(raw[key])) s[key] = raw[key];
+  s.skills = list(raw.skills);
+  s.hobbies = list(raw.hobbies);
+  return s;
+}
 // Retire les champs vides : le DSL ne garde que ce que l'étudiant a saisi.
 const compact = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== ''));
 
@@ -75,20 +93,20 @@ export function toResume(state, { mockup } = {}) {
   const exp = timeline(state.experiences);
   push(exp.length && { type: 'timeline', title: SECTION_TITLES.experiences, items: exp }, SECTION_TITLES.experiences);
 
-  const skills = lines(state.skills);
+  const skills = list(state.skills);
   push(skills.length && { type: 'bullets', title: SECTION_TITLES.skills, items: skills }, SECTION_TITLES.skills);
 
   const langs = state.languages.filter((l) => t(l.name)).map((l) => compact({ name: t(l.name), level: t(l.level) }));
   push(langs.length && { type: 'list', title: SECTION_TITLES.languages, items: langs }, SECTION_TITLES.languages);
 
-  const hobbies = lines(state.hobbies);
+  const hobbies = list(state.hobbies);
   push(hobbies.length && { type: 'bullets', title: SECTION_TITLES.hobbies, items: hobbies }, SECTION_TITLES.hobbies);
 
   const profile = compact({
     name: t(p.name),
     title: t(p.title),
     email: t(p.email),
-    phones: p.phones.map(t).filter(Boolean),
+    phones: list(p.phones),
     address: t(p.address),
     links: t(p.link) ? [{ label: t(p.link) }] : [],
     summary: lines(p.summary).join('\n'),
@@ -126,7 +144,7 @@ export function fromResume(resume) {
     name: p.name ?? '',
     title: p.title ?? '',
     email: p.email ?? '',
-    phones: p.phones?.length ? [...p.phones] : [''],
+    phones: [...(p.phones ?? [])],
     address: p.address ?? '',
     link: p.links?.[0]?.label ?? '',
     summary: p.summary ?? '',
@@ -136,10 +154,10 @@ export function fromResume(resume) {
 
   s.education = toItems(byTitle(SECTION_TITLES.education)) ?? s.education;
   s.experiences = toItems(byTitle(SECTION_TITLES.experiences)) ?? s.experiences;
-  s.skills = byTitle(SECTION_TITLES.skills)?.items.join('\n') ?? '';
+  s.skills = [...(byTitle(SECTION_TITLES.skills)?.items ?? [])];
   const langs = byTitle(SECTION_TITLES.languages);
   if (langs) s.languages = langs.items.map((l) => ({ name: l.name, level: l.level ?? '' }));
-  s.hobbies = byTitle(SECTION_TITLES.hobbies)?.items.join('\n') ?? '';
+  s.hobbies = [...(byTitle(SECTION_TITLES.hobbies)?.items ?? [])];
   return s;
 }
 
