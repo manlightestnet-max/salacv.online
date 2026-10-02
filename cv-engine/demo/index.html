@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>salacv — moteur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <nav>
+    <span class="logo">sala<span>cv</span></span>
+    <div class="nav-right">
+      <label class="toggle"><input type="checkbox" id="watermark" checked> Filigrane aperçu</label>
+      <button id="export" class="btn-primary">Exporter PDF <kbd>Ctrl S</kbd></button>
+    </div>
+  </nav>
+  <main>
+    <section class="editor">
+      <div class="panel-label">DSL / JSON</div>
+      <textarea id="source" spellcheck="false"></textarea>
+      <div id="status" class="status"></div>
+    </section>
+    <section class="preview">
+      <div class="panel-label">APERÇU / SKIA <span id="pages"></span></div>
+      <div id="canvases"></div>
+    </section>
+  </main>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

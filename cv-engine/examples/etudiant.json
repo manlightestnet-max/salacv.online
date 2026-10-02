@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "template": "minimal",
+  "profile": {
+    "name": "Grâce Mbuyi Kalala",
+    "title": "Étudiante en génie informatique — recherche de stage",
+    "badge": "Disponible — stage 2026",
+    "email": "grace.mbuyi@email.cd",
+    "phone": "+243 81 234 5678",
+    "location": "Kinshasa, RDC",
+    "links": [{ "label": "github.com/gracembuyi" }],
+    "summary": "Étudiante en L3 à l'Université de Kinshasa, passionnée par le développement web et mobile. J'aime construire des outils simples qui règlent de vrais problèmes, et je cherche un stage pour apprendre au contact d'une équipe produit."
+  },
+  "sections": [
+    {
+      "type": "timeline",
+      "title": "Expériences",
+      "items": [
+        {
+          "title": "Développeuse web stagiaire",
+          "org": "Kin Digital Lab",
+          "location": "Gombe, Kinshasa",
+          "period": "Juin — Sept. 2025",
+          "bullets": [
+            "Développé l'espace client d'une boutique en ligne (React, Node.js) utilisé par plus de 300 clients.",
+            "Intégré le paiement mobile money (M-Pesa, Airtel Money) avec confirmation automatique par webhook.",
+            "Réduit de 40 % le temps de chargement des pages produit en optimisant les images."
+          ]
+        },
+        {
+          "title": "Responsable technique bénévole",
+          "org": "Club informatique UNIKIN",
+          "period": "2024 — aujourd'hui",
+          "bullets": [
+            "Organisé 6 ateliers d'initiation à Git et au développement web pour 80 étudiants.",
+            "Mis en place le site du club et son système d'inscription aux événements."
+          ]
+        }
+      ]
+    },
+    {
+      "type": "timeline",
+      "title": "Formation",
+      "items": [
+        {
+          "title": "Licence en génie informatique (L3)",
+          "org": "Université de Kinshasa",
+          "period": "2023 — 2026",
+          "bullets": ["Mention distinction en L2. Projet de fin d'année : application de gestion de bibliothèque."]
+        },
+        {
+          "title": "Diplôme d'État, option Mathématiques-Physique",
+          "org": "Collège Boboto",
+          "period": "2023"
+        }
+      ]
+    },
+    {
+      "type": "tags",
+      "title": "Compétences",
+      "groups": [
+        { "label": "Développement", "items": ["JavaScript", "React", "Node.js", "SQL", "Python", "Git"] },
+        { "label": "Outils", "items": ["Figma", "VS Code", "Linux", "Docker"] }
+      ]
+    },
+    {
+      "type": "list",
+      "title": "Langues",
+      "items": [
+        { "name": "Français", "level": "Courant" },
+        { "name": "Lingala", "level": "Natif" },
+        { "name": "Anglais", "level": "B2" },
+        { "name": "Swahili", "level": "Notions" }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "Centres d'intérêt",
+      "body": "Football, photographie de rue, mentorat de lycéennes en sciences."
+    }
+  ]
+}
