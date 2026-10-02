@@ -1,34 +1,60 @@
 // Modèle du formulaire étudiant et conversion vers le DSL du moteur.
-// Le formulaire manipule des champs simples (texte, une ligne par point) ;
-// toResume() produit le JSON validé par src/dsl/schema.js.
+// Format CV congolais : identité + contacts, profil professionnel, formation &
+// certifications, expérience professionnelle, compétences, langues, loisirs.
 
 export const LEVELS = ['Natif', 'Courant', 'Professionnel', 'Intermédiaire', 'Notions'];
 
+export const SECTION_TITLES = {
+  education: 'Formation & certifications',
+  experiences: 'Expérience professionnelle',
+  skills: 'Compétences & certifications',
+  languages: 'Langues',
+  hobbies: 'Loisirs',
+};
+
 export function emptyItem() {
-  return { title: '', org: '', location: '', period: '', bullets: '' };
+  return { period: '', title: '', org: '', details: '' };
 }
 
 export function emptyState() {
   return {
-    profile: { name: '', title: '', badge: '', email: '', phone: '', location: '', link: '', summary: '' },
-    experiences: [emptyItem()],
+    profile: { name: '', title: '', email: '', phones: [''], address: '', link: '', summary: '' },
     education: [emptyItem()],
-    skills: [{ label: '', items: '' }],
+    experiences: [emptyItem()],
+    skills: '',
     languages: [{ name: '', level: '' }],
-    interests: '',
+    hobbies: '',
   };
 }
 
 const t = (s) => (s ?? '').trim();
 const lines = (s) => t(s).split('\n').map(t).filter(Boolean);
-const commas = (s) => t(s).split(',').map(t).filter(Boolean);
 // Retire les champs vides : le DSL ne garde que ce que l'étudiant a saisi.
 const compact = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== ''));
 
-function items(list) {
-  return list
-    .filter((i) => t(i.title))
-    .map((i) => compact({ title: t(i.title), org: t(i.org), location: t(i.location), period: t(i.period), bullets: lines(i.bullets) }));
+const ONGOING = /aujourd|présent|actuel|en cours|now/i;
+
+// Clé de tri d'une période ("2023 — 2026", "Juin — Sept. 2025", "2024 — aujourd'hui") :
+// [année de fin, année de début], "en cours" passe en premier, sans date à la fin.
+export function periodKey(period) {
+  const years = (t(period).match(/\b(?:19|20)\d{2}\b/g) ?? []).map(Number);
+  if (!years.length && !ONGOING.test(period)) return [-1, -1];
+  const end = ONGOING.test(period) ? 9999 : Math.max(...years);
+  return [end, years.length ? Math.min(...years) : end];
+}
+
+// Du plus récent au plus ancien ; l'ordre de saisie départage les égalités.
+export function sortRecentFirst(items) {
+  return items
+    .map((item, i) => ({ item, i, k: periodKey(item.period) }))
+    .sort((a, b) => b.k[0] - a.k[0] || b.k[1] - a.k[1] || a.i - b.i)
+    .map((x) => x.item);
+}
+
+function timeline(list) {
+  return sortRecentFirst(list.filter((i) => t(i.title))).map((i) =>
+    compact({ title: t(i.title), org: t(i.org), period: t(i.period), bullets: lines(i.details) }),
+  );
 }
 
 // placeholderName : nom affiché dans l'aperçu tant que l'étudiant n'a rien saisi.
@@ -36,19 +62,20 @@ export function toResume(state, { placeholderName } = {}) {
   const p = state.profile;
   const sections = [];
 
-  const exp = items(state.experiences);
-  if (exp.length) sections.push({ type: 'timeline', title: 'Expériences', items: exp });
+  const edu = timeline(state.education);
+  if (edu.length) sections.push({ type: 'timeline', title: SECTION_TITLES.education, items: edu });
 
-  const edu = items(state.education);
-  if (edu.length) sections.push({ type: 'timeline', title: 'Formation', items: edu });
+  const exp = timeline(state.experiences);
+  if (exp.length) sections.push({ type: 'timeline', title: SECTION_TITLES.experiences, items: exp });
 
-  const groups = state.skills.map((g) => compact({ label: t(g.label), items: commas(g.items) })).filter((g) => g.items.length);
-  if (groups.length) sections.push({ type: 'tags', title: 'Compétences', groups });
+  const skills = lines(state.skills);
+  if (skills.length) sections.push({ type: 'bullets', title: SECTION_TITLES.skills, items: skills });
 
   const langs = state.languages.filter((l) => t(l.name)).map((l) => compact({ name: t(l.name), level: t(l.level) }));
-  if (langs.length) sections.push({ type: 'list', title: 'Langues', items: langs });
+  if (langs.length) sections.push({ type: 'list', title: SECTION_TITLES.languages, items: langs });
 
-  if (t(state.interests)) sections.push({ type: 'text', title: "Centres d'intérêt", body: t(state.interests) });
+  const hobbies = lines(state.hobbies);
+  if (hobbies.length) sections.push({ type: 'bullets', title: SECTION_TITLES.hobbies, items: hobbies });
 
   return {
     version: 1,
@@ -56,12 +83,11 @@ export function toResume(state, { placeholderName } = {}) {
     profile: compact({
       name: t(p.name) || placeholderName || '',
       title: t(p.title),
-      badge: t(p.badge),
       email: t(p.email),
-      phone: t(p.phone),
-      location: t(p.location),
+      phones: p.phones.map(t).filter(Boolean),
+      address: t(p.address),
       links: t(p.link) ? [{ label: t(p.link) }] : [],
-      summary: t(p.summary),
+      summary: lines(p.summary).join('\n'),
     }),
     sections,
   };
@@ -74,30 +100,21 @@ export function fromResume(resume) {
   Object.assign(s.profile, {
     name: p.name ?? '',
     title: p.title ?? '',
-    badge: p.badge ?? '',
     email: p.email ?? '',
-    phone: p.phone ?? '',
-    location: p.location ?? '',
+    phones: p.phones?.length ? [...p.phones] : [''],
+    address: p.address ?? '',
     link: p.links?.[0]?.label ?? '',
     summary: p.summary ?? '',
   });
-  const toItems = (list) =>
-    list.map((i) => ({ title: i.title ?? '', org: i.org ?? '', location: i.location ?? '', period: i.period ?? '', bullets: (i.bullets ?? []).join('\n') }));
+  const byTitle = (title) => (resume.sections ?? []).find((x) => x.title === title);
+  const toItems = (sec) => sec?.items.map((i) => ({ period: i.period ?? '', title: i.title ?? '', org: i.org ?? '', details: (i.bullets ?? []).join('\n') }));
 
-  const timelines = (resume.sections ?? []).filter((x) => x.type === 'timeline');
-  const edu = timelines.find((x) => /formation|études|education/i.test(x.title));
-  const exp = timelines.find((x) => x !== edu);
-  if (exp) s.experiences = toItems(exp.items);
-  if (edu) s.education = toItems(edu.items);
-
-  const tags = resume.sections?.find((x) => x.type === 'tags');
-  if (tags) s.skills = tags.groups.map((g) => ({ label: g.label ?? '', items: g.items.join(', ') }));
-
-  const list = resume.sections?.find((x) => x.type === 'list');
-  if (list) s.languages = list.items.map((l) => ({ name: l.name, level: l.level ?? '' }));
-
-  const text = resume.sections?.find((x) => x.type === 'text');
-  if (text) s.interests = text.body;
+  s.education = toItems(byTitle(SECTION_TITLES.education)) ?? s.education;
+  s.experiences = toItems(byTitle(SECTION_TITLES.experiences)) ?? s.experiences;
+  s.skills = byTitle(SECTION_TITLES.skills)?.items.join('\n') ?? '';
+  const langs = byTitle(SECTION_TITLES.languages);
+  if (langs) s.languages = langs.items.map((l) => ({ name: l.name, level: l.level ?? '' }));
+  s.hobbies = byTitle(SECTION_TITLES.hobbies)?.items.join('\n') ?? '';
   return s;
 }
 
@@ -107,9 +124,10 @@ export function checklist(state, doc) {
   const hasItems = (list) => list.some((i) => t(i.title));
   return [
     { level: t(p.name) ? 'ok' : 'todo', text: 'Ton nom est renseigné' },
-    { level: t(p.email) || t(p.phone) ? 'ok' : 'todo', text: 'Un moyen de te contacter (email ou téléphone)' },
-    { level: hasItems(state.experiences) || hasItems(state.education) ? 'ok' : 'todo', text: 'Au moins une expérience ou une formation' },
-    { level: t(p.summary) ? 'ok' : 'warn', text: 'Un court résumé en haut du CV (conseillé)' },
+    { level: t(p.title) ? 'ok' : 'todo', text: 'Ta profession ou ton domaine' },
+    { level: t(p.email) || p.phones.some(t) ? 'ok' : 'todo', text: 'Un moyen de te contacter (email ou téléphone)' },
+    { level: hasItems(state.education) ? 'ok' : 'todo', text: 'Au moins une formation' },
+    { level: t(p.summary) ? 'ok' : 'warn', text: 'Un profil professionnel (conseillé)' },
     { level: !doc || doc.pages.length === 1 ? 'ok' : 'warn', text: 'Le CV tient sur une page (conseillé)' },
   ];
 }

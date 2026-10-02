@@ -69,7 +69,47 @@ export function createKit(fonts) {
 
   const width = (s, style) => fonts.measure(fonts.sanitize(s, style.font), style.font, style.size, style.tracking);
 
-  return { wrap, baseline, text, paragraph, width };
+  // Paragraphe à plusieurs styles (ex. "2024 — 2025 | Titre — Organisation").
+  // runs = [{ s, style }] ; coupure aux espaces, tous styles confondus.
+  // Retourne la hauteur occupée.
+  function rich(ops, runs, x, top, maxW, lh) {
+    const words = [];
+    for (const run of runs) {
+      const s = fonts.sanitize(run.s, run.style.font);
+      for (const part of s.split(/(\s+)/)) if (part) words.push({ s: part, style: run.style, space: /^\s+$/.test(part) });
+    }
+    const lines = [[]];
+    let lineW = 0;
+    for (const w of words) {
+      const ww = width(w.s, w.style);
+      if (w.space) {
+        if (lines.at(-1).length) {
+          lines.at(-1).push({ ...w, w: ww });
+          lineW += ww;
+        }
+        continue;
+      }
+      if (lineW + ww > maxW && lines.at(-1).length) {
+        while (lines.at(-1).at(-1)?.space) lines.at(-1).pop();
+        lines.push([]);
+        lineW = 0;
+      }
+      lines.at(-1).push({ ...w, w: ww });
+      lineW += ww;
+    }
+    const ref = runs[0].style;
+    lines.forEach((line, i) => {
+      let cx = x;
+      const base = baseline(top + i * lh, ref, lh);
+      for (const w of line) {
+        if (!w.space) text(ops, w.s, cx, base, w.style);
+        cx += w.w;
+      }
+    });
+    return lines.length * lh;
+  }
+
+  return { wrap, baseline, text, paragraph, width, rich };
 }
 
 // Un bloc = des ops en coordonnées locales (y = 0 en haut du bloc) + sa

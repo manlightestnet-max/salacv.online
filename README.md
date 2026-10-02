@@ -23,18 +23,21 @@ npm install
 npm test                                   # tests du DSL, du layout et du PDF
 npm run render examples/etudiant.json out  # PDF + PNG Skia dans out/
 npm run render examples/etudiant.json out -- --watermark
-npm run dev                                # éditeur étudiant (app/) : formulaire en 5 étapes + aperçu live + PDF
+npm run dev                                # éditeur étudiant (app/) : aperçu plein écran + bottom sheet + PDF
 npm run build                              # site statique dans dist/ (déployé par Vercel)
 ```
 
 ## Éditeur (app/)
 
-Formulaire en 5 étapes (Profil, Expériences, Formation, Compétences, Vérification)
-avec aperçu Skia en direct. Aucun détail technique n'est montré à l'étudiant :
-`app/state.js` convertit le formulaire en DSL. Brouillon gardé dans le navigateur.
+Mobile first : le CV en aperçu plein écran, le formulaire dans un bottom sheet
+(replié : étape en cours + étapes ; déplié : formulaire ; bouton « Aperçu » ou
+glisser vers le bas pour revenir au CV). Six étapes dans l'ordre du CV congolais :
+Identité, Profil, Formation, Expérience, Compétences, Vérification.
+Formations et expériences sont triées du plus récent au plus ancien.
+Aucun détail technique n'est montré : `app/state.js` convertit le formulaire en DSL.
 
-Raccourcis : `Alt ←/→` changer d'étape, `Ctrl+Entrée` ajouter un élément,
-`Ctrl+S` aller au téléchargement.
+Raccourcis (clavier) : `Alt ←/→` étapes, `Ctrl+Entrée` ajouter un élément,
+`Ctrl+S` vérification et téléchargement, `Échap` revenir à l'aperçu.
 
 ## DSL
 
@@ -43,8 +46,8 @@ liste de `sections` typées :
 
 | type       | usage                               | champs                                             |
 |------------|-------------------------------------|----------------------------------------------------|
-| `timeline` | expériences, formation, projets     | `items[]` : title, org, location, period, bullets  |
-| `tags`     | compétences, outils                 | `groups[]` : label, items                          |
+| `timeline` | formation, expérience               | `items[]` : period, title, org, location, bullets  |
+| `bullets`  | compétences, loisirs                | `items[]` : texte                                  |
 | `list`     | langues                             | `items[]` : name, level                            |
 | `text`     | centres d'intérêt, paragraphe libre | `body`                                             |
 

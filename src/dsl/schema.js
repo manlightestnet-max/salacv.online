@@ -15,15 +15,13 @@ const timelineItem = z.object({
   bullets: z.array(str(400)).max(12).default([]),
 });
 
-const tagGroup = z.object({ label: str(60).optional(), items: z.array(str(60)).max(40) });
-
 const listItem = z.object({ name: str(80), level: str(40).optional() });
 
-// Types de sections génériques : le titre est libre (Expériences, Formation,
-// Projets, Bénévolat...), seul le type décide de la mise en forme.
+// Types de sections génériques : le titre est libre (Formation, Expérience
+// professionnelle, Loisirs...), seul le type décide de la mise en forme.
 const section = z.discriminatedUnion('type', [
   z.object({ type: z.literal('timeline'), title: str(60), items: z.array(timelineItem).max(20) }),
-  z.object({ type: z.literal('tags'), title: str(60), groups: z.array(tagGroup).max(10) }),
+  z.object({ type: z.literal('bullets'), title: str(60), items: z.array(str(120)).max(40) }),
   z.object({ type: z.literal('list'), title: str(60), items: z.array(listItem).max(20) }),
   z.object({ type: z.literal('text'), title: str(60), body: str(1500) }),
 ]);
@@ -37,10 +35,11 @@ export const resumeSchema = z.object({
     title: str(120).optional(),
     badge: str(60).optional(),
     email: str(120).optional(),
-    phone: str(40).optional(),
-    location: str(80).optional(),
+    phones: z.array(str(40)).max(3).default([]),
+    address: str(160).optional(),
     links: z.array(link).max(5).default([]),
-    summary: str(800).optional(),
+    // Profil professionnel : affiché en première section. Un paragraphe par ligne.
+    summary: str(1200).optional(),
   }),
   sections: z.array(section).max(12).default([]),
 });

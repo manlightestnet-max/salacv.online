@@ -3,64 +3,74 @@
   "template": "minimal",
   "profile": {
     "name": "Grâce Mbuyi Kalala",
-    "title": "Étudiante en génie informatique — recherche de stage",
-    "badge": "Disponible — stage 2026",
-    "email": "grace.mbuyi@email.cd",
-    "phone": "+243 81 234 5678",
-    "location": "Kinshasa, RDC",
-    "links": [{ "label": "github.com/gracembuyi" }],
-    "summary": "Étudiante en L3 à l'Université de Kinshasa, passionnée par le développement web et mobile. J'aime construire des outils simples qui règlent de vrais problèmes, et je cherche un stage pour apprendre au contact d'une équipe produit."
+    "title": "Technicienne en réseaux et télécommunications",
+    "email": "grace.mbuyi@gmail.com",
+    "phones": ["+243 81 234 5678", "+243 99 765 4321"],
+    "address": "12, av. Kasa-Vubu, Q/Matonge, C/Kalamu, Kinshasa",
+    "summary": "Technicienne en réseaux et télécommunications formée à l'ISTA Kinshasa, avec une expérience pratique en installation de réseaux, configuration d'équipements Cisco et maintenance de sites télécoms.\nRigoureuse et autonome, je cherche un stage ou un premier emploi dans un opérateur ou une entreprise d'intégration réseau."
   },
   "sections": [
     {
       "type": "timeline",
-      "title": "Expériences",
+      "title": "Formation & certifications",
       "items": [
         {
-          "title": "Développeuse web stagiaire",
-          "org": "Kin Digital Lab",
-          "location": "Gombe, Kinshasa",
-          "period": "Juin — Sept. 2025",
+          "title": "Licence en réseaux et télécommunications",
+          "org": "ISTA Kinshasa",
+          "period": "2023 — 2026",
           "bullets": [
-            "Développé l'espace client d'une boutique en ligne (React, Node.js) utilisé par plus de 300 clients.",
-            "Intégré le paiement mobile money (M-Pesa, Airtel Money) avec confirmation automatique par webhook.",
-            "Réduit de 40 % le temps de chargement des pages produit en optimisant les images."
+            "Routage et commutation, adressage IP, VLAN, sécurité des réseaux",
+            "Transmission radio, fibre optique, systèmes GSM et 4G"
           ]
         },
         {
-          "title": "Responsable technique bénévole",
-          "org": "Club informatique UNIKIN",
-          "period": "2024 — aujourd'hui",
-          "bullets": [
-            "Organisé 6 ateliers d'initiation à Git et au développement web pour 80 étudiants.",
-            "Mis en place le site du club et son système d'inscription aux événements."
-          ]
+          "title": "Certification Cisco CCNA (Introduction to Networks)",
+          "org": "Cisco Networking Academy",
+          "period": "2024",
+          "bullets": ["Configuration de routeurs et commutateurs, dépannage réseau"]
+        },
+        {
+          "title": "Diplôme d'État, option Électronique",
+          "org": "Institut Technique Salama",
+          "period": "2022 — 2023"
         }
       ]
     },
     {
       "type": "timeline",
-      "title": "Formation",
+      "title": "Expérience professionnelle",
       "items": [
         {
-          "title": "Licence en génie informatique (L3)",
-          "org": "Université de Kinshasa",
-          "period": "2023 — 2026",
-          "bullets": ["Mention distinction en L2. Projet de fin d'année : application de gestion de bibliothèque."]
+          "title": "Stagiaire technicienne réseaux",
+          "org": "Vodacom Congo",
+          "period": "Juin — Sept. 2025",
+          "bullets": [
+            "Installation et câblage de baies réseau sur sites clients",
+            "Configuration de routeurs et commutateurs Cisco",
+            "Tests de liaisons fibre optique et rédaction des rapports d'intervention",
+            "Support aux équipes de maintenance des sites BTS"
+          ]
         },
         {
-          "title": "Diplôme d'État, option Mathématiques-Physique",
-          "org": "Collège Boboto",
-          "period": "2023"
+          "title": "Technicienne bénévole",
+          "org": "Club informatique ISTA",
+          "period": "2023 — 2024",
+          "bullets": ["Mise en place du réseau Wi-Fi de la salle informatique", "Ateliers d'initiation aux réseaux pour 60 étudiants"]
         }
       ]
     },
     {
-      "type": "tags",
-      "title": "Compétences",
-      "groups": [
-        { "label": "Développement", "items": ["JavaScript", "React", "Node.js", "SQL", "Python", "Git"] },
-        { "label": "Outils", "items": ["Figma", "VS Code", "Linux", "Docker"] }
+      "type": "bullets",
+      "title": "Compétences & certifications",
+      "items": [
+        "Réseaux LAN / WAN",
+        "Routage et commutation Cisco",
+        "Fibre optique (soudure, tests OTDR)",
+        "Câblage structuré",
+        "Maintenance de sites télécoms",
+        "Microsoft Office (Word, Excel, PowerPoint)",
+        "Anglais technique",
+        "Travail en équipe et sous pression"
       ]
     },
     {
@@ -69,14 +79,14 @@
       "items": [
         { "name": "Français", "level": "Courant" },
         { "name": "Lingala", "level": "Natif" },
-        { "name": "Anglais", "level": "B2" },
+        { "name": "Anglais", "level": "Intermédiaire" },
         { "name": "Swahili", "level": "Notions" }
       ]
     },
     {
-      "type": "text",
-      "title": "Centres d'intérêt",
-      "body": "Football, photographie de rue, mentorat de lycéennes en sciences."
+      "type": "bullets",
+      "title": "Loisirs",
+      "items": ["Football", "Lecture", "Musique", "Bénévolat associatif"]
     }
   ]
 }

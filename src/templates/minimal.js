@@ -1,12 +1,15 @@
 // Template "minimal" : thème Salacope (Geist + Geist Mono, gris zinc, accent
-// vert émeraude), labels mono en capitales du type "EXPÉRIENCES / 02" dans une
-// colonne de gauche. Couleurs = tokens clairs de Salacope (le CV s'imprime).
+// vert émeraude), labels mono en capitales dans une colonne de gauche.
+// Contenu au format CV congolais : en-tête (nom, profession, contacts), profil
+// professionnel, puis sections dans l'ordre du DSL. Couleurs = tokens clairs de
+// Salacope (le CV s'imprime).
 import { block } from '../layout/engine.js';
 
 const C = {
   text: '#18181B', // gray-900
   soft: '#3F3F46', // gray-700
   muted: '#71717A', // gray-500
+  faint: '#A1A1AA', // gray-400
   border: '#E4E4E7', // gray-200
   chipBg: '#FAFAFA', // gray-50
   status: '#10B981', // primary-500, pastille de statut
@@ -17,6 +20,7 @@ export const DEFAULT_ACCENT = '#047857'; // accent clair Salacope (primary-700)
 const M = { top: 50, bottom: 50, left: 48, right: 48 };
 const GUTTER = 112; // colonne des labels
 const GAP = 18;
+const SECTION_GAP = 24;
 
 export const minimal = {
   id: 'minimal',
@@ -31,23 +35,23 @@ export const minimal = {
     const S = {
       // Titres : letter-spacing -0.011em comme les h1-h4 de Salacope.
       name: { font: 'sans-600', size: 25, color: C.text, tracking: -0.011 * 25 },
-      title: { font: 'sans-400', size: 11.5, color: accent },
+      title: { font: 'sans-500', size: 11.5, color: accent },
       contact: { font: 'mono-400', size: 7.6, color: C.muted },
       badge: { font: 'mono-400', size: 7, color: C.muted },
-      summary: { font: 'sans-400', size: 9.2, color: C.soft },
       label: { font: 'mono-500', size: 7, color: C.muted, tracking: 0.9 },
-      itemTitle: { font: 'sans-500', size: 10, color: C.text },
-      period: { font: 'mono-400', size: 7.2, color: C.muted },
-      org: { font: 'sans-500', size: 8.8, color: accent },
-      place: { font: 'sans-400', size: 8.8, color: C.muted },
-      bullet: { font: 'sans-400', size: 8.8, color: C.soft },
-      chip: { font: 'mono-400', size: 7.4, color: C.text },
-      groupLabel: { font: 'mono-400', size: 6.6, color: C.muted, tracking: 0.7 },
+      para: { font: 'sans-400', size: 9.2, color: C.soft },
+      period: { font: 'mono-500', size: 7.8, color: accent },
+      sep: { font: 'sans-400', size: 9.6, color: C.faint },
+      itemTitle: { font: 'sans-600', size: 9.6, color: C.text },
+      org: { font: 'sans-400', size: 9.6, color: C.muted },
+      detail: { font: 'sans-400', size: 8.8, color: C.soft },
+      bullet: { font: 'sans-400', size: 9, color: C.soft },
       listName: { font: 'sans-500', size: 9, color: C.text },
-      listLevel: { font: 'mono-400', size: 7, color: C.muted, tracking: 0.5 },
+      listLevel: { font: 'sans-400', size: 9, color: C.muted },
     };
 
     const blocks = [header()];
+    if (resume.profile.summary) blocks.push(...withLabel('Profil professionnel', [paragraphs(resume.profile.summary)]));
     for (const section of resume.sections) blocks.push(...sectionBlocks(section));
     return blocks;
 
@@ -68,10 +72,8 @@ export const minimal = {
       y += kit.paragraph(ops, p.name, M.left, y, fullW, S.name, 30);
       if (p.title) y += 2 + kit.paragraph(ops, p.title, M.left, y + 2, fullW, S.title, 16);
 
-      const contacts = [p.email, p.phone, p.location, ...p.links.map((l) => l.label)].filter(Boolean);
+      const contacts = [p.email, ...p.phones, p.address, ...p.links.map((l) => l.label)].filter(Boolean);
       if (contacts.length) y += 8 + kit.paragraph(ops, contacts.join('  ·  '), M.left, y + 8, fullW, S.contact, 12);
-
-      if (p.summary) y += 12 + kit.paragraph(ops, p.summary, M.left, y + 12, fullW * 0.86, S.summary, 14.2);
 
       y += 20;
       ops.push({ t: 'line', x1: M.left, y1: y, x2: M.left + fullW, y2: y, color: C.border, lw: 0.75 });
@@ -80,101 +82,74 @@ export const minimal = {
 
     // Le label de section est un bloc de hauteur 0 lié au premier élément,
     // pour ne jamais rester seul en bas de page.
-    function labelBlock(section, count) {
+    function withLabel(title, items, count = 0) {
+      if (!items.length) return [];
       const ops = [];
-      const text = (count ? `${section.title} / ${String(count).padStart(2, '0')}` : section.title).toUpperCase();
-      kit.paragraph(ops, text, M.left, 1, GUTTER, S.label, 12);
-      return block(ops, 0, { keepWithNext: true });
+      const text = (count ? `${title} / ${String(count).padStart(2, '0')}` : title).toUpperCase();
+      kit.paragraph(ops, text, M.left, 1, GUTTER, S.label, 11);
+      items.at(-1).gapAfter = SECTION_GAP;
+      return [block(ops, 0, { keepWithNext: true }), ...items];
     }
 
     function sectionBlocks(section) {
-      let items;
       switch (section.type) {
         case 'timeline':
-          items = section.items.map(timelineItem);
-          break;
-        case 'tags':
-          items = section.groups.map(tagGroup);
-          break;
+          return withLabel(section.title, section.items.map(timelineItem), section.items.length);
+        case 'bullets':
+          return withLabel(section.title, [twoColumns(section.items.map((s) => [{ s, style: S.bullet }]), true)]);
         case 'list':
-          items = [listGrid(section.items)];
-          break;
-        case 'text': {
-          const ops = [];
-          const h = kit.paragraph(ops, section.body, bodyX, 0, bodyW, S.summary, 14.2);
-          items = [block(ops, h)];
-          break;
-        }
+          return withLabel(section.title, [
+            twoColumns(section.items.map((i) => [{ s: i.name, style: S.listName }, ...(i.level ? [{ s: ` — ${i.level}`, style: S.listLevel }] : [])]), true),
+          ]);
+        case 'text':
+          return withLabel(section.title, [paragraphs(section.body)]);
       }
-      if (!items.length) return [];
-      items.forEach((b, i) => (b.gapAfter = i === items.length - 1 ? 26 : b.gapAfter));
-      const count = section.type === 'timeline' ? section.items.length : 0;
-      return [labelBlock(section, count), ...items];
+      return [];
     }
 
+    // Un paragraphe par ligne de texte.
+    function paragraphs(body) {
+      const ops = [];
+      let y = 0;
+      body.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line, i) => {
+        y += (i ? 6 : 0) + kit.paragraph(ops, line, bodyX, y + (i ? 6 : 0), bodyW, S.para, 14);
+      });
+      return block(ops, y);
+    }
+
+    // Format officiel : "2024 — 2025 | Titre — Organisation", puis une ligne par détail.
     function timelineItem(item) {
       const ops = [];
-      let y = 0;
+      const runs = [];
+      if (item.period) runs.push({ s: item.period, style: S.period }, { s: '  |  ', style: S.sep });
+      runs.push({ s: item.title, style: S.itemTitle });
+      const place = [item.org, item.location].filter(Boolean).join(', ');
+      if (place) runs.push({ s: ` — ${place}`, style: S.org });
 
-      const periodW = item.period ? kit.width(item.period, S.period) : 0;
-      const titleW = bodyW - (periodW ? periodW + 14 : 0);
-      if (item.period) kit.text(ops, item.period, bodyX + bodyW - periodW, kit.baseline(0, S.period, 14), S.period);
-      y += kit.paragraph(ops, item.title, bodyX, y, titleW, S.itemTitle, 14);
-
-      if (item.org || item.location) {
-        let x = bodyX;
-        const base = kit.baseline(y, S.org, 13);
-        if (item.org) {
-          kit.text(ops, item.org, x, base, S.org);
-          x += kit.width(item.org, S.org);
-        }
-        if (item.location) kit.text(ops, `${item.org ? '  ·  ' : ''}${item.location}`, x, base, S.place);
-        y += 13;
-      }
-
-      if (item.bullets.length) y += 4;
-      for (const b of item.bullets) {
-        const mid = y + 13 / 2 + 0.5;
-        ops.push({ t: 'line', x1: bodyX + 1, y1: mid, x2: bodyX + 5.5, y2: mid, color: accent, lw: 0.9 });
-        y += kit.paragraph(ops, b, bodyX + 12, y, bodyW - 12, S.bullet, 13) + 1.5;
-      }
-      return block(ops, y, { gapAfter: 14 });
+      let y = kit.rich(ops, runs, bodyX, 0, bodyW, 14);
+      if (item.bullets.length) y += 3;
+      for (const line of item.bullets) y += kit.paragraph(ops, line, bodyX + 10, y, bodyW - 10, S.detail, 13);
+      return block(ops, y, { gapAfter: 12 });
     }
 
-    function tagGroup(group) {
+    // Liste à puces sur deux colonnes (compétences, langues, loisirs).
+    function twoColumns(entries, dot) {
       const ops = [];
+      const colGap = 16;
+      const colW = (bodyW - colGap) / 2;
+      const indent = dot ? 10 : 0;
+      const lh = 14;
       let y = 0;
-      if (group.label) y += kit.paragraph(ops, group.label.toUpperCase(), bodyX, 0, bodyW, S.groupLabel, 11) + 4;
-
-      const h = 15;
-      const padX = 6.5;
-      let x = bodyX;
-      for (const item of group.items) {
-        const w = kit.width(item, S.chip) + padX * 2;
-        if (x > bodyX && x + w > bodyX + bodyW) {
-          x = bodyX;
-          y += h + 4;
+      for (let i = 0; i < entries.length; i += 2) {
+        let rowH = 0;
+        for (let c = 0; c < 2 && i + c < entries.length; c++) {
+          const x = bodyX + c * (colW + colGap);
+          if (dot) ops.push({ t: 'rect', x, y: y + lh / 2 - 1.5, w: 3, h: 3, r: 0.6, fill: accent });
+          rowH = Math.max(rowH, kit.rich(ops, entries[i + c], x + indent, y, colW - indent, lh));
         }
-        ops.push({ t: 'rect', x, y, w, h, r: 4, fill: C.chipBg, stroke: C.border, lw: 0.75 });
-        kit.text(ops, item, x + padX, kit.baseline(y, S.chip, h), S.chip);
-        x += w + 4;
+        y += rowH + 2;
       }
-      y += group.items.length ? h : 0;
-      return block(ops, y, { gapAfter: 10 });
-    }
-
-    function listGrid(items) {
-      const ops = [];
-      const colW = bodyW / 2;
-      const lh = 16;
-      items.forEach((item, i) => {
-        const x = bodyX + (i % 2) * colW;
-        const top = Math.floor(i / 2) * lh;
-        const base = kit.baseline(top, S.listName, lh);
-        kit.text(ops, item.name, x, base, S.listName);
-        if (item.level) kit.text(ops, item.level.toUpperCase(), x + kit.width(item.name, S.listName) + 8, base, S.listLevel);
-      });
-      return block(ops, Math.ceil(items.length / 2) * lh);
+      return block(ops, Math.max(0, y - 2));
     }
   },
 };

@@ -2,7 +2,7 @@
 <html lang="fr" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>salacv — crée ton CV</title>
   <script>
     // Thème appliqué avant le premier rendu pour éviter un flash clair.
@@ -12,29 +12,33 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <header class="topbar">
-    <span class="logo"><span class="logo-mark">S</span>salacv</span>
-    <span id="progress" class="progress"></span>
-    <div class="actions">
-      <button id="theme" class="btn-ghost icon" aria-label="Changer de thème" title="Changer de thème">◐</button>
-      <button id="download" class="btn-primary">Télécharger <kbd>Ctrl S</kbd></button>
-    </div>
-  </header>
-  <main>
-    <section class="panel form-panel">
-      <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
+  <!-- Aperçu plein écran : la page du CV, rien d'autre. -->
+  <div id="preview" class="preview">
+    <div id="canvases"><div class="page-skeleton skeleton"></div></div>
+  </div>
+
+  <!-- Bottom sheet : replié (en-tête + étapes), déplié (formulaire complet). -->
+  <section id="sheet" class="sheet" data-state="collapsed" aria-label="Modifier ton CV">
+    <div id="grip" class="sheet-grip" aria-hidden="true"><span></span></div>
+    <header id="sheet-head" class="sheet-head">
+      <span class="logo-mark">S</span>
+      <div class="sheet-title">
+        <strong id="step-title"></strong>
+        <span id="progress"></span>
+      </div>
+      <button id="theme" class="btn-ghost icon" type="button" aria-label="Changer de thème" title="Changer de thème">◐</button>
+      <button id="toggle" class="btn-primary" type="button"></button>
+    </header>
+    <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
+    <div id="sheet-body" class="sheet-body">
       <div id="step" class="step-scroll"></div>
       <footer class="step-nav">
         <button id="prev" class="btn-text" type="button">Précédent</button>
-        <span class="shortcut-hint">Alt ← / Alt → pour changer d'étape</span>
+        <span class="shortcut-hint">Alt ← / → étapes · Échap aperçu</span>
         <button id="next" class="btn-primary" type="button">Suivant</button>
       </footer>
-    </section>
-    <section class="panel preview">
-      <div class="preview-head">Aperçu <span id="pages"></span></div>
-      <div id="canvases"><div class="page-skeleton skeleton"></div></div>
-    </section>
-  </main>
+    </div>
+  </section>
   <script type="module" src="./main.js"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
-// Éditeur étudiant : formulaire en étapes -> aperçu Skia en direct -> PDF.
+// Éditeur étudiant, mobile first : aperçu du CV en plein écran, formulaire
+// en 6 étapes dans un bottom sheet (replié / déplié), PDF au téléchargement.
 import CanvasKitInit from 'canvaskit-wasm';
 import wasmUrl from 'canvaskit-wasm/bin/canvaskit.wasm?url';
 import { layoutResume, loadFontSet } from '../src/index.js';
@@ -12,11 +13,13 @@ const fontUrls = import.meta.glob('../fonts/*.ttf', { query: '?url', import: 'de
 const fontUrl = (file) => fontUrls[`../fonts/${file}`];
 
 const $ = (id) => document.getElementById(id);
+const preview = $('preview');
 const canvases = $('canvases');
+const sheet = $('sheet');
 const stepEl = $('step');
 
 const WATERMARK = 'salacv.online · aperçu';
-const DRAFT_KEY = 'salacv:form';
+const DRAFT_KEY = 'salacv:form:v2';
 const THEME_KEY = 'salacv:theme';
 
 let state = readDraft() ?? emptyState();
@@ -44,6 +47,7 @@ const ctx = {
 };
 
 // Le formulaire est utilisable tout de suite ; l'aperçu arrive quand le moteur est chargé.
+setSheet('collapsed');
 renderStep();
 initEngine();
 
@@ -52,16 +56,18 @@ $('theme').addEventListener('click', () => {
   document.documentElement.dataset.theme = next;
   store(THEME_KEY, next);
 });
-$('download').addEventListener('click', () => goTo(STEPS.length - 1));
+$('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded'));
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
 $('next').addEventListener('click', () => goTo(stepIndex + 1));
 window.addEventListener('resize', () => current && paint(current.doc));
+initDrag();
 
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 's') {
     e.preventDefault();
     goTo(STEPS.length - 1);
+    setSheet('expanded');
   } else if (mod && e.key === 'Enter') {
     e.preventDefault();
     addItem();
@@ -71,6 +77,8 @@ document.addEventListener('keydown', (e) => {
   } else if (e.altKey && e.key === 'ArrowLeft') {
     e.preventDefault();
     goTo(stepIndex - 1);
+  } else if (e.key === 'Escape' && sheet.dataset.state === 'expanded') {
+    setSheet('collapsed');
   }
 });
 
@@ -83,6 +91,52 @@ async function initEngine() {
   update();
   if (STEPS[stepIndex].id === 'verification') renderStep();
 }
+
+// --- Bottom sheet ------------------------------------------------------------
+
+function setSheet(next) {
+  sheet.dataset.state = next;
+  sheet.style.transform = '';
+  const expanded = next === 'expanded';
+  $('toggle').textContent = expanded ? 'Aperçu' : 'Modifier';
+  $('sheet-body').inert = !expanded; // pas de focus clavier dans la partie cachée
+  if (!expanded) document.activeElement?.blur();
+}
+
+// Glisser la poignée ou l'en-tête : vers le haut ouvre, vers le bas ferme ;
+// un simple appui bascule.
+function initDrag() {
+  let start = null;
+  const zones = [$('grip'), $('sheet-head')];
+  for (const zone of zones) {
+    zone.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      start = { y: e.clientY, base: sheet.getBoundingClientRect().top, moved: false };
+      sheet.classList.add('dragging');
+      zone.setPointerCapture(e.pointerId);
+    });
+    zone.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      const dy = e.clientY - start.y;
+      if (Math.abs(dy) > 4) start.moved = true;
+      const min = window.innerHeight - sheet.offsetHeight; // haut de la sheet dépliée
+      const top = Math.max(min, start.base + dy);
+      sheet.style.transform = `translateY(${top - min}px)`;
+    });
+    const end = (e) => {
+      if (!start) return;
+      const dy = e.clientY - start.y;
+      sheet.classList.remove('dragging');
+      if (!start.moved) setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded');
+      else setSheet(dy < -40 ? 'expanded' : dy > 40 ? 'collapsed' : sheet.dataset.state);
+      start = null;
+    };
+    zone.addEventListener('pointerup', end);
+    zone.addEventListener('pointercancel', end);
+  }
+}
+
+// --- Étapes ------------------------------------------------------------------
 
 function goTo(i) {
   if (i < 0 || i >= STEPS.length || i === stepIndex) return;
@@ -101,17 +155,22 @@ function renderStep() {
           type: 'button',
           class: `step-pill${i === stepIndex ? ' active' : ''}${i < stepIndex ? ' done' : ''}`,
           'aria-current': i === stepIndex ? 'step' : null,
-          onClick: () => goTo(i),
+          onClick: () => {
+            goTo(i);
+            setSheet('expanded');
+          },
         },
         h('span', { class: 'step-num' }, i < stepIndex ? '✓' : String(i + 1)),
         s.label,
       ),
     ),
   );
+  $('stepper').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   stepEl.replaceChildren(h('div', { class: 'fade' }, step.render(ctx)));
-  $('progress').textContent = `${stepIndex + 1}/${STEPS.length} · ${step.label}`;
+  $('step-title').textContent = step.label;
+  $('progress').textContent = `Étape ${stepIndex + 1} sur ${STEPS.length}`;
   $('prev').style.visibility = stepIndex === 0 ? 'hidden' : 'visible';
-  $('next').style.display = stepIndex === STEPS.length - 1 ? 'none' : '';
+  $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
 }
 
 // Ajoute un élément à la liste de l'étape courante et place le curseur dedans.
@@ -120,9 +179,11 @@ function addItem() {
   if (!step.add) return;
   step.add(state);
   ctx.rerender();
-  const cards = stepEl.querySelectorAll('.card');
-  cards[cards.length - 1]?.querySelector('.input')?.focus();
+  const rows = stepEl.querySelectorAll('.card, .row');
+  rows[rows.length - 1]?.querySelector('.input')?.focus();
 }
+
+// --- Aperçu ------------------------------------------------------------------
 
 let timer;
 function schedule() {
@@ -141,7 +202,8 @@ function update() {
 
 function paint(doc) {
   const { CK, skia } = engine;
-  const zoom = Math.min(1.25, (canvases.clientWidth - 48) / doc.width);
+  const pad = preview.clientWidth < 640 ? 8 : 24;
+  const zoom = Math.min(1.6, (preview.clientWidth - pad * 2) / doc.width);
   const dpr = window.devicePixelRatio || 1;
   const w = Math.round(doc.width * zoom);
   const hgt = Math.round(doc.height * zoom);
@@ -160,7 +222,6 @@ function paint(doc) {
       return { surface: CK.MakeCanvasSurface(el), w };
     });
   }
-  $('pages').textContent = doc.pages.length > 1 ? `· ${doc.pages.length} pages` : '';
 
   doc.pages.forEach((_, i) => {
     const { surface } = surfaces[i];
@@ -168,6 +229,8 @@ function paint(doc) {
     surface.flush();
   });
 }
+
+// --- PDF ---------------------------------------------------------------------
 
 // Le PDF est généré sans filigrane depuis les mêmes données que l'aperçu.
 // TODO : passer par le paiement mobile money avant de débloquer le téléchargement.

@@ -15,7 +15,7 @@ export function h(tag, props = {}, ...children) {
 let uid = 0;
 
 // Champ texte lié à obj[key]. multiline : textarea.
-export function field(label, obj, key, onInput, { multiline = false, placeholder = '', hint = '', rows = 3, list } = {}) {
+export function field(label, obj, key, onInput, { multiline = false, placeholder = '', hint = '', rows = 3, list, type, autocomplete } = {}) {
   const id = `f${++uid}`;
   const input = h(multiline ? 'textarea' : 'input', {
     id,
@@ -23,6 +23,8 @@ export function field(label, obj, key, onInput, { multiline = false, placeholder
     placeholder,
     rows: multiline ? rows : null,
     list,
+    type: multiline ? null : type,
+    autocomplete,
     value: obj[key],
     onInput: (e) => {
       obj[key] = e.target.value;
