@@ -1,0 +1,27 @@
+{
+  "_comment": "Aucune clé ici. Clés dans l'environnement : <NOM>_API_KEYS (séparées par des virgules) ou <NOM>_API_KEY, ex. OLLAMA_API_KEY.",
+  "providers": [
+    {
+      "name": "ollama",
+      "type": "openai",
+      "baseUrl": "https://ollama.com/v1",
+      "default": true,
+      "models": ["gemma4:31b-cloud"],
+      "defaultModel": "gemma4:31b-cloud"
+    },
+    {
+      "name": "gemini",
+      "type": "openai",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "models": ["gemini-2.5-flash"],
+      "defaultModel": "gemini-2.5-flash"
+    },
+    {
+      "name": "groq",
+      "type": "openai",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "models": ["llama-3.3-70b-versatile"],
+      "defaultModel": "llama-3.3-70b-versatile"
+    }
+  ]
+}
