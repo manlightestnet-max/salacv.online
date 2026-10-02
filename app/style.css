@@ -113,6 +113,20 @@ button:not(:disabled) { cursor: pointer; }
 
 .splitter { display: none; }
 
+.engine-error {
+  max-width: 420px;
+  margin-top: 20vh;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(var(--red-200));
+  background: rgb(var(--red-50));
+  color: rgb(var(--gray-800));
+  font-size: 14px;
+  line-height: 1.5;
+}
+.engine-error p { color: rgb(var(--gray-600)); }
+.engine-error code { display: block; margin-top: 0.5rem; font: 12px var(--font-mono); color: rgb(var(--red-600)); word-break: break-word; }
+
 #canvases canvas {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);

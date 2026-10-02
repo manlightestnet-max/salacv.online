@@ -114,11 +114,25 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function initEngine() {
-  const [CK, fonts] = await Promise.all([
-    CanvasKitInit({ locateFile: () => wasmUrl }),
-    loadFontSet((file) => fetch(fontUrl(file)).then((r) => r.arrayBuffer())),
-  ]);
-  engine = { CK, fonts, skia: createSkiaRenderer(CK, fonts) };
+  try {
+    const [CK, fonts] = await Promise.all([
+      CanvasKitInit({ locateFile: () => wasmUrl }),
+      loadFontSet((file) =>
+        fetch(fontUrl(file)).then((r) => {
+          if (!r.ok) throw new Error(`police ${file} : HTTP ${r.status}`);
+          return r.arrayBuffer();
+        }),
+      ),
+    ]);
+    engine = { CK, fonts, skia: createSkiaRenderer(CK, fonts) };
+  } catch (err) {
+    // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
+    console.error(err);
+    canvases.replaceChildren(
+      h('div', { class: 'engine-error' }, h('strong', {}, "L'aperçu n'a pas pu se charger."), h('p', {}, 'Vérifie ta connexion puis recharge la page.'), h('code', {}, String(err?.message ?? err))),
+    );
+    return;
+  }
   update();
   if (STEPS[stepIndex].id === 'verification') renderStep();
 }
