@@ -67,8 +67,10 @@ export function itemsInput({ label, list, onChange, placeholder = '', hint = '',
       e.preventDefault();
       submit();
     } else if (e.key === 'Backspace' && !input.value && list.length) {
-      // Retour arrière dans un champ vide : supprime le dernier élément.
-      list.pop();
+      // Retour arrière dans un champ vide : le dernier élément revient dans le
+      // champ pour être corrigé, rien n'est perdu par erreur.
+      e.preventDefault();
+      input.value = list.pop();
       items.lastElementChild.remove();
       sync();
       onChange();

@@ -157,7 +157,23 @@ function review(ctx) {
     'div',
     { class: 'step' },
     head('Vérification', 'Un dernier coup d’œil avant de télécharger ton CV.'),
-    h('ul', { class: 'checks' }, items.map((i) => h('li', { class: `check ${i.level}` }, h('span', { class: 'check-icon' }, i.level === 'ok' ? '✓' : '!'), i.text))),
+    h(
+      'ul',
+      { class: 'checks' },
+      items.map((i) =>
+        h(
+          'li',
+          {},
+          h(
+            'button',
+            { class: `check ${i.level}`, type: 'button', onClick: () => ctx.goToStep(i.step) },
+            h('span', { class: 'check-icon' }, i.level === 'ok' ? '✓' : '!'),
+            h('span', { class: 'check-text' }, i.text),
+            h('span', { class: 'check-go', 'aria-hidden': 'true' }, '›'),
+          ),
+        ),
+      ),
+    ),
     h('button', { class: 'btn-primary btn-lg', type: 'button', disabled: blocking, onClick: ctx.download }, 'Télécharger mon CV (PDF)'),
     blocking && h('p', { class: 'hint' }, 'Complète les points marqués ! pour pouvoir télécharger.'),
   );

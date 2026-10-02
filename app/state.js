@@ -165,12 +165,13 @@ export function fromResume(resume) {
 export function checklist(state, doc) {
   const p = state.profile;
   const hasItems = (list) => list.some((i) => t(i.title));
+  // step : étape du formulaire où corriger le point.
   return [
-    { level: t(p.name) ? 'ok' : 'todo', text: 'Ton nom est renseigné' },
-    { level: t(p.title) ? 'ok' : 'todo', text: 'Ta profession ou ton domaine' },
-    { level: t(p.email) || p.phones.some(t) ? 'ok' : 'todo', text: 'Un moyen de te contacter (email ou téléphone)' },
-    { level: hasItems(state.education) ? 'ok' : 'todo', text: 'Au moins une formation' },
-    { level: t(p.summary) ? 'ok' : 'warn', text: 'Un profil professionnel (conseillé)' },
-    { level: !doc || doc.pages.length === 1 ? 'ok' : 'warn', text: 'Le CV tient sur une page (conseillé)' },
+    { level: t(p.name) ? 'ok' : 'todo', text: 'Ton nom est renseigné', step: 'identite' },
+    { level: t(p.title) ? 'ok' : 'todo', text: 'Ta profession ou ton domaine', step: 'identite' },
+    { level: t(p.email) || p.phones.some(t) ? 'ok' : 'todo', text: 'Un moyen de te contacter (email ou téléphone)', step: 'identite' },
+    { level: hasItems(state.education) ? 'ok' : 'todo', text: 'Au moins une formation', step: 'formation' },
+    { level: t(p.summary) ? 'ok' : 'warn', text: 'Un profil professionnel (conseillé)', step: 'profil' },
+    { level: !doc || doc.pages.length === 1 ? 'ok' : 'warn', text: 'Le CV tient sur une page (conseillé)', step: 'experience' },
   ];
 }

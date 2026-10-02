@@ -44,6 +44,13 @@ const ctx = {
   },
   changed: schedule,
   onAdd: null, // ajout d'un élément dans l'étape courante (Ctrl+Entrée), déclaré par l'étape
+  // Depuis la vérification : ouvre l'étape et place le curseur sur le premier champ vide.
+  goToStep(id) {
+    goTo(STEPS.findIndex((s) => s.id === id));
+    const empty = [...stepEl.querySelectorAll('.input')].find((el) => !el.value && !el.closest('[inert]'));
+    empty?.focus({ preventScroll: true });
+    empty?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  },
   doc: () => current?.doc,
   download,
   loadExample() {
@@ -67,6 +74,7 @@ $('theme').addEventListener('click', () => {
 });
 $('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded'));
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
+$('peek').addEventListener('click', () => setSheet('collapsed'));
 $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
