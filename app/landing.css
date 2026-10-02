@@ -294,3 +294,19 @@ h2 { font-size: clamp(1.8rem, 6vw, 3.2rem); line-height: 1.04; letter-spacing: -
   .reveal { opacity: 1; transform: none; filter: none; }
   html { scroll-behavior: auto; }
 }
+
+/* --- Autres produits ----------------------------------------------------------------- */
+.family { max-width: 1200px; margin: 0 auto; padding: 0 var(--gutter) 3rem; }
+.family-card {
+  display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.2rem; text-decoration: none;
+  border: 1px solid var(--line); border-radius: 16px; background: rgb(var(--surface));
+  transition: border-color 0.2s, transform 0.25s var(--ease);
+}
+.family-card:hover { border-color: rgb(var(--gray-400)); transform: translateY(-2px); }
+.family-mark { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); font-weight: 600; font-size: 1.1rem; }
+.family-text { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.family-text strong { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
+.family-text span { font-size: 0.88rem; line-height: 1.45; color: rgb(var(--gray-500)); }
+.family-go { flex: none; font-size: 1.1rem; color: rgb(var(--gray-500)); transition: transform 0.2s var(--ease); }
+.family-card:hover .family-go { transform: translate(2px, -2px); color: rgb(var(--gray-900)); }
+@media (max-width: 639px) { .foot .mono { font-size: 0.66rem; } }
