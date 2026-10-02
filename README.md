@@ -23,9 +23,18 @@ npm install
 npm test                                   # tests du DSL, du layout et du PDF
 npm run render examples/etudiant.json out  # PDF + PNG Skia dans out/
 npm run render examples/etudiant.json out -- --watermark
-npm run dev                                # éditeur (app/) : JSON + aperçu live + export PDF (Ctrl+S)
+npm run dev                                # éditeur étudiant (app/) : formulaire en 5 étapes + aperçu live + PDF
 npm run build                              # site statique dans dist/ (déployé par Vercel)
 ```
+
+## Éditeur (app/)
+
+Formulaire en 5 étapes (Profil, Expériences, Formation, Compétences, Vérification)
+avec aperçu Skia en direct. Aucun détail technique n'est montré à l'étudiant :
+`app/state.js` convertit le formulaire en DSL. Brouillon gardé dans le navigateur.
+
+Raccourcis : `Alt ←/→` changer d'étape, `Ctrl+Entrée` ajouter un élément,
+`Ctrl+S` aller au téléchargement.
 
 ## DSL
 

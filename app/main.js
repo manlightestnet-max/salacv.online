@@ -1,87 +1,150 @@
-// Démo navigateur : JSON -> aperçu Skia live -> export PDF.
+// Éditeur étudiant : formulaire en étapes -> aperçu Skia en direct -> PDF.
 import CanvasKitInit from 'canvaskit-wasm';
 import wasmUrl from 'canvaskit-wasm/bin/canvaskit.wasm?url';
 import { layoutResume, loadFontSet } from '../src/index.js';
 import { createSkiaRenderer } from '../src/render/skia.js';
 import example from '../examples/etudiant.json';
+import { h } from './dom.js';
+import { STEPS } from './steps.js';
+import { emptyState, fromResume, toResume, checklist } from './state.js';
 
 const fontUrls = import.meta.glob('../fonts/*.ttf', { query: '?url', import: 'default', eager: true });
 const fontUrl = (file) => fontUrls[`../fonts/${file}`];
 
 const $ = (id) => document.getElementById(id);
-const source = $('source');
-const status = $('status');
 const canvases = $('canvases');
-const exportBtn = $('export');
-const watermark = $('watermark');
+const stepEl = $('step');
 
 const WATERMARK = 'salacv.online · aperçu';
-const DRAFT_KEY = 'salacv:draft';
+const DRAFT_KEY = 'salacv:form';
 const THEME_KEY = 'salacv:theme';
+
+let state = readDraft() ?? emptyState();
+let stepIndex = 0;
+let current = null; // dernier layout valide
+let engine = null; // { CK, fonts, skia } une fois chargé
+let surfaces = [];
+
+const ctx = {
+  get state() {
+    return state;
+  },
+  changed: schedule,
+  rerender() {
+    renderStep();
+    schedule();
+  },
+  addItem,
+  doc: () => current?.doc,
+  download,
+  loadExample() {
+    state = fromResume(example);
+    ctx.rerender();
+  },
+};
+
+// Le formulaire est utilisable tout de suite ; l'aperçu arrive quand le moteur est chargé.
+renderStep();
+initEngine();
 
 $('theme').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   store(THEME_KEY, next);
 });
-
-const [CK, fonts] = await Promise.all([
-  CanvasKitInit({ locateFile: () => wasmUrl }),
-  loadFontSet((file) => fetch(fontUrl(file)).then((r) => r.arrayBuffer())),
-]);
-const skia = createSkiaRenderer(CK, fonts);
-
-let current = null; // dernier layout valide
-let surfaces = [];
-
-source.value = readDraft() ?? JSON.stringify(example, null, 2);
-render();
-
-let timer;
-source.addEventListener('input', () => {
-  clearTimeout(timer);
-  timer = setTimeout(render, 120);
-});
-watermark.addEventListener('change', render);
-exportBtn.addEventListener('click', exportPdf);
+$('download').addEventListener('click', () => goTo(STEPS.length - 1));
+$('prev').addEventListener('click', () => goTo(stepIndex - 1));
+$('next').addEventListener('click', () => goTo(stepIndex + 1));
 window.addEventListener('resize', () => current && paint(current.doc));
 
 document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 's') {
     e.preventDefault();
-    exportPdf();
-  }
-  // Tab insère une indentation au lieu de quitter l'éditeur.
-  if (e.key === 'Tab' && e.target === source) {
+    goTo(STEPS.length - 1);
+  } else if (mod && e.key === 'Enter') {
     e.preventDefault();
-    source.setRangeText('  ', source.selectionStart, source.selectionEnd, 'end');
-    source.dispatchEvent(new Event('input'));
+    addItem();
+  } else if (e.altKey && e.key === 'ArrowRight') {
+    e.preventDefault();
+    goTo(stepIndex + 1);
+  } else if (e.altKey && e.key === 'ArrowLeft') {
+    e.preventDefault();
+    goTo(stepIndex - 1);
   }
 });
 
-function render() {
-  let data;
-  try {
-    data = JSON.parse(source.value);
-  } catch (err) {
-    return setStatus(`JSON invalide : ${err.message}`, true);
-  }
-  const t0 = performance.now();
-  const result = layoutResume(data, fonts, { watermark: watermark.checked ? WATERMARK : undefined });
-  if (!result.ok) {
-    return setStatus(result.errors.map((e) => `${e.path || '(racine)'} : ${e.message}`).join('\n'), true);
-  }
+async function initEngine() {
+  const [CK, fonts] = await Promise.all([
+    CanvasKitInit({ locateFile: () => wasmUrl }),
+    loadFontSet((file) => fetch(fontUrl(file)).then((r) => r.arrayBuffer())),
+  ]);
+  engine = { CK, fonts, skia: createSkiaRenderer(CK, fonts) };
+  update();
+  if (STEPS[stepIndex].id === 'verification') renderStep();
+}
+
+function goTo(i) {
+  if (i < 0 || i >= STEPS.length || i === stepIndex) return;
+  stepIndex = i;
+  renderStep();
+  stepEl.scrollTop = 0;
+}
+
+function renderStep() {
+  const step = STEPS[stepIndex];
+  $('stepper').replaceChildren(
+    ...STEPS.map((s, i) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `step-pill${i === stepIndex ? ' active' : ''}${i < stepIndex ? ' done' : ''}`,
+          'aria-current': i === stepIndex ? 'step' : null,
+          onClick: () => goTo(i),
+        },
+        h('span', { class: 'step-num' }, i < stepIndex ? '✓' : String(i + 1)),
+        s.label,
+      ),
+    ),
+  );
+  stepEl.replaceChildren(h('div', { class: 'fade' }, step.render(ctx)));
+  $('progress').textContent = `${stepIndex + 1}/${STEPS.length} · ${step.label}`;
+  $('prev').style.visibility = stepIndex === 0 ? 'hidden' : 'visible';
+  $('next').style.display = stepIndex === STEPS.length - 1 ? 'none' : '';
+}
+
+// Ajoute un élément à la liste de l'étape courante et place le curseur dedans.
+function addItem() {
+  const step = STEPS[stepIndex];
+  if (!step.add) return;
+  step.add(state);
+  ctx.rerender();
+  const cards = stepEl.querySelectorAll('.card');
+  cards[cards.length - 1]?.querySelector('.input')?.focus();
+}
+
+let timer;
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(update, 80);
+}
+
+function update() {
+  store(DRAFT_KEY, JSON.stringify(state));
+  if (!engine) return;
+  const result = layoutResume(toResume(state, { placeholderName: 'Ton nom' }), engine.fonts, { watermark: WATERMARK });
+  if (!result.ok) return; // le formulaire limite déjà les saisies ; on garde le dernier aperçu valide
   current = result;
   paint(result.doc);
-  store(DRAFT_KEY, source.value);
-  setStatus(`OK · ${result.doc.pages.length} page(s) · layout + rendu en ${Math.round(performance.now() - t0)} ms`);
 }
 
 function paint(doc) {
+  const { CK, skia } = engine;
   const zoom = Math.min(1.25, (canvases.clientWidth - 48) / doc.width);
   const dpr = window.devicePixelRatio || 1;
   const w = Math.round(doc.width * zoom);
-  const h = Math.round(doc.height * zoom);
+  const hgt = Math.round(doc.height * zoom);
 
   // Recrée les surfaces seulement si le nombre de pages ou la taille change.
   if (surfaces.length !== doc.pages.length || surfaces[0]?.w !== w) {
@@ -90,14 +153,14 @@ function paint(doc) {
     surfaces = doc.pages.map(() => {
       const el = document.createElement('canvas');
       el.width = Math.round(w * dpr);
-      el.height = Math.round(h * dpr);
+      el.height = Math.round(hgt * dpr);
       el.style.width = `${w}px`;
-      el.style.height = `${h}px`;
+      el.style.height = `${hgt}px`;
       canvases.append(el);
       return { surface: CK.MakeCanvasSurface(el), w };
     });
   }
-  $('pages').textContent = `/ ${String(doc.pages.length).padStart(2, '0')}`;
+  $('pages').textContent = doc.pages.length > 1 ? `· ${doc.pages.length} pages` : '';
 
   doc.pages.forEach((_, i) => {
     const { surface } = surfaces[i];
@@ -106,26 +169,18 @@ function paint(doc) {
   });
 }
 
-async function exportPdf() {
-  if (!current) return;
-  exportBtn.disabled = true;
-  try {
-    const { doc, resume } = current;
-    const { renderPdf } = await import('../src/render/pdf.js');
-    const bytes = await renderPdf(doc, fonts, { title: `CV — ${resume.profile.name}`, author: resume.profile.name });
-    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: `CV-${slug(resume.profile.name)}.pdf` });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } finally {
-    exportBtn.disabled = false;
-  }
-}
-
-function setStatus(msg, error = false) {
-  status.textContent = msg;
-  status.classList.toggle('error', error);
-  status.classList.toggle('ok', !error);
+// Le PDF est généré sans filigrane depuis les mêmes données que l'aperçu.
+// TODO : passer par le paiement mobile money avant de débloquer le téléchargement.
+async function download() {
+  if (!engine || checklist(state, current?.doc).some((c) => c.level === 'todo')) return;
+  const result = layoutResume(toResume(state), engine.fonts);
+  if (!result.ok) return;
+  const { renderPdf } = await import('../src/render/pdf.js');
+  const name = result.resume.profile.name;
+  const bytes = await renderPdf(result.doc, engine.fonts, { title: `CV — ${name}`, author: name });
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  h('a', { href: url, download: `CV-${slug(name)}.pdf` }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function slug(s) {
@@ -134,7 +189,8 @@ function slug(s) {
 
 function readDraft() {
   try {
-    return localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? { ...emptyState(), ...JSON.parse(raw) } : null;
   } catch {
     return null;
   }

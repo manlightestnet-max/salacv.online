@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>salacv — éditeur de CV</title>
+  <title>salacv — crée ton CV</title>
   <script>
     // Thème appliqué avant le premier rendu pour éviter un flash clair.
     try { document.documentElement.dataset.theme = localStorage.getItem('salacv:theme') || 'dark'; } catch {}
@@ -14,20 +14,24 @@
 <body>
   <header class="topbar">
     <span class="logo"><span class="logo-mark">S</span>salacv</span>
+    <span id="progress" class="progress"></span>
     <div class="actions">
-      <label class="toggle"><input type="checkbox" id="watermark" checked> Filigrane aperçu</label>
-      <button id="theme" class="btn-ghost" aria-label="Changer de thème" title="Changer de thème">◐</button>
-      <button id="export" class="btn-primary">Exporter PDF <kbd>Ctrl S</kbd></button>
+      <button id="theme" class="btn-ghost icon" aria-label="Changer de thème" title="Changer de thème">◐</button>
+      <button id="download" class="btn-primary">Télécharger <kbd>Ctrl S</kbd></button>
     </div>
   </header>
   <main>
-    <section class="panel editor">
-      <div class="panel-head">DSL / JSON</div>
-      <textarea id="source" spellcheck="false"></textarea>
-      <div id="status" class="status">Chargement du moteur…</div>
+    <section class="panel form-panel">
+      <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
+      <div id="step" class="step-scroll"></div>
+      <footer class="step-nav">
+        <button id="prev" class="btn-text" type="button">Précédent</button>
+        <span class="shortcut-hint">Alt ← / Alt → pour changer d'étape</span>
+        <button id="next" class="btn-primary" type="button">Suivant</button>
+      </footer>
     </section>
     <section class="panel preview">
-      <div class="panel-head">APERÇU / SKIA <span id="pages"></span></div>
+      <div class="preview-head">Aperçu <span id="pages"></span></div>
       <div id="canvases"><div class="page-skeleton skeleton"></div></div>
     </section>
   </main>
