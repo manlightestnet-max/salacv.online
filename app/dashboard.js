@@ -49,6 +49,10 @@ function header(title, sub, action) {
 }
 
 // --- Mes CV ----------------------------------------------------------------------
+// Recherche sans accents ni majuscules : « jose » trouve « José ».
+const fold = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+let query = '';
+
 function projectsView() {
   const projects = listProjects();
   const newCard = h('a', { class: 'card new-card', href: '/studio/?new' }, h('span', { class: 'plus', 'aria-hidden': 'true' }, '+'), h('strong', {}, 'Nouveau CV'), h('small', {}, 'Commence de zéro'));
@@ -56,9 +60,11 @@ function projectsView() {
     const name = p.state.profile.name.trim() || 'CV sans nom';
     const tpl = TEMPLATES.find((t) => t.id === p.state.template)?.name ?? '';
     const menu = h('div', { class: 'card-menu' });
+    const st = p.state;
+    const haystack = fold([name, st.profile.title, st.profile.email, tpl, ...st.education.map((i) => `${i.title} ${i.org}`), ...st.experiences.map((i) => `${i.title} ${i.org}`), ...st.skills].join(' '));
     const card = h(
       'article',
-      { class: 'card project' },
+      { class: 'card project', 'data-search': haystack },
       h('a', { class: 'card-link', href: `/studio/?p=${p.id}`, 'aria-label': `Ouvrir ${name}` }, h('div', { class: 'paper-wrap' }, thumb(toResume(p.state, { mockup: example }), 148))),
       h(
         'div',
@@ -97,9 +103,47 @@ function projectsView() {
     'section',
     {},
     header('Mes CV', projects.length ? `${projects.length} CV enregistré${projects.length > 1 ? 's' : ''} sur cet appareil` : 'Tes CV apparaîtront ici.', h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new' }, 'Nouveau CV')),
+    projects.length > 0 && searchBox(),
     h('div', { class: 'cards' }, newCard, cards),
+    h('p', { class: 'no-result', hidden: true }, 'Aucun CV ne correspond à ta recherche.'),
   );
 }
+
+// Filtre les cartes sur place (pas de nouveau rendu : le champ garde le focus).
+function filterCards() {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  let shown = 0;
+  document.querySelectorAll('.card.project').forEach((card) => {
+    const ok = words.every((w) => card.dataset.search.includes(w));
+    card.hidden = !ok;
+    shown += ok;
+  });
+  document.querySelector('.new-card')?.toggleAttribute('hidden', Boolean(words.length));
+  const empty = document.querySelector('.no-result');
+  if (empty) empty.hidden = !words.length || shown > 0;
+}
+
+function searchBox() {
+  const input = h('input', {
+    type: 'search',
+    class: 'search-input',
+    placeholder: 'Rechercher un CV : nom, poste, école…',
+    'aria-label': 'Rechercher dans mes CV',
+    enterkeyhint: 'search',
+    value: query,
+    onInput: (e) => ((query = e.target.value), filterCards()),
+    onKeydown: (e) => e.key === 'Escape' && ((query = e.target.value = ''), filterCards()),
+  });
+  requestAnimationFrame(filterCards);
+  return h('label', { class: 'search' }, h('span', { class: 'search-icon', 'aria-hidden': 'true' }), input, h('kbd', { class: 'search-key hide-mobile' }, '/'));
+}
+
+// « / » : aller à la recherche, comme sur les grands sites.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.target.closest?.('input, textarea')) return;
+  const input = document.querySelector('.search-input');
+  if (input) (e.preventDefault(), input.focus());
+});
 
 function toggleMenu(button, menu) {
   const open = !menu.classList.contains('open');

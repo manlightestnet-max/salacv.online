@@ -160,3 +160,20 @@ a { color: inherit; }
 }
 @media (max-width: 719px) { .hide-mobile { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Recherche dans mes CV */
+.search {
+  display: flex; align-items: center; gap: 0.6rem; height: 44px; margin-bottom: 1rem; padding: 0 0.85rem;
+  border: 1px solid var(--line); border-radius: 12px; background: rgb(var(--surface));
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search:focus-within { border-color: rgb(var(--gray-400)); box-shadow: 0 0 0 4px rgb(var(--gray-900) / 0.06); }
+.search-icon { position: relative; flex: none; width: 13px; height: 13px; border: 1.6px solid rgb(var(--gray-400)); border-radius: 50%; margin-top: -2px; }
+.search-icon::after { content: ''; position: absolute; right: -5px; bottom: -4px; width: 6px; height: 1.6px; background: rgb(var(--gray-400)); transform: rotate(45deg); }
+.search-input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: none; font: 0.92rem var(--font-sans); color: rgb(var(--gray-900)); }
+.search-input::placeholder { color: rgb(var(--gray-400)); }
+.search-input::-webkit-search-cancel-button { cursor: pointer; }
+.search-key { padding: 0.05rem 0.4rem; border: 1px solid var(--line); border-radius: 5px; font: 0.72rem var(--font-mono); color: rgb(var(--gray-500)); }
+.card[hidden] { display: none; }
+.no-result { padding: 2rem 0; text-align: center; font-size: 0.9rem; color: rgb(var(--gray-500)); }
+.no-result[hidden] { display: none; }
