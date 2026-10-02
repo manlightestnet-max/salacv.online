@@ -17,6 +17,9 @@ export function layoutResume(input, fonts, options = {}) {
   const template = templates[resume.template];
   const kit = createKit(fonts);
   const doc = paginate(template.build(resume, kit, size), { ...size, margin: template.margin });
+  doc.images = images(resume);
+  // Décor dessiné après la pagination (bandeau, colonne latérale…), sous le contenu.
+  template.decorate?.(doc, resume, kit);
 
   const total = doc.pages.length;
   doc.pages.forEach((ops, i) => {
@@ -29,6 +32,14 @@ export function layoutResume(input, fonts, options = {}) {
   });
 
   return { ok: true, resume, doc };
+}
+
+// Images référencées par les ops `image` : { clé: { bytes, type } }.
+function images(resume) {
+  const out = {};
+  const m = resume.profile.photo?.match(/^data:image\/(jpeg|png);base64,(.+)$/);
+  if (m) out.photo = { type: m[1], bytes: Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0)) };
+  return out;
 }
 
 function addWatermark(ops, kit, size, text, color) {

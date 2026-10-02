@@ -24,6 +24,18 @@ export function createSkiaRenderer(CK, fonts) {
     return f;
   }
 
+  // Images décodées une fois par contenu (la photo ne change pas à chaque frappe).
+  const imageCache = new WeakMap();
+  function image(entry) {
+    if (!entry) return null;
+    let img = imageCache.get(entry.bytes);
+    if (img === undefined) {
+      img = CK.MakeImageFromEncoded(entry.bytes);
+      imageCache.set(entry.bytes, img);
+    }
+    return img;
+  }
+
   const paint = new CK.Paint();
   paint.setAntiAlias(true);
 
@@ -78,6 +90,24 @@ export function createSkiaRenderer(CK, fonts) {
           setColor(op.fill);
           canvas.drawCircle(op.cx, op.cy, op.r, paint);
           break;
+        case 'image': {
+          const img = image(doc.images?.[op.src]);
+          if (!img) break;
+          canvas.save();
+          canvas.clipRRect(CK.RRectXY(CK.XYWHRect(op.x, op.y, op.w, op.h), op.r ?? 0, op.r ?? 0), CK.ClipOp.Intersect, true);
+          setColor('#FFFFFF');
+          paint.setStyle(CK.PaintStyle.Fill);
+          canvas.drawImageRectOptions(
+            img,
+            CK.XYWHRect(0, 0, img.width(), img.height()),
+            CK.XYWHRect(op.x, op.y, op.w, op.h),
+            CK.FilterMode.Linear,
+            CK.MipmapMode.Linear,
+            paint,
+          );
+          canvas.restore();
+          break;
+        }
       }
     }
     canvas.restore();

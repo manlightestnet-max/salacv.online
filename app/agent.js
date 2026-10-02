@@ -2,6 +2,7 @@
 // reçoit le CV du formulaire, le modifie et le renvoie ; le formulaire et l'aperçu
 // se mettent à jour, l'étudiant peut tout corriger à la main ensuite.
 import { h } from './dom.js';
+import { markdown } from './markdown.js';
 
 const SESSION_KEY = 'salacv:session';
 const CHAT_KEY = 'salacv:chat';
@@ -72,7 +73,7 @@ export function createAgentPanel(ctx) {
       'div',
       { class: 'agent-head' },
       h('button', { class: 'btn-text agent-back', type: 'button', onClick: ctx.onClose }, '‹ Formulaire'),
-      h('div', { class: 'agent-head-title' }, h('strong', {}, 'Assistant'), subtitle && h('span', {}, subtitle)),
+      h('div', { class: 'agent-head-title' }, subtitle && h('span', {}, subtitle)),
       action,
     );
   }
@@ -115,16 +116,18 @@ export function createAgentPanel(ctx) {
       submit,
     );
     requestAnimationFrame(() => username.focus());
-    return h('div', { class: 'agent-inner' }, header(), h('div', { class: 'agent-scroll' }, form));
+    return h('div', { class: 'agent-inner' }, header('Connexion'), h('div', { class: 'agent-scroll' }, form));
   }
 
   // --- Discussion -----------------------------------------------------------
 
   function bubble(msg) {
-    const node = h('div', { class: `msg msg-${msg.role}${msg.error ? ' msg-error' : ''}` }, h('p', {}, msg.text));
+    // Réponses de l'agent en markdown ; messages de l'étudiant en texte brut.
+    const body = msg.role === 'assistant' && !msg.error ? markdown(msg.text) : [h('p', {}, msg.text)];
+    const node = h('div', { class: `msg msg-${msg.role}${msg.error ? ' msg-error' : ''}` }, body);
     if (msg.changes?.length) {
       node.append(
-        h('div', { class: 'msg-changes' }, h('span', {}, 'Modifié :'), msg.changes.map((c) => h('span', { class: 'msg-chip' }, CHANGE_LABELS[c] ?? c))),
+        h('div', { class: 'msg-changes' }, h('span', { 'aria-hidden': 'true' }, '✓'), h('span', {}, `Mis à jour : ${msg.changes.map((c) => CHANGE_LABELS[c] ?? c).join(', ')}`)),
       );
     }
     return node;
@@ -135,10 +138,10 @@ export function createAgentPanel(ctx) {
     const input = h('textarea', {
       class: 'input agent-input',
       rows: 2,
-      placeholder: 'Écris tes infos en vrac, ou une modification : « ajoute Excel à mes compétences »',
+      placeholder: 'Tes infos, ou « ajoute Excel »…',
       'aria-label': "Message pour l'assistant",
     });
-    const send = h('button', { class: 'btn-primary', type: 'submit', 'aria-label': 'Envoyer' }, 'Envoyer');
+    const send = h('button', { class: 'btn-primary agent-send', type: 'submit', 'aria-label': 'Envoyer', title: 'Envoyer (Entrée)' }, '↑');
 
     const intro = {
       role: 'assistant',

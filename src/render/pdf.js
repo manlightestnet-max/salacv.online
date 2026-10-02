@@ -1,6 +1,18 @@
 // Renderer PDF vectoriel (pdf-lib) : rejoue la même display list que Skia.
 // Le texte reste du vrai texte (sélectionnable, lisible par les ATS).
-import { PDFDocument, rgb, degrees } from 'pdf-lib';
+import {
+  PDFDocument,
+  rgb,
+  degrees,
+  pushGraphicsState,
+  popGraphicsState,
+  moveTo,
+  lineTo,
+  appendBezierCurve,
+  closePath,
+  clip,
+  endPath,
+} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { NO_SHAPING } from '../fonts.js';
 
@@ -21,6 +33,26 @@ function roundedRectPath({ x, y, w, h, r = 0 }) {
   );
 }
 
+// Chemin de découpe d'un rectangle arrondi, en coordonnées PDF (y vers le haut).
+function clipRoundedRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  const k = r * 0.5523; // approximation d'un quart de cercle par une courbe de Bézier
+  return [
+    moveTo(x + r, y),
+    lineTo(x + w - r, y),
+    appendBezierCurve(x + w - r + k, y, x + w, y + r - k, x + w, y + r),
+    lineTo(x + w, y + h - r),
+    appendBezierCurve(x + w, y + h - r + k, x + w - r + k, y + h, x + w - r, y + h),
+    lineTo(x + r, y + h),
+    appendBezierCurve(x + r - k, y + h, x, y + h - r + k, x, y + h - r),
+    lineTo(x, y + r),
+    appendBezierCurve(x, y + r - k, x + r - k, y, x + r, y),
+    closePath(),
+    clip(),
+    endPath(),
+  ];
+}
+
 export async function renderPdf(doc, fonts, meta = {}) {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
@@ -33,6 +65,14 @@ export async function renderPdf(doc, fonts, meta = {}) {
   async function font(key) {
     embedded[key] ??= await pdf.embedFont(fonts.bytes[key], { subset: true, features: NO_SHAPING });
     return embedded[key];
+  }
+
+  const embeddedImages = {};
+  async function pdfImage(key) {
+    const entry = doc.images?.[key];
+    if (!entry) return null;
+    embeddedImages[key] ??= await (entry.type === 'png' ? pdf.embedPng(entry.bytes) : pdf.embedJpg(entry.bytes));
+    return embeddedImages[key];
   }
 
   for (const ops of doc.pages) {
@@ -74,6 +114,15 @@ export async function renderPdf(doc, fonts, meta = {}) {
         case 'circle':
           page.drawCircle({ x: op.cx, y: H - op.cy, size: op.r, color: color(op.fill) });
           break;
+        case 'image': {
+          const img = await pdfImage(op.src);
+          if (!img) break;
+          const y = H - op.y - op.h;
+          page.pushOperators(pushGraphicsState(), ...clipRoundedRect(op.x, y, op.w, op.h, op.r ?? 0));
+          page.drawImage(img, { x: op.x, y, width: op.w, height: op.h });
+          page.pushOperators(popGraphicsState());
+          break;
+        }
       }
     }
   }

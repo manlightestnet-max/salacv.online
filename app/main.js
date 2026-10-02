@@ -10,7 +10,7 @@ import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
 import { createAgentPanel } from './agent.js';
-import { emptyState, normalizeState, fromResume, toResume, checklist, hasGhost } from './state.js';
+import { emptyState, normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 
 const fontUrls = import.meta.glob('../fonts/*.ttf', { query: '?url', import: 'default', eager: true });
 const fontUrl = (file) => fontUrls[`../fonts/${file}`];
@@ -56,7 +56,7 @@ const ctx = {
   download,
   loadExample() {
     // Seul cas où tout le formulaire change : on reconstruit l'étape.
-    state = fromResume(example);
+    state = { ...fromResume(example), template: state.template };
     renderStep();
     schedule();
   },
@@ -241,9 +241,14 @@ let agentPanel = null;
 // celui du formulaire (aperçu mis à jour), l'étudiant peut ensuite tout corriger.
 function openAgent() {
   agentPanel ??= createAgentPanel({
-    getState: () => state,
+    // La photo reste dans le navigateur (jamais envoyée à l'agent) ; le modèle choisi aussi.
+    getState: () => ({ ...state, template: undefined, profile: { ...state.profile, photo: undefined } }),
     setState: (next) => {
+      const { photo } = state.profile;
+      const { template } = state;
       state = normalizeState(next);
+      state.profile.photo = photo;
+      state.template = template;
       schedule();
     },
     onClose: closeAgent,
@@ -330,6 +335,55 @@ function update() {
   current = result;
   $('ghost-note').hidden = !hasGhost(result.resume);
   paint(result.doc);
+  paintThumbs();
+}
+
+// --- Choix du modèle ------------------------------------------------------------
+// Une carte par modèle, avec une miniature du CV de l'étudiant dans ce modèle.
+
+const THUMB = { w: 42, h: 59 };
+const thumbs = TEMPLATES.map((t) => {
+  const canvas = h('canvas', { class: 'tpl-thumb', 'aria-hidden': 'true' });
+  const card = h(
+    'button',
+    {
+      type: 'button',
+      class: 'tpl-card',
+      'aria-pressed': String(state.template === t.id),
+      onClick: () => {
+        state.template = t.id;
+        thumbs.forEach((x) => x.card.setAttribute('aria-pressed', String(x.id === t.id)));
+        schedule();
+      },
+    },
+    canvas,
+    h('span', {}, t.name),
+  );
+  return { id: t.id, canvas, card, surface: null };
+});
+$('templates').replaceChildren(...thumbs.map((t) => t.card));
+
+let thumbTimer;
+function paintThumbs() {
+  clearTimeout(thumbTimer);
+  // Après l'aperçu principal, quand la saisie se calme : les miniatures ne ralentissent pas la frappe.
+  thumbTimer = setTimeout(() => {
+    thumbs.forEach((x) => x.card.setAttribute('aria-pressed', String(x.id === state.template)));
+    const dpr = window.devicePixelRatio || 1;
+    const base = toResume(state, { mockup: example });
+    for (const t of thumbs) {
+      const result = layoutResume({ ...base, template: t.id }, engine.fonts);
+      if (!result.ok) continue;
+      const scale = (THUMB.w / result.doc.width) * dpr;
+      if (!t.surface) {
+        t.canvas.width = Math.round(THUMB.w * dpr);
+        t.canvas.height = Math.round(THUMB.h * dpr);
+        t.surface = engine.CK.MakeSWCanvasSurface(t.canvas);
+      }
+      engine.skia.drawPage(t.surface.getCanvas(), result.doc, 0, scale);
+      t.surface.flush();
+    }
+  }, 250);
 }
 
 let frame = 0;

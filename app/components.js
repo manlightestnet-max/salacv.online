@@ -212,3 +212,69 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
   const el = h('div', { class: 'accordion-wrap' }, wrap, h('button', { class: 'btn-add', type: 'button', onClick: add }, `+ ${addLabel}`, h('kbd', {}, 'Ctrl ↵')));
   return { el, add };
 }
+
+// Photo d'identité : recadrée au centre en carré, réduite à 360 px et compressée en
+// JPEG dans le navigateur (~30-60 Ko), gardée dans le brouillon en data URL.
+const PHOTO_SIZE = 360;
+
+async function squareJpeg(file) {
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = PHOTO_SIZE;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
+  bitmap.close?.();
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+export function photoInput({ profile, onChange }) {
+  const id = `p${++uid}`;
+  const img = h('img', { class: 'photo-img', alt: '' });
+  const empty = h('span', { class: 'photo-empty', 'aria-hidden': 'true' }, '＋');
+  const file = h('input', { id, type: 'file', accept: 'image/*', class: 'visually-hidden' });
+  const pick = h('label', { class: 'btn-ghost', for: id });
+  const remove = h('button', { class: 'btn-text', type: 'button' }, 'Retirer');
+  const error = h('p', { class: 'hint photo-error', hidden: true });
+
+  function sync() {
+    const has = Boolean(profile.photo);
+    img.hidden = !has;
+    empty.hidden = has;
+    if (has) img.src = profile.photo;
+    pick.textContent = has ? 'Changer' : 'Ajouter une photo';
+    remove.hidden = !has;
+  }
+
+  file.addEventListener('change', async () => {
+    const f = file.files?.[0];
+    file.value = '';
+    if (!f) return;
+    error.hidden = true;
+    try {
+      profile.photo = await squareJpeg(f);
+    } catch {
+      error.textContent = "Cette image n'a pas pu être lue. Essaie une photo JPEG ou PNG.";
+      error.hidden = false;
+      return;
+    }
+    sync();
+    onChange();
+  });
+  remove.addEventListener('click', () => {
+    profile.photo = '';
+    sync();
+    onChange();
+  });
+
+  sync();
+  return h(
+    'div',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, 'Photo (facultatif)'),
+    h('div', { class: 'photo-row' }, h('label', { class: 'photo-frame', for: id }, img, empty), h('div', { class: 'photo-actions' }, pick, remove, file)),
+    h('p', { class: 'hint' }, 'Visible avec les modèles qui ont une photo (Bandeau). Photo de face, fond clair.'),
+    error,
+  );
+}

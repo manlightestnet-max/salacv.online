@@ -3,7 +3,7 @@
 // composants (components.js) sans reconstruire l'étape. `ctx.changed()` met
 // l'aperçu à jour ; une étape à liste déclare `ctx.onAdd` pour Ctrl+Entrée.
 import { h, field } from './dom.js';
-import { itemsInput, choicePills, accordion } from './components.js';
+import { itemsInput, choicePills, accordion, photoInput } from './components.js';
 import { emptyItem, emptyLanguage, LEVELS, checklist } from './state.js';
 
 export const STEPS = [
@@ -47,6 +47,7 @@ function identity(ctx) {
     'div',
     { class: 'step' },
     head('Identité et contacts', 'Ce qui apparaît en haut de ton CV.'),
+    photoInput({ profile: p, onChange: ctx.changed }),
     f('Nom complet', 'name', { placeholder: 'Grâce Mbuyi Kalala', autocomplete: 'name' }),
     f('Profession ou domaine', 'title', { placeholder: 'Technicienne en réseaux et télécommunications' }),
     f('Email', 'email', { placeholder: 'grace.mbuyi@gmail.com', type: 'email', autocomplete: 'email' }),

@@ -32,7 +32,7 @@ const section = z.discriminatedUnion('type', [
 
 export const resumeSchema = z.object({
   version: z.literal(1).default(1),
-  template: z.enum(['minimal']).default('minimal'),
+  template: z.enum(['minimal', 'bandeau']).default('minimal'),
   theme: z.object({ accent: hex.optional() }).default({}),
   profile: z.object({
     name: str(80).min(1, 'Le nom est obligatoire'),
@@ -42,6 +42,12 @@ export const resumeSchema = z.object({
     phones: z.array(str(40)).max(3).default([]),
     address: str(160).optional(),
     links: z.array(link).max(5).default([]),
+    // Photo d'identité recadrée côté client (carré JPEG/PNG en data URL, ~40 Ko).
+    photo: z
+      .string()
+      .regex(/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/, 'Photo : image JPEG ou PNG attendue')
+      .max(700_000, 'Photo trop lourde')
+      .optional(),
     // Profil professionnel : affiché en première section. Un paragraphe par ligne.
     summary: str(1200).optional(),
     // Champs d'en-tête venant de l'exemple (affichés en grisé, voir `ghost` plus haut).

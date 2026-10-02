@@ -8,6 +8,7 @@
 //   { t: 'rect',   x, y, w, h, r?, fill?, stroke?, lw? }
 //   { t: 'line',   x1, y1, x2, y2, color, lw }
 //   { t: 'circle', cx, cy, r, fill }
+//   { t: 'image',  x, y, w, h, r?, src }   src = clé dans doc.images, r = rayon des coins (w/2 : rond)
 
 export const PAGE_SIZES = { A4: { width: 595.28, height: 841.89 } };
 
@@ -118,12 +119,13 @@ export function block(ops, height, { keepWithNext = false, gapAfter = 0 } = {}) 
   return { ops, height, keepWithNext, gapAfter };
 }
 
-// Place les blocs sur des pages successives.
+// Place les blocs sur des pages successives. margin.firstTop : haut de la 1re page
+// (sous un bandeau d'en-tête, par exemple).
 export function paginate(blocks, { width, height, margin }) {
   const pages = [[]];
   const top = margin.top;
   const bottom = height - margin.bottom;
-  let y = top;
+  let y = margin.firstTop ?? top;
 
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];

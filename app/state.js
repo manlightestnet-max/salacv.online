@@ -20,9 +20,16 @@ export function emptyLanguage() {
   return { name: '', level: '' };
 }
 
+export const TEMPLATES = [
+  { id: 'minimal', name: 'Minimal' },
+  { id: 'bandeau', name: 'Bandeau' },
+];
+const PHOTO = /^data:image\/(jpeg|png);base64,/;
+
 export function emptyState() {
   return {
-    profile: { name: '', title: '', email: '', phones: [], address: '', link: '', summary: '' },
+    template: 'minimal',
+    profile: { name: '', title: '', email: '', phones: [], address: '', link: '', summary: '', photo: '' },
     education: [emptyItem()],
     experiences: [emptyItem()],
     skills: [],
@@ -42,6 +49,8 @@ export function normalizeState(raw) {
   if (!raw || typeof raw !== 'object') return s;
   Object.assign(s.profile, raw.profile ?? {});
   s.profile.phones = list(s.profile.phones);
+  if (!PHOTO.test(s.profile.photo ?? '')) s.profile.photo = '';
+  if (TEMPLATES.some((t) => t.id === raw.template)) s.template = raw.template;
   for (const key of ['education', 'experiences', 'languages']) if (Array.isArray(raw[key])) s[key] = raw[key];
   s.skills = list(raw.skills);
   s.hobbies = list(raw.hobbies);
@@ -110,6 +119,7 @@ export function toResume(state, { mockup } = {}) {
     address: t(p.address),
     links: t(p.link) ? [{ label: t(p.link) }] : [],
     summary: lines(p.summary).join('\n'),
+    photo: PHOTO.test(p.photo ?? '') ? p.photo : '',
   });
 
   if (mockup) {
@@ -128,7 +138,8 @@ export function toResume(state, { mockup } = {}) {
     profile.ghost = ghost;
   }
 
-  return { version: 1, template: 'minimal', profile, sections };
+  const template = TEMPLATES.some((t) => t.id === state.template) ? state.template : 'minimal';
+  return { version: 1, template, profile, sections };
 }
 
 // Vrai si l'aperçu montre encore des parties de l'exemple.
@@ -148,7 +159,9 @@ export function fromResume(resume) {
     address: p.address ?? '',
     link: p.links?.[0]?.label ?? '',
     summary: p.summary ?? '',
+    photo: p.photo ?? '',
   });
+  if (TEMPLATES.some((t) => t.id === resume.template)) s.template = resume.template;
   const byTitle = (title) => (resume.sections ?? []).find((x) => x.title === title);
   const toItems = (sec) => sec?.items.map((i) => ({ period: i.period ?? '', title: i.title ?? '', org: i.org ?? '', details: (i.bullets ?? []).join('\n') }));
 
