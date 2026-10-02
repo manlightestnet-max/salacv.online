@@ -993,3 +993,14 @@ html[data-theme] {
   --emerald-500: var(--gray-700);
   --emerald-700: var(--gray-900);
 }
+
+/* Langues dans la barre du zoom. Mobile : le pincement remplace − / +, place aux langues. */
+.topbar .ghost-note { border-left: 0; padding: 0 0.5rem; }
+.zoombar { max-width: calc(100vw - 20px); }
+.zoombar .lang-tab { height: 30px; padding: 0 0.5rem; }
+@media (max-width: 959px) {
+  #zoom-out, #zoom-in { display: none; }
+  .zoombar .lang-name { display: none; }
+}
+@media (min-width: 960px) { .zoombar { max-width: calc(100vw - var(--side-space) - 32px); } }
+.topbar:has(.ghost-note[hidden]) { display: none; }

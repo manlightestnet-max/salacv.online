@@ -17,10 +17,8 @@
   <div id="preview" class="preview">
     <div id="canvases"><div class="page-skeleton skeleton"></div></div>
   </div>
-  <!-- En haut : les versions du CV par langue, comme les feuilles d'Excel. -->
-  <div class="topbar" role="toolbar" aria-label="Langues du CV">
-    <div id="lang-tabs" class="lang-tabs" role="tablist" aria-label="Versions du CV"></div>
-    <button id="lang-add" class="zoom-btn lang-add" type="button" aria-label="Ajouter une langue" title="Ajouter une langue">+</button>
+  <!-- En haut : l'aide et les messages. -->
+  <div class="topbar">
     <span id="ghost-note" class="ghost-note" hidden>Touche le CV pour modifier · en gris : exemple</span>
   </div>
   <div class="zoombar" role="toolbar" aria-label="Zoom">
@@ -30,6 +28,10 @@
     <button id="zoom-fit" class="zoom-btn zoom-fit" type="button" title="Ajuster à la largeur (Ctrl 0)">Ajuster</button>
     <span class="zoom-sep" aria-hidden="true"></span>
     <button id="final-view" class="zoom-btn final-btn" type="button" aria-pressed="false" title="Voir ton CV tel qu'il sera, sans le texte d'exemple en gris">Rendu final</button>
+    <span class="zoom-sep" aria-hidden="true"></span>
+    <!-- Versions du CV par langue, comme les feuilles d'Excel. -->
+    <div id="lang-tabs" class="lang-tabs" role="tablist" aria-label="Versions du CV"></div>
+    <button id="lang-add" class="zoom-btn lang-add" type="button" aria-label="Ajouter une langue" title="Ajouter une langue">+</button>
   </div>
 
   <!-- PC : panneau masqué, ce bouton le fait revenir. -->
