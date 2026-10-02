@@ -10,7 +10,8 @@ import { h, field } from './dom.js';
 import { openDialog } from './dialog.js';
 import { itemsInput, choicePills, photoInput } from './components.js';
 import { periodField } from './period.js';
-import { emptyItem, emptyLanguage, fromResume, LEVELS, SECTION_TITLES } from './state.js';
+import { emptyItem, emptyLanguage, fromResume, LEVELS, sectionTitle } from './state.js';
+import { label } from '../src/i18n/index.js';
 
 const norm = (s) =>
   String(s ?? '')
@@ -103,13 +104,15 @@ function candidates(state, ghost) {
     add(l.name, { kind: 'language', index });
   });
   // Intitulés de sections : on ouvre la liste correspondante.
-  add(SECTION_TITLES.education, { kind: 'section', list: 'education' });
-  add(SECTION_TITLES.experiences, { kind: 'section', list: 'experiences' });
-  add(SECTION_TITLES.skills, { kind: 'skills' });
-  add(SECTION_TITLES.languages, { kind: 'language', index: 0 });
-  add(SECTION_TITLES.hobbies, { kind: 'hobbies' });
-  add('Profil professionnel', { kind: 'summary' });
-  add('Profil', { kind: 'summary' });
+  // Titres dans la langue du CV (tableau i18n/cv.csv).
+  const T = (key) => sectionTitle(state.lang, key);
+  add(T('education'), { kind: 'section', list: 'education' });
+  add(T('experiences'), { kind: 'section', list: 'experiences' });
+  add(T('skills'), { kind: 'skills' });
+  add(T('languages'), { kind: 'language', index: 0 });
+  add(T('hobbies'), { kind: 'hobbies' });
+  add(label(state.lang, 'label.profilePro'), { kind: 'summary' });
+  add(label(state.lang, 'label.profile'), { kind: 'summary' });
   return out;
 }
 

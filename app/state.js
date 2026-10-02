@@ -1,6 +1,7 @@
 // Modèle du formulaire étudiant et conversion vers le DSL du moteur.
 // Format CV congolais : identité + contacts, profil professionnel, formation &
 // certifications, expérience professionnelle, compétences, langues, loisirs.
+import { DEFAULT_LANG, LANGS, label } from '../src/i18n/index.js';
 
 export const LEVELS = ['Natif', 'Courant', 'Professionnel', 'Intermédiaire', 'Notions'];
 
@@ -11,6 +12,12 @@ export const SECTION_TITLES = {
   languages: 'Langues',
   hobbies: 'Loisirs',
 };
+const SECTION_KEYS = Object.keys(SECTION_TITLES);
+
+// Titres des sections dans la langue du CV (tableau i18n/cv.csv).
+export const sectionTitle = (lang, key) => label(lang, `section.${key}`);
+// Niveau de langue : saisi en français (pastilles), affiché dans la langue du CV.
+const levelIn = (lang, level) => (LEVELS.includes(level) ? label(lang, `level.${level}`) : level);
 
 export function emptyItem() {
   return { period: '', title: '', org: '', details: '' };
@@ -33,6 +40,7 @@ const PHOTO = /^data:image\/(jpeg|png);base64,/;
 
 export function emptyState() {
   return {
+    lang: DEFAULT_LANG,
     template: 'minimal',
     profile: { name: '', title: '', email: '', phones: [], address: '', link: '', summary: '', photo: '' },
     education: [emptyItem()],
@@ -56,6 +64,7 @@ export function normalizeState(raw) {
   s.profile.phones = list(s.profile.phones);
   if (!PHOTO.test(s.profile.photo ?? '')) s.profile.photo = '';
   if (TEMPLATES.some((t) => t.id === raw.template)) s.template = raw.template;
+  if (LANGS.includes(raw.lang)) s.lang = raw.lang;
   for (const key of ['education', 'experiences', 'languages']) if (Array.isArray(raw[key])) s[key] = raw[key];
   s.skills = list(raw.skills);
   s.hobbies = list(raw.hobbies);
@@ -95,26 +104,33 @@ function timeline(list) {
 export function toResume(state, { mockup } = {}) {
   const p = state.profile;
   const sections = [];
-  const mock = (title) => mockup?.sections?.find((x) => x.title === title);
+  const lang = state.lang ?? DEFAULT_LANG;
+  const T = Object.fromEntries(SECTION_KEYS.map((k) => [k, sectionTitle(lang, k)]));
+  // Exemple (en français) : on le reconnaît par son titre français, on l'affiche sous le titre de la langue.
+  const mock = (title) => {
+    const key = SECTION_KEYS.find((k) => T[k] === title);
+    const m = mockup?.sections?.find((x) => x.title === SECTION_TITLES[key]);
+    return m && { ...m, title };
+  };
   const push = (section, title) => {
     if (section) sections.push(section);
     else if (mock(title)) sections.push({ ...mock(title), ghost: true });
   };
 
   const edu = timeline(state.education);
-  push(edu.length && { type: 'timeline', title: SECTION_TITLES.education, items: edu }, SECTION_TITLES.education);
+  push(edu.length && { type: 'timeline', title: T.education, items: edu }, T.education);
 
   const exp = timeline(state.experiences);
-  push(exp.length && { type: 'timeline', title: SECTION_TITLES.experiences, items: exp }, SECTION_TITLES.experiences);
+  push(exp.length && { type: 'timeline', title: T.experiences, items: exp }, T.experiences);
 
   const skills = list(state.skills);
-  push(skills.length && { type: 'bullets', title: SECTION_TITLES.skills, items: skills }, SECTION_TITLES.skills);
+  push(skills.length && { type: 'bullets', title: T.skills, items: skills }, T.skills);
 
-  const langs = state.languages.filter((l) => t(l.name)).map((l) => compact({ name: t(l.name), level: t(l.level) }));
-  push(langs.length && { type: 'list', title: SECTION_TITLES.languages, items: langs }, SECTION_TITLES.languages);
+  const langs = state.languages.filter((l) => t(l.name)).map((l) => compact({ name: t(l.name), level: levelIn(lang, t(l.level)) }));
+  push(langs.length && { type: 'list', title: T.languages, items: langs }, T.languages);
 
   const hobbies = list(state.hobbies);
-  push(hobbies.length && { type: 'bullets', title: SECTION_TITLES.hobbies, items: hobbies }, SECTION_TITLES.hobbies);
+  push(hobbies.length && { type: 'bullets', title: T.hobbies, items: hobbies }, T.hobbies);
 
   const profile = compact({
     name: t(p.name),
@@ -144,7 +160,7 @@ export function toResume(state, { mockup } = {}) {
   }
 
   const template = TEMPLATES.some((t) => t.id === state.template) ? state.template : 'minimal';
-  return { version: 1, template, profile, sections };
+  return { version: 1, template, lang, profile, sections };
 }
 
 // Vrai si l'aperçu montre encore des parties de l'exemple.
@@ -167,14 +183,22 @@ export function fromResume(resume) {
     photo: p.photo ?? '',
   });
   if (TEMPLATES.some((t) => t.id === resume.template)) s.template = resume.template;
-  const byTitle = (title) => (resume.sections ?? []).find((x) => x.title === title);
+  if (LANGS.includes(resume.lang)) s.lang = resume.lang;
+  // Section reconnue par son titre dans n'importe quelle langue du tableau.
+  const byTitle = (title) => {
+    const key = SECTION_KEYS.find((k) => SECTION_TITLES[k] === title);
+    const titles = new Set(LANGS.map((l) => sectionTitle(l, key)));
+    return (resume.sections ?? []).find((x) => titles.has(x.title));
+  };
   const toItems = (sec) => sec?.items.map((i) => ({ period: i.period ?? '', title: i.title ?? '', org: i.org ?? '', details: (i.bullets ?? []).join('\n') }));
 
   s.education = toItems(byTitle(SECTION_TITLES.education)) ?? s.education;
   s.experiences = toItems(byTitle(SECTION_TITLES.experiences)) ?? s.experiences;
   s.skills = [...(byTitle(SECTION_TITLES.skills)?.items ?? [])];
   const langs = byTitle(SECTION_TITLES.languages);
-  if (langs) s.languages = langs.items.map((l) => ({ name: l.name, level: l.level ?? '' }));
+  // Niveau affiché dans une autre langue (« Fluent ») : on retrouve la pastille française.
+  const frLevel = (v) => LEVELS.find((fr) => LANGS.some((l) => label(l, `level.${fr}`) === v)) ?? v ?? '';
+  if (langs) s.languages = langs.items.map((l) => ({ name: l.name, level: frLevel(l.level) }));
   s.hobbies = [...(byTitle(SECTION_TITLES.hobbies)?.items ?? [])];
   return s;
 }

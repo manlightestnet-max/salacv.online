@@ -2,11 +2,13 @@
 //
 //   POST /api/login  { username, password }        → { ok, token, username }
 //   POST /api/agent  { state, message, history? }  → { ok, reply, state, changes }   (Authorization: Bearer <jeton>)
+//   POST /api/translate { state, to }               → { ok, state }                    (Authorization: Bearer <jeton>)
 //
 // Chaque route renvoie [statut HTTP, corps JSON].
 import { checkCredentials, issue, verify } from './auth.js';
 import { settings } from './config.js';
 import { handle } from './run.js';
+import { translate as translateCv } from './translate.js';
 
 export const MAX_BODY = 64 * 1024;
 
@@ -54,6 +56,21 @@ export async function agent(payload, token, { env = process.env, callModel } = {
   running++;
   try {
     const { status, ...result } = await handle(payload ?? {}, { env, callModel });
+    return [status ?? (result.ok ? 200 : 502), result];
+  } finally {
+    running--;
+  }
+}
+
+// Même garde-fous que l'agent : connexion, limite par minute, plafond de requêtes simultanées.
+export async function translate(payload, token, { env = process.env, callModel } = {}) {
+  const username = verify(token, env);
+  if (!username) return [401, { ok: false, error: 'Connecte-toi pour traduire ton CV.' }];
+  if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
+  if (running >= settings.concurrency) return [503, { ok: false, error: 'Le service est très demandé. Réessaie dans un instant.' }];
+  running++;
+  try {
+    const { status, ...result } = await translateCv(payload ?? {}, { env, callModel });
     return [status ?? (result.ok ? 200 : 502), result];
   } finally {
     running--;

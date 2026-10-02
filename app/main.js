@@ -8,6 +8,7 @@ import { loadEngine } from './lib/engine.js';
 import { createProject, getProject, listProjects, read, saveProject, write as store } from './lib/store.js';
 import { openExport } from './export.js';
 import { initQuickEdit } from './quickedit.js';
+import { createLangBar } from './langs.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
@@ -30,7 +31,9 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 const MAX_BACKING_SCALE = 4;
 
 const project = openProject();
+project.variants ??= {};
 let state = project.state;
+let activeLang = state.lang; // onglet de langue affiché (voir langs.js)
 let stepIndex = 0;
 let current = null; // dernier layout valide
 let engine = null; // { CK, fonts, skia } une fois chargé
@@ -58,7 +61,7 @@ const ctx = {
   download,
   loadExample() {
     // Seul cas où tout le formulaire change : on reconstruit l'étape.
-    state = { ...fromResume(example), template: state.template };
+    state = { ...fromResume(example), template: state.template, lang: state.lang };
     renderStep();
     schedule();
   },
@@ -294,9 +297,11 @@ function openAgent() {
     setState: (next) => {
       const { photo } = state.profile;
       const { template } = state;
+      const { lang } = state;
       state = normalizeState(next);
       state.profile.photo = photo;
       state.template = template;
+      state.lang = lang;
       schedule();
     },
     onClose: closeAgent,
@@ -376,8 +381,7 @@ function schedule() {
 }
 
 function update() {
-  project.state = state;
-  saveProject(project);
+  saveCurrent();
   if (!engine) return;
   const result = layoutResume(toResume(state, finalView ? {} : { mockup: example }), engine.fonts, { watermark: WATERMARK });
   const note = $('ghost-note');
@@ -390,8 +394,11 @@ function update() {
     return; // on garde le dernier aperçu valide
   }
   current = result;
-  note.textContent = finalView ? 'Rendu final : seulement ce que tu as rempli' : 'Touche le CV pour modifier · en gris : exemple';
-  note.hidden = !finalView && !hasGhost(result.resume);
+  // Pendant un message (toast), l'aide attend son tour.
+  if (!note.classList.contains('toast')) {
+    note.textContent = finalView ? 'Rendu final : seulement ce que tu as rempli' : 'Touche le CV pour modifier · en gris : exemple';
+    note.hidden = !finalView && !hasGhost(result.resume);
+  }
   paint(result.doc);
   paintThumbs();
 }
@@ -582,6 +589,44 @@ function photoShape() {
   const op = r.ok && r.doc.pages[0].find((o) => o.t === 'image');
   if (!op) return null;
   return { aspect: op.w / op.h, round: (op.r ?? 0) >= Math.min(op.w, op.h) / 2 - 0.5, radius: (op.r ?? 0) / op.w };
+}
+
+// --- Versions par langue -----------------------------------------------------------
+
+function saveCurrent() {
+  if (activeLang === project.state.lang) project.state = state;
+  else project.variants[activeLang] = state;
+  saveProject(project);
+}
+
+const langBar = createLangBar({
+  project,
+  getState: () => state,
+  getLang: () => activeLang,
+  switchTo(lang, next) {
+    saveCurrent();
+    activeLang = lang;
+    state = next;
+    renderStep();
+    schedule();
+  },
+  save: saveCurrent,
+  askLogin: () => openAgent(),
+  toast,
+});
+
+// Petit message en haut, à la place de l'aide, quelques secondes.
+let toastTimer;
+function toast(text) {
+  const note = $('ghost-note');
+  clearTimeout(toastTimer);
+  note.textContent = text;
+  note.hidden = false;
+  note.classList.add('toast');
+  toastTimer = setTimeout(() => {
+    note.classList.remove('toast');
+    update();
+  }, 4200);
 }
 
 // --- Projet et export -----------------------------------------------------------

@@ -93,22 +93,6 @@ button:not(:disabled) { cursor: pointer; }
 .zoom-fit { font-size: 12.5px; }
 .zoom-fit.active { color: rgb(var(--primary-700)); }
 
-.ghost-note {
-  position: fixed;
-  top: max(10px, env(safe-area-inset-top));
-  left: 10px;
-  max-width: calc(100% - 230px);
-  padding: 0.45rem 0.7rem;
-  border-radius: var(--radius-lg);
-  background: rgb(var(--surface) / 0.92);
-  border: 1px solid rgb(var(--gray-200));
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(8px);
-  font-size: 12px;
-  line-height: 1.35;
-  color: rgb(var(--gray-600));
-  animation: fade-in 0.22s ease-out both;
-}
 .ghost-note[hidden] { display: none; }
 
 .splitter { display: none; }
@@ -536,7 +520,6 @@ kbd {
   #canvases { padding: 64px 32px 48px; }
 
   .zoombar { top: auto; bottom: 16px; right: auto; left: calc(var(--side-space) + (100vw - var(--side-space)) / 2); transform: translateX(-50%); }
-  .ghost-note { top: 16px; left: calc(var(--side-space) + (100vw - var(--side-space)) / 2); transform: translateX(-50%); max-width: 90vw; white-space: nowrap; }
 
   .splitter {
     display: block;
@@ -932,7 +915,6 @@ a.logo-mark { text-decoration: none; }
 
 /* Mobile : la bulle d'aide passe sous la barre de zoom, l'en-tête respire. */
 @media (max-width: 959px) {
-  .ghost-note { top: calc(max(10px, env(safe-area-inset-top)) + 46px); left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); white-space: nowrap; }
   .sheet-title span { white-space: nowrap; }
   .sheet-title strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
@@ -940,4 +922,52 @@ a.logo-mark { text-decoration: none; }
   .assistant-btn { width: 32px; padding: 0; font-size: 0; justify-content: center; }
   .assistant-btn span { font-size: 14px; }
   .sheet-head { gap: 0.4rem; }
+}
+
+/* --- Barre du haut : versions du CV par langue (comme les feuilles d'Excel) -------- */
+
+.topbar {
+  position: fixed;
+  top: calc(max(10px, env(safe-area-inset-top)) + 44px);
+  left: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 20px);
+  padding: 3px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--surface) / 0.92);
+  border: 1px solid rgb(var(--gray-200));
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+  animation: fade-in 0.22s ease-out both;
+}
+.lang-tabs { display: flex; gap: 2px; overflow-x: auto; }
+.lang-tab {
+  display: inline-flex; align-items: center; gap: 0.35rem; height: 30px; padding: 0 0.6rem;
+  border: none; border-radius: var(--radius-md); background: transparent;
+  color: rgb(var(--gray-500)); font: 500 12.5px var(--font-sans); white-space: nowrap;
+}
+.lang-tab:hover { background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); }
+.lang-tab[aria-selected='true'] { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
+.lang-code { font: 500 11px var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.lang-tab.busy .lang-code::after { content: ''; display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: spin 0.7s linear infinite; vertical-align: -1px; }
+.lang-add { font-size: 16px; }
+.ghost-note { padding: 0 0.6rem 0 0.5rem; margin-left: 2px; border-left: 1px solid rgb(var(--gray-200)); font-size: 12px; color: rgb(var(--gray-500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@media (max-width: 959px) { .topbar .lang-name { display: none; } }
+
+/* Dialogue « Ajouter une langue ». */
+.lang-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.lang-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0.65rem 0.75rem;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 10px; background: none; color: rgb(var(--gray-800)); font: 500 14px var(--font-sans); text-align: left;
+}
+.lang-option small { font: 400 11px var(--font-mono); color: rgb(var(--gray-500)); text-transform: uppercase; }
+.lang-option[aria-pressed='true'] { border-color: rgb(var(--primary-600)); box-shadow: 0 0 0 1px rgb(var(--primary-600)); }
+.lang-option:disabled { opacity: 0.45; cursor: default; }
+.lang-modes { display: flex; flex-direction: column; gap: 0.5rem; }
+.lang-note { font-size: 12.5px; line-height: 1.45; color: rgb(var(--gray-500)); }
+@media (min-width: 960px) {
+  .topbar { top: 16px; left: calc(var(--side-space) + (100vw - var(--side-space)) / 2); transform: translateX(-50%); max-width: calc(100vw - var(--side-space) - 32px); transition: left 0.3s var(--ease-out); }
 }

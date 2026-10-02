@@ -1,6 +1,7 @@
 // Template "diagonale" : formes en diagonale (turquoise et anthracite) en haut, photo
 // arrondie dans une colonne grise (profil/contacts, compétences, langues, loisirs),
 // nom en grand et sections à pastille de couleur dans la colonne principale.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 import { contactList, mainSections, photo, sideSections, tone } from './shared.js';
 
@@ -122,9 +123,9 @@ export const diagonale = {
         y += kit.paragraph(ops, title, x + 13, y, w - 13, S.sideHead, 15) + 6;
       };
       const c = p.ghost.includes('contact') ? G : S;
-      const contacts = contactList(p);
+      const contacts = contactList(p, resume.lang);
       if (contacts.length) {
-        head('Profil');
+        head(label(resume.lang, 'label.profile'));
         for (const item of contacts) {
           if (item.label) y += kit.paragraph(ops, item.label, x, y, w, c.label, 11);
           y += kit.paragraph(ops, item.value, x, y, w, c.side, 11.5) + 3;

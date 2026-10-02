@@ -1,6 +1,7 @@
 // Template "vitae" : bande latérale turquoise avec « Curriculum Vitae » vertical, nom et
 // contacts en haut, photo à droite, profession centrée, titres soulignés turquoise,
 // expériences en « période : organisation », poste en losange, détails cochés.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 import { check, diamond, photo, tone } from './shared.js';
 
@@ -91,7 +92,7 @@ export const vitae = {
       return kit.paragraph(ops, text, x + 14, y, W - (x - X) - 14, s.body, 12.5);
     };
 
-    if (p.summary) blocks.push(heading('Profil professionnel'), paragraphs(p.summary, st('summary')));
+    if (p.summary) blocks.push(heading(label(resume.lang, 'label.profilePro')), paragraphs(p.summary, st('summary')));
 
     for (const section of resume.sections) {
       const s = section.ghost ? G : S;
@@ -156,7 +157,7 @@ export const vitae = {
         { t: 'rect', ...band, x: 42, w: 30, fill: '#F1F9FA' },
         { t: 'rect', ...band, stroke: '#A9DADD', lw: 0.8 },
       ];
-      decor.push({ t: 'text', x: 58, y: PAGE.height - 70, s: 'Curriculum Vitae', font: 'sans-400', size: 34, color: accent, opacity: 0.22, rotate: -90 });
+      decor.push({ t: 'text', x: 58, y: PAGE.height - 70, s: label(resume.lang, 'label.curriculum'), font: 'sans-400', size: 34, color: accent, opacity: 0.22, rotate: -90 });
       ops.unshift(...decor);
     }
   },

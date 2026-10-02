@@ -2,6 +2,7 @@
 // photo encadrée, colonne latérale (contact, compétences, langues, loisirs) et
 // colonne principale (profil, formation, expérience) aux titres soulignés.
 // Contenu au format CV congolais ; le contenu `ghost` (exemple) est grisé.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 
 const C = {
@@ -98,7 +99,7 @@ export const bandeau = {
       return block(ops, y, { gapAfter: last ? 22 : 10 });
     }
 
-    if (p.summary) blocks.push(heading('Profil professionnel'), paragraphs(p.summary, p.ghost.includes('summary') ? G : S));
+    if (p.summary) blocks.push(heading(label(resume.lang, 'label.profilePro')), paragraphs(p.summary, p.ghost.includes('summary') ? G : S));
     for (const section of resume.sections) {
       const st = section.ghost ? G : S;
       if (section.type === 'timeline' && section.items.length) {
@@ -170,7 +171,7 @@ export const bandeau = {
       const contactStyle = (ghosted('contact') ? G : S).side;
       const contacts = [p.address, ...p.phones, p.email, ...p.links.map((l) => l.label)].filter(Boolean);
       if (contacts.length) {
-        sideHead('Contact');
+        sideHead(label(resume.lang, 'label.contact'));
         for (const c of contacts) sy += kit.paragraph(ops, c, SIDE.x, sy, SIDE.w, contactStyle, 12);
         sy += 18;
       }

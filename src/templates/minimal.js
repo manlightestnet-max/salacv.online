@@ -4,6 +4,7 @@
 // professionnel, puis sections dans l'ordre du DSL. Couleurs = tokens clairs de
 // Salacope (le CV s'imprime). Le contenu marqué `ghost` (exemple affiché tant
 // que l'étudiant n'a rien saisi) est dessiné en grisé.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 
 const C = {
@@ -68,7 +69,7 @@ export const minimal = {
     const ghosted = (field) => p.ghost.includes(field);
 
     const blocks = [header()];
-    if (p.summary) blocks.push(...withLabel('Profil professionnel', [paragraphs(p.summary, ghosted('summary') ? G : S)]));
+    if (p.summary) blocks.push(...withLabel(label(resume.lang, 'label.profilePro'), [paragraphs(p.summary, ghosted('summary') ? G : S)]));
     for (const section of resume.sections) blocks.push(...sectionBlocks(section, section.ghost ? G : S));
     return blocks;
 

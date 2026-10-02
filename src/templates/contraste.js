@@ -1,6 +1,7 @@
 // Template "contraste" : nom en grandes capitales sur deux lignes, photo en haut à
 // droite, bandeau de contact noir ; à gauche profil et expérience, à droite une colonne
 // grise avec formation, langues, compétences et loisirs.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 import { photo, splitName, tone } from './shared.js';
 
@@ -55,7 +56,7 @@ export const contraste = {
       return block(ops, y, { gapAfter: 22 });
     };
 
-    if (p.summary) blocks.push(heading('Profil'), paragraphs(p.summary, p.ghost.includes('summary') ? G : S));
+    if (p.summary) blocks.push(heading(label(resume.lang, 'label.profile')), paragraphs(p.summary, p.ghost.includes('summary') ? G : S));
     for (const section of resume.sections) {
       const s = section.ghost ? G : S;
       if (section.type === 'text') blocks.push(heading(section.title), paragraphs(section.body, s));
@@ -102,9 +103,9 @@ export const contraste = {
       const ghostContact = p.ghost.includes('contact');
       const vs = { font: 'sans-400', size: 7.4, color: '#FFFFFF', opacity: ghostContact ? 0.55 : 0.88 };
       const cells = [
-        ['Téléphone', p.phones[0]],
-        ['Email', p.email],
-        ['Adresse', p.address],
+        [label(resume.lang, 'label.phone'), p.phones[0]],
+        [label(resume.lang, 'label.email'), p.email],
+        [label(resume.lang, 'label.address'), p.address],
       ].filter(([, v]) => v);
       const cw = (COL.x - X - 22) / Math.max(cells.length, 1);
       // Hauteur du bandeau : la valeur la plus longue (une adresse sur 3 lignes) tient dedans.

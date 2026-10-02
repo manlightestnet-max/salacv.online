@@ -1,6 +1,7 @@
 // Template "marine" : colonne bleu marine (photo ronde, profil, compétences, langues
 // avec barre de niveau, centres d'intérêt) ; à droite le nom en grand sur deux lignes,
 // la profession, les contacts, puis expérience et formation.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 import { contactList, levelScore, mainSections, photo, sideSections, splitName, tone } from './shared.js';
 
@@ -60,7 +61,7 @@ export const marine = {
       if (p.title) y += 4 + kit.paragraph(ops, p.title.toUpperCase(), X, y + 4, W, (p.ghost.includes('title') ? G : S).job, 14);
       y += 12;
       const c = p.ghost.includes('contact') ? G : S;
-      for (const item of contactList(p)) {
+      for (const item of contactList(p, resume.lang)) {
         ops.push({ t: 'rect', x: X, y: y + 4, w: 5, h: 5, r: 1, fill: c.mark });
         y += kit.paragraph(ops, item.value, X + 13, y, W - 13, c.contact, 13);
       }
@@ -124,7 +125,7 @@ export const marine = {
 
       if (p.summary) {
         const s = sideStyles(p.ghost.includes('summary'));
-        head('Profil');
+        head(label(resume.lang, 'label.profile'));
         p.summary.split('\n').filter((l) => l.trim()).forEach((line, i) => {
           if (i) y += 4;
           y += kit.paragraph(ops, line.trim(), x, y, w, s.text, 12);

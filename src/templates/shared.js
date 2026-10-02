@@ -1,4 +1,5 @@
 // Outils communs aux templates : couleurs, photo, puces dessinées, contacts.
+import { label, LANGS } from '../i18n/index.js';
 
 // Mélange une couleur vers le blanc (contenu d'exemple « ghost », bandeaux clairs).
 export function fade(hex, t = 0.58) {
@@ -51,16 +52,19 @@ export function diamond(ops, cx, cy, r, fill) {
 }
 
 // Niveau de langue → nombre de points sur 5 (barres et pastilles des templates).
-const LEVEL = { natif: 5, courant: 4, professionnel: 4, intermédiaire: 3, intermediaire: 3, notions: 2 };
+// Toutes les langues du tableau i18n/cv.csv : « Native », « Fluent »… comptent aussi.
+const SCORES = { Natif: 5, Courant: 4, Professionnel: 4, Intermédiaire: 3, Notions: 2 };
+const LEVEL = { intermediaire: 3 };
+for (const [fr, score] of Object.entries(SCORES)) for (const lang of LANGS) LEVEL[label(lang, `level.${fr}`).toLowerCase()] = score;
 export const levelScore = (level) => LEVEL[String(level ?? '').trim().toLowerCase()] ?? 0;
 
 // Contacts dans l'ordre d'un CV : [{ label, value }].
-export function contactList(p) {
+export function contactList(p, lang = 'fr') {
   return [
-    p.address && { label: 'Adresse', value: p.address },
-    ...p.phones.map((v, i) => ({ label: i ? '' : 'Téléphone', value: v })),
-    p.email && { label: 'Email', value: p.email },
-    ...p.links.map((l) => ({ label: 'Lien', value: l.label })),
+    p.address && { label: label(lang, 'label.address'), value: p.address },
+    ...p.phones.map((v, i) => ({ label: i ? '' : label(lang, 'label.phone'), value: v })),
+    p.email && { label: label(lang, 'label.email'), value: p.email },
+    ...p.links.map((l) => ({ label: label(lang, 'label.link'), value: l.label })),
   ].filter(Boolean);
 }
 

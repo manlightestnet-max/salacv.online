@@ -1,6 +1,7 @@
 // Template "epure" : noir et blanc. Photo, nom centré et contacts à gauche, langues en
 // pastilles, filet vertical épais ; à droite « À propos » puis sections séparées par
 // des filets, période en gris, « Poste - Organisation » en gras, puces.
+import { label } from '../i18n/index.js';
 import { block } from '../layout/engine.js';
 import { contactList, levelScore, mainSections, photo, sideSections, tone } from './shared.js';
 
@@ -120,7 +121,7 @@ export const epure = {
       y += 16;
 
       const c = p.ghost.includes('contact') ? G : S;
-      for (const item of contactList(p)) {
+      for (const item of contactList(p, resume.lang)) {
         if (item.label) {
           ops.push({ t: 'circle', cx: x + 3, cy: y + 6, r: 2, fill: c.ink });
           y += kit.paragraph(ops, item.label, x + 11, y, w - 11, c.label, 12.5);

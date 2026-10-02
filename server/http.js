@@ -28,6 +28,7 @@ const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? req.socket?.r
 export const ROUTES = {
   login: (payload, req) => web.login(payload, clientIp(req)),
   agent: (payload, req) => web.agent(payload, web.bearer(req.headers.authorization)),
+  translate: (payload, req) => web.translate(payload, web.bearer(req.headers.authorization)),
 };
 
 export async function serve(name, req, res) {
