@@ -6,6 +6,7 @@ import { layoutResume } from '../src/index.js';
 import { loadEngine } from './lib/engine.js';
 import { createProject, getProject, listProjects, read, saveProject, write as store } from './lib/store.js';
 import { openExport } from './export.js';
+import { initQuickEdit } from './quickedit.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
@@ -122,6 +123,17 @@ document.addEventListener('keydown', (e) => {
 async function initEngine() {
   try {
     engine = await loadEngine();
+    initQuickEdit({
+      canvases,
+      preview,
+      fonts: engine.fonts,
+      getDoc: () => current?.doc,
+      getState: () => state,
+      mockup: example,
+      changed: schedule,
+      // Le formulaire reflète ce qui vient d'être modifié sur le CV.
+      onClose: () => !agentOpen && renderStep(),
+    });
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
     console.error(err);

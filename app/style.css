@@ -898,3 +898,19 @@ a.logo-mark { text-decoration: none; }
 .stars .star:hover ~ .star { color: rgb(var(--gray-300)); }
 .invite-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
 .invite-actions a { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* --- Édition directe sur l'aperçu ----------------------------------------------- */
+
+.qe-outline {
+  position: fixed; z-index: 40; pointer-events: none; border-radius: 3px;
+  outline: 1.5px dashed rgb(var(--primary-500)); outline-offset: 1px;
+  background: rgb(var(--primary-500) / 0.06);
+  transition: left 0.08s, top 0.08s, width 0.08s, height 0.08s;
+}
+.qe-outline.strong { outline-style: solid; background: rgb(var(--primary-500) / 0.1); z-index: 60; }
+.qe-outline[hidden] { display: none; }
+/* Le CV reste visible derrière : on voit la modification en direct. */
+.dialog-backdrop:has(.quick-edit) { background: rgb(0 0 0 / 0.12); }
+.quick-edit { max-height: 62dvh; }
+.qe-backdrop { background: transparent !important; }
+.danger-text { color: rgb(var(--red-600)); align-self: flex-start; }
