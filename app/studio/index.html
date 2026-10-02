@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>salacv — crée ton CV</title>
+  <script>
+    // Thème appliqué avant le premier rendu pour éviter un flash clair.
+    try { document.documentElement.dataset.theme = localStorage.getItem('salacv:theme') || 'dark'; } catch {}
+  </script>
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <!-- Aperçu plein écran : la page du CV, rien d'autre. -->
+  <div id="preview" class="preview">
+    <div id="canvases"><div class="page-skeleton skeleton"></div></div>
+  </div>
+  <p id="ghost-note" class="ghost-note" hidden>En gris : exemple à remplacer</p>
+  <div class="zoombar" role="toolbar" aria-label="Zoom">
+    <button id="zoom-out" class="zoom-btn" type="button" aria-label="Dézoomer" title="Dézoomer (Ctrl −)">−</button>
+    <button id="zoom-label" class="zoom-btn zoom-value" type="button" title="Taille réelle (100 %)">100 %</button>
+    <button id="zoom-in" class="zoom-btn" type="button" aria-label="Zoomer" title="Zoomer (Ctrl +)">+</button>
+    <button id="zoom-fit" class="zoom-btn zoom-fit" type="button" title="Ajuster à la largeur (Ctrl 0)">Ajuster</button>
+  </div>
+
+  <!-- PC : séparation entre la barre de gauche et l'aperçu. -->
+  <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Largeur du formulaire" aria-valuemin="320" aria-valuemax="760" tabindex="0"></div>
+
+  <!-- Mobile : bottom sheet replié (en-tête + étapes) ou déplié (formulaire).
+       PC : barre de gauche toujours ouverte. -->
+  <section id="sheet" class="sheet" data-state="collapsed" aria-label="Modifier ton CV">
+    <div id="grip" class="sheet-grip" aria-hidden="true"><span></span></div>
+    <div id="templates" class="templates" role="group" aria-label="Modèle du CV"></div>
+    <header id="sheet-head" class="sheet-head">
+      <a class="logo-mark" href="/dashboard/" aria-label="Mes CV (tableau de bord)" title="Mes CV">S</a>
+      <div class="sheet-title">
+        <strong id="step-title"></strong>
+        <span id="progress"></span>
+      </div>
+      <button id="assistant" class="btn-ghost assistant-btn" type="button" aria-pressed="false"><span aria-hidden="true">✦</span> Assistant</button>
+      <button id="theme" class="btn-ghost icon" type="button" aria-label="Changer de thème" title="Changer de thème">◐</button>
+      <button id="toggle" class="btn-primary" type="button"></button>
+    </header>
+    <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
+    <div id="agent-view" class="agent-view" hidden></div>
+    <div id="sheet-body" class="sheet-body">
+      <div id="step" class="step-scroll"></div>
+      <footer class="step-nav">
+        <button id="prev" class="btn-text" type="button">Précédent</button>
+        <span class="shortcut-hint">Alt ← / → : étapes</span>
+        <button id="peek" class="btn-ghost peek-btn" type="button">Aperçu</button>
+        <button id="next" class="btn-primary" type="button">Suivant</button>
+      </footer>
+    </div>
+  </section>
+  <script type="module" src="../main.js"></script>
+</body>
+</html>

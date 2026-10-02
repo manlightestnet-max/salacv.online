@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>salacv — mes CV</title>
+  <meta name="theme-color" content="#0b0b0c">
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem('salacv:theme') || 'dark'; } catch {}
+  </script>
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="../dashboard.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/" aria-label="salacv, accueil"><span class="brand-mark">S</span>salacv</a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#projets" data-tab="projets">Mes CV</a>
+      <a href="#explorer" data-tab="explorer">Explorer</a>
+      <a href="#credits" data-tab="credits">Crédits</a>
+    </nav>
+    <a id="credit-pill" class="credit-pill" href="#credits" aria-label="Crédits restants"><span class="coin" aria-hidden="true"></span><strong id="credit-count">–</strong></a>
+    <button id="theme" class="icon-btn" type="button" aria-label="Changer de thème">◐</button>
+  </header>
+
+  <main id="view" class="view" tabindex="-1"></main>
+
+  <!-- Mobile : onglets en bas, à portée du pouce. -->
+  <nav class="bottom-tabs" aria-label="Sections">
+    <a href="#projets" data-tab="projets"><span class="ti ti-files" aria-hidden="true"></span>Mes CV</a>
+    <a href="/studio/?new" class="bt-new" aria-label="Nouveau CV"><span aria-hidden="true">+</span></a>
+    <a href="#explorer" data-tab="explorer"><span class="ti ti-grid" aria-hidden="true"></span>Explorer</a>
+    <a href="#credits" data-tab="credits"><span class="ti ti-coin" aria-hidden="true"></span>Crédits</a>
+  </nav>
+
+  <script type="module" src="../dashboard.js"></script>
+</body>
+</html>

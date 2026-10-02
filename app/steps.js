@@ -158,7 +158,7 @@ function review(ctx) {
   return h(
     'div',
     { class: 'step' },
-    head('Vérification', 'Un dernier coup d’œil avant de télécharger ton CV.'),
+    head('Vérification', 'Un dernier coup d’œil avant de préparer ton CV.'),
     h(
       'ul',
       { class: 'checks' },
@@ -176,7 +176,7 @@ function review(ctx) {
         ),
       ),
     ),
-    h('button', { class: 'btn-primary btn-lg', type: 'button', disabled: blocking, onClick: ctx.download }, 'Télécharger mon CV (PDF)'),
-    blocking && h('p', { class: 'hint' }, 'Complète les points marqués ! pour pouvoir télécharger.'),
+    h('button', { class: 'btn-primary btn-lg', type: 'button', disabled: blocking, onClick: ctx.download }, 'Préparer mon CV'),
+    blocking && h('p', { class: 'hint' }, 'Complète les points marqués ! pour pouvoir préparer ton CV.'),
   );
 }

@@ -2,18 +2,15 @@
 // sheet. PC : formulaire dans une barre de gauche redimensionnable. Aperçu
 // zoomable partout ; tant que l'étudiant n'a rien saisi, l'exemple s'affiche
 // en grisé pour montrer le format.
-import CanvasKitInit from 'canvaskit-wasm';
-import wasmUrl from 'canvaskit-wasm/bin/canvaskit.wasm?url';
-import { layoutResume, loadFontSet } from '../src/index.js';
-import { createSkiaRenderer } from '../src/render/skia.js';
+import { layoutResume } from '../src/index.js';
+import { loadEngine } from './lib/engine.js';
+import { createProject, getProject, listProjects, read, saveProject, write as store } from './lib/store.js';
+import { openExport } from './export.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
 import { createAgentPanel } from './agent.js';
-import { emptyState, normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
-
-const fontUrls = import.meta.glob('../fonts/*.ttf', { query: '?url', import: 'default', eager: true });
-const fontUrl = (file) => fontUrls[`../fonts/${file}`];
+import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
@@ -24,7 +21,6 @@ const stepEl = $('step');
 const desktop = window.matchMedia('(min-width: 960px)');
 
 const WATERMARK = 'salacv.online · aperçu';
-const DRAFT_KEY = 'salacv:form:v2';
 const THEME_KEY = 'salacv:theme';
 const SIDEBAR_KEY = 'salacv:sidebar';
 const SIDEBAR = { min: 320, default: 440, max: 760 };
@@ -32,7 +28,8 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 // Plafond de résolution des canvas : au-delà, le zoom agrandit sans ajouter de pixels.
 const MAX_BACKING_SCALE = 4;
 
-let state = readDraft() ?? emptyState();
+const project = openProject();
+let state = project.state;
 let stepIndex = 0;
 let current = null; // dernier layout valide
 let engine = null; // { CK, fonts, skia } une fois chargé
@@ -124,16 +121,7 @@ document.addEventListener('keydown', (e) => {
 
 async function initEngine() {
   try {
-    const [CK, fonts] = await Promise.all([
-      CanvasKitInit({ locateFile: () => wasmUrl }),
-      loadFontSet((file) =>
-        fetch(fontUrl(file)).then((r) => {
-          if (!r.ok) throw new Error(`police ${file} : HTTP ${r.status}`);
-          return r.arrayBuffer();
-        }),
-      ),
-    ]);
-    engine = { CK, fonts, skia: createSkiaRenderer(CK, fonts) };
+    engine = await loadEngine();
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
     console.error(err);
@@ -364,7 +352,8 @@ function schedule() {
 }
 
 function update() {
-  store(DRAFT_KEY, JSON.stringify(state));
+  project.state = state;
+  saveProject(project);
   if (!engine) return;
   const result = layoutResume(toResume(state, { mockup: example }), engine.fonts, { watermark: WATERMARK });
   if (!result.ok) return; // le formulaire limite déjà les saisies ; on garde le dernier aperçu valide
@@ -539,47 +528,19 @@ function initPreviewGestures() {
   }
 }
 
-// --- PDF ---------------------------------------------------------------------
+// --- Projet et export -----------------------------------------------------------
 
-// Le PDF est généré sans filigrane ni exemple, depuis les seules saisies.
-// TODO : passer par le paiement mobile money avant de débloquer le téléchargement.
-async function download() {
+// /studio/?p=<id> ouvre un projet ; ?new (et ?name=) en crée un ; sinon le plus récent.
+function openProject() {
+  const q = new URLSearchParams(location.search);
+  let p = q.has('new') ? null : getProject(q.get('p')) ?? (q.get('p') ? null : listProjects()[0]);
+  p ??= createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: q.get('template') ?? undefined });
+  history.replaceState(null, '', `${location.pathname}?p=${p.id}`);
+  return p;
+}
+
+// Jamais de téléchargement direct : la préparation (progression, crédit) puis le fichier.
+function download() {
   if (!engine || checklist(state, current?.doc).some((c) => c.level === 'todo')) return;
-  const result = layoutResume(toResume(state), engine.fonts);
-  if (!result.ok) return;
-  const { renderPdf } = await import('../src/render/pdf.js');
-  const name = result.resume.profile.name;
-  const bytes = await renderPdf(result.doc, engine.fonts, { title: `CV — ${name}`, author: name });
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-  h('a', { href: url, download: `CV-${slug(name)}.pdf` }).click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function slug(s) {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-function readDraft() {
-  try {
-    const raw = read(DRAFT_KEY);
-    return raw ? normalizeState(JSON.parse(raw)) : null;
-  } catch {
-    return null;
-  }
-}
-
-function read(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null; // stockage indisponible (navigation privée)
-  }
-}
-
-function store(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // stockage indisponible (navigation privée) : on ignore
-  }
+  openExport({ state, engine });
 }
