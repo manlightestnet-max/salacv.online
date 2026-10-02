@@ -16,6 +16,8 @@
   --shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 0.24), 0 4px 8px -4px rgb(0 0 0 / 0.08);
   /* Hauteur visible de la sheet repliée : poignée + en-tête + étapes. */
   --peek: 132px;
+  /* Largeur de la barre de gauche sur PC (redimensionnable, voir main.js). */
+  --sidebar-w: 440px;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -42,17 +44,74 @@ button:not(:disabled) { cursor: pointer; }
 .preview {
   position: fixed;
   inset: 0;
-  overflow-y: auto;
+  overflow: auto;
   background: rgb(var(--canvas));
+  /* Le pincement à deux doigts est géré par l'éditeur (zoom du CV), pas par le navigateur. */
+  touch-action: pan-x pan-y;
 }
 
+/* max-content : quand on zoome, la page dépasse et l'aperçu défile dans les deux sens. */
 #canvases {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: max(8px, env(safe-area-inset-top)) 8px calc(var(--peek) + 24px);
+  width: max-content;
+  min-width: 100%;
+  padding: max(56px, env(safe-area-inset-top)) 8px calc(var(--peek) + 24px);
 }
+
+/* --- Zoom et note d'exemple ---------------------------------------------- */
+
+.zoombar {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--surface) / 0.92);
+  border: 1px solid rgb(var(--gray-200));
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+}
+
+.zoom-btn {
+  min-width: 32px;
+  height: 30px;
+  padding: 0 0.45rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: rgb(var(--gray-700));
+  font: 500 14px var(--font-sans);
+}
+.zoom-btn:hover { background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); }
+.zoom-value { font: 400 12px var(--font-mono); min-width: 52px; }
+.zoom-fit { font-size: 12.5px; }
+.zoom-fit.active { color: rgb(var(--primary-700)); }
+
+.ghost-note {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 10px;
+  max-width: calc(100% - 230px);
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--surface) / 0.92);
+  border: 1px solid rgb(var(--gray-200));
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgb(var(--gray-600));
+  animation: fade-in 0.22s ease-out both;
+}
+.ghost-note[hidden] { display: none; }
+
+.splitter { display: none; }
 
 #canvases canvas {
   border-radius: var(--radius-sm);
@@ -339,7 +398,59 @@ kbd {
 @media (min-width: 768px) and (hover: hover) {
   .shortcut-hint { display: inline; }
   kbd { display: inline; }
-  #canvases { padding-left: 24px; padding-right: 24px; }
+}
+
+/* --- PC : barre de gauche redimensionnable + aperçu à droite -------------- */
+
+@media (min-width: 960px) {
+  .sheet,
+  .sheet[data-state='collapsed'] {
+    top: 0;
+    right: auto;
+    margin: 0;
+    width: var(--sidebar-w);
+    height: auto;
+    border: none;
+    border-right: 1px solid rgb(var(--gray-200));
+    border-radius: 0;
+    box-shadow: none;
+    transform: none;
+    transition: none;
+  }
+  .sheet-grip, #toggle { display: none; }
+  .sheet-head { height: 56px; cursor: default; touch-action: auto; border-bottom: 1px solid rgb(var(--gray-200)); }
+  .stepper { height: 56px; }
+
+  .preview { left: var(--sidebar-w); }
+  #canvases { padding: 64px 32px 48px; }
+
+  .zoombar { top: auto; bottom: 16px; right: auto; left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2); transform: translateX(-50%); }
+  .ghost-note { top: 16px; left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2); transform: translateX(-50%); max-width: 90vw; white-space: nowrap; }
+
+  .splitter {
+    display: block;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--sidebar-w) - 3px);
+    width: 7px;
+    cursor: col-resize;
+    z-index: 2;
+    touch-action: none;
+  }
+  .splitter::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 1px;
+    background: transparent;
+    transition: background-color 0.15s;
+  }
+  .splitter:hover::after, .splitter:focus-visible::after, .resizing .splitter::after { left: 2px; width: 3px; background: rgb(var(--primary-600)); }
+  .splitter:focus-visible { outline: none; }
+  .resizing, .resizing * { cursor: col-resize !important; user-select: none; }
 }
 
 @keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }

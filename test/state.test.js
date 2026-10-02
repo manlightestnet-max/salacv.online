@@ -1,16 +1,38 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { emptyState, emptyItem, toResume, fromResume, checklist, sortRecentFirst, SECTION_TITLES } from '../app/state.js';
+import { emptyState, emptyItem, toResume, fromResume, checklist, sortRecentFirst, hasGhost, SECTION_TITLES } from '../app/state.js';
 import { parseResume } from '../src/index.js';
 
 const example = JSON.parse(await readFile(new URL('../examples/etudiant.json', import.meta.url), 'utf8'));
 
-test('un formulaire vide donne un CV valide avec le nom provisoire', () => {
-  const r = parseResume(toResume(emptyState(), { placeholderName: 'Ton nom' }));
+test("un formulaire vide montre l'exemple entier en grisé", () => {
+  const r = parseResume(toResume(emptyState(), { mockup: example }));
   assert.ok(r.ok);
-  assert.equal(r.resume.profile.name, 'Ton nom');
-  assert.deepEqual(r.resume.sections, []);
+  assert.deepEqual(r.resume.profile.ghost, ['name', 'title', 'summary', 'contact']);
+  assert.equal(r.resume.profile.name, example.profile.name);
+  assert.ok(r.resume.sections.length === example.sections.length && r.resume.sections.every((s) => s.ghost));
+  assert.ok(hasGhost(r.resume));
+});
+
+test("ce que l'étudiant saisit remplace l'exemple, partie par partie", () => {
+  const s = emptyState();
+  s.profile.name = 'Patrick Ilunga';
+  s.profile.phones = ['+243 81 000 0000'];
+  s.skills = 'Excel';
+  const r = parseResume(toResume(s, { mockup: example })).resume;
+  assert.equal(r.profile.name, 'Patrick Ilunga');
+  assert.deepEqual(r.profile.ghost, ['title', 'summary']);
+  assert.equal(r.profile.email, undefined, "pas d'email de l'exemple quand un contact est saisi");
+  const skills = r.sections.find((x) => x.title === SECTION_TITLES.skills);
+  assert.deepEqual(skills, { type: 'bullets', title: SECTION_TITLES.skills, items: ['Excel'] });
+  assert.ok(r.sections.filter((x) => x !== skills).every((x) => x.ghost));
+});
+
+test("le PDF (sans mockup) ne contient jamais l'exemple", () => {
+  const r = toResume(emptyState());
+  assert.deepEqual(r.sections, []);
+  assert.equal(r.profile.ghost, undefined);
 });
 
 test("l'exemple fait l'aller-retour formulaire -> DSL sans perte", () => {

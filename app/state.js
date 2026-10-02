@@ -57,40 +57,65 @@ function timeline(list) {
   );
 }
 
-// placeholderName : nom affiché dans l'aperçu tant que l'étudiant n'a rien saisi.
-export function toResume(state, { placeholderName } = {}) {
+// mockup : CV d'exemple (DSL). Dans l'aperçu, chaque partie que l'étudiant
+// n'a pas encore remplie est prise dans l'exemple et marquée `ghost` (grisée),
+// pour qu'il voie tout de suite le format. Jamais utilisé pour le PDF.
+export function toResume(state, { mockup } = {}) {
   const p = state.profile;
   const sections = [];
+  const mock = (title) => mockup?.sections?.find((x) => x.title === title);
+  const push = (section, title) => {
+    if (section) sections.push(section);
+    else if (mock(title)) sections.push({ ...mock(title), ghost: true });
+  };
 
   const edu = timeline(state.education);
-  if (edu.length) sections.push({ type: 'timeline', title: SECTION_TITLES.education, items: edu });
+  push(edu.length && { type: 'timeline', title: SECTION_TITLES.education, items: edu }, SECTION_TITLES.education);
 
   const exp = timeline(state.experiences);
-  if (exp.length) sections.push({ type: 'timeline', title: SECTION_TITLES.experiences, items: exp });
+  push(exp.length && { type: 'timeline', title: SECTION_TITLES.experiences, items: exp }, SECTION_TITLES.experiences);
 
   const skills = lines(state.skills);
-  if (skills.length) sections.push({ type: 'bullets', title: SECTION_TITLES.skills, items: skills });
+  push(skills.length && { type: 'bullets', title: SECTION_TITLES.skills, items: skills }, SECTION_TITLES.skills);
 
   const langs = state.languages.filter((l) => t(l.name)).map((l) => compact({ name: t(l.name), level: t(l.level) }));
-  if (langs.length) sections.push({ type: 'list', title: SECTION_TITLES.languages, items: langs });
+  push(langs.length && { type: 'list', title: SECTION_TITLES.languages, items: langs }, SECTION_TITLES.languages);
 
   const hobbies = lines(state.hobbies);
-  if (hobbies.length) sections.push({ type: 'bullets', title: SECTION_TITLES.hobbies, items: hobbies });
+  push(hobbies.length && { type: 'bullets', title: SECTION_TITLES.hobbies, items: hobbies }, SECTION_TITLES.hobbies);
 
-  return {
-    version: 1,
-    template: 'minimal',
-    profile: compact({
-      name: t(p.name) || placeholderName || '',
-      title: t(p.title),
-      email: t(p.email),
-      phones: p.phones.map(t).filter(Boolean),
-      address: t(p.address),
-      links: t(p.link) ? [{ label: t(p.link) }] : [],
-      summary: lines(p.summary).join('\n'),
-    }),
-    sections,
-  };
+  const profile = compact({
+    name: t(p.name),
+    title: t(p.title),
+    email: t(p.email),
+    phones: p.phones.map(t).filter(Boolean),
+    address: t(p.address),
+    links: t(p.link) ? [{ label: t(p.link) }] : [],
+    summary: lines(p.summary).join('\n'),
+  });
+
+  if (mockup) {
+    const m = mockup.profile;
+    const ghost = [];
+    for (const key of ['name', 'title', 'summary']) {
+      if (!profile[key] && m[key]) {
+        profile[key] = m[key];
+        ghost.push(key);
+      }
+    }
+    if (!profile.email && !profile.phones.length && !profile.address) {
+      Object.assign(profile, compact({ email: m.email ?? '', phones: m.phones ?? [], address: m.address ?? '' }));
+      ghost.push('contact');
+    }
+    profile.ghost = ghost;
+  }
+
+  return { version: 1, template: 'minimal', profile, sections };
+}
+
+// Vrai si l'aperçu montre encore des parties de l'exemple.
+export function hasGhost(resume) {
+  return Boolean(resume.profile.ghost?.length || resume.sections.some((s) => s.ghost));
 }
 
 // Inverse de toResume, pour charger un CV existant (exemple, brouillon serveur).

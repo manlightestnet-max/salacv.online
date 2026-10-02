@@ -29,15 +29,19 @@ npm run build                              # site statique dans dist/ (déployé
 
 ## Éditeur (app/)
 
-Mobile first : le CV en aperçu plein écran, le formulaire dans un bottom sheet
+Mobile : le CV en aperçu plein écran, le formulaire dans un bottom sheet
 (replié : étape en cours + étapes ; déplié : formulaire ; bouton « Aperçu » ou
-glisser vers le bas pour revenir au CV). Six étapes dans l'ordre du CV congolais :
+glisser vers le bas pour revenir au CV). PC (≥ 960 px) : formulaire dans une
+barre de gauche redimensionnable (largeur mémorisée, double-clic pour la remettre
+par défaut). Aperçu zoomable partout : boutons, Ctrl + molette, pincement.
+Tant qu'une partie n'est pas remplie, l'aperçu montre celle de l'exemple en
+grisé (`ghost` dans le DSL) ; le PDF ne contient que les saisies. Six étapes dans l'ordre du CV congolais :
 Identité, Profil, Formation, Expérience, Compétences, Vérification.
 Formations et expériences sont triées du plus récent au plus ancien.
 Aucun détail technique n'est montré : `app/state.js` convertit le formulaire en DSL.
 
 Raccourcis (clavier) : `Alt ←/→` étapes, `Ctrl+Entrée` ajouter un élément,
-`Ctrl+S` vérification et téléchargement, `Échap` revenir à l'aperçu.
+`Ctrl+S` vérification et téléchargement, `Ctrl +/−/0` zoom, `Échap` revenir à l'aperçu.
 
 ## DSL
 
