@@ -88,6 +88,7 @@ desktop.addEventListener('change', () => {
   repaint();
 });
 initSheetDrag();
+initKeyboard();
 initSplitter();
 initPreviewGestures();
 
@@ -230,6 +231,41 @@ function initSplitter() {
     store(SIDEBAR_KEY, String(setSidebarWidth(now + (e.key === 'ArrowRight' ? 24 : -24))));
     repaint();
   });
+}
+
+// --- Clavier mobile ------------------------------------------------------------
+// Quand le clavier s'ouvre, la sheet se cale au-dessus de lui (visualViewport, iOS
+// compris), les bandes « modèles » et « étapes » se cachent pour laisser la place au
+// champ, et le champ actif est ramené au centre.
+
+function initKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  let tallest = vv.height;
+  const typing = () => {
+    const el = document.activeElement;
+    return Boolean(el?.matches?.('input, textarea') && el.type !== 'range' && el.type !== 'file');
+  };
+  function sync() {
+    tallest = Math.max(tallest, vv.height);
+    const open = !desktop.matches && typing() && vv.height < tallest * 0.8;
+    const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    root.style.setProperty('--kb', `${open ? kb : 0}px`);
+    root.style.setProperty('--vvh', `${vv.height}px`);
+    root.classList.toggle('kb-open', open);
+  }
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  document.addEventListener('focusin', (e) => {
+    sync();
+    if (desktop.matches || !e.target.matches?.('input, textarea') || !sheet.contains(e.target)) return;
+    // Après l'animation du clavier : le champ au centre de la partie visible.
+    setTimeout(() => {
+      sync();
+      e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 320);
+  });
+  document.addEventListener('focusout', () => setTimeout(sync, 50));
 }
 
 // --- Assistant ---------------------------------------------------------------

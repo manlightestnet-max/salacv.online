@@ -26,10 +26,21 @@ export function field(label, obj, key, onInput, { multiline = false, placeholder
     type: multiline ? null : type,
     autocomplete,
     value: obj[key],
+    enterkeyhint: multiline ? null : 'next',
     onInput: (e) => {
       obj[key] = e.target.value;
       onInput();
     },
+    onKeydown: multiline ? null : (e) => e.key === 'Enter' && !e.isComposing && (e.preventDefault(), focusNext(e.target)),
   });
   return h('div', { class: 'field' }, h('label', { for: id }, label), input, hint && h('p', { class: 'hint' }, hint));
+}
+
+// Entrée dans un champ d'une ligne : champ suivant de l'étape ; au dernier, le clavier se ferme.
+export function focusNext(from) {
+  const scope = from.closest('.step') ?? document;
+  const fields = [...scope.querySelectorAll('input.input, textarea.input, .period-button')].filter((el) => !el.closest('[inert], [hidden]') && el.offsetParent);
+  const next = fields[fields.indexOf(from) + 1];
+  if (next) next.focus();
+  else from.blur();
 }

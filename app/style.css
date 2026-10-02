@@ -686,3 +686,125 @@ kbd {
 .photo-error { color: rgb(var(--red-600)); }
 
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* --- Clavier ouvert (mobile) ---------------------------------------------- */
+
+@media (max-width: 959px) {
+  .kb-open .sheet,
+  .kb-open .sheet[data-state] {
+    bottom: var(--kb, 0px);
+    height: calc(var(--vvh, 100dvh) - 4px);
+    transform: none;
+    border-radius: 0;
+    transition: none;
+  }
+  /* Toute la place au champ : modèles, étapes et pied réapparaissent clavier fermé. */
+  .kb-open .templates,
+  .kb-open .stepper,
+  .kb-open .sheet-grip,
+  .kb-open .step-nav { display: none; }
+}
+
+/* --- Dialogue -------------------------------------------------------------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.45);
+  animation: fade-in 0.18s ease-out both;
+}
+.dialog-backdrop.closing { animation: fade-out 0.18s ease-in both; }
+
+.dialog {
+  width: min(100%, 460px);
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgb(var(--surface));
+  color: rgb(var(--gray-900));
+  border: 1px solid rgb(var(--gray-200));
+  border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  animation: sheet-up 0.26s var(--ease-out) both;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.dialog-grip { display: grid; place-items: center; height: 16px; }
+.dialog-grip span { width: 36px; height: 4px; border-radius: 9999px; background: rgb(var(--gray-300)); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 0 0.75rem 0.4rem 1rem; }
+.dialog-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.011em; }
+.dialog-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding: 0.25rem 1rem 1rem; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.7rem 1rem; border-top: 1px solid rgb(var(--gray-200)); }
+.dialog-foot .btn-text:first-child { margin-right: auto; }
+
+@media (min-width: 960px) {
+  .dialog-backdrop { align-items: center; }
+  .dialog { border-radius: var(--radius-xl); border-bottom: 1px solid rgb(var(--gray-200)); animation: fade-up 0.22s var(--ease-out) both; }
+  .dialog-grip { display: none; }
+  .dialog-head { padding-top: 0.9rem; }
+}
+
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* --- Période ---------------------------------------------------------------- */
+
+.period-button { display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; }
+.period-value.placeholder { color: rgb(var(--gray-400)); }
+.period-icon { color: rgb(var(--gray-400)); font-size: 12px; }
+
+.slot-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.slot-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(var(--gray-200));
+  background: transparent;
+  color: rgb(var(--gray-900));
+  font: inherit;
+  text-align: left;
+}
+.slot-pill small { font-size: 11.5px; color: rgb(var(--gray-500)); }
+.slot-pill strong { font-size: 15px; font-weight: 600; }
+.slot-pill[aria-pressed='true'] { border-color: rgb(var(--primary-600)); box-shadow: 0 0 0 1px rgb(var(--primary-600)); }
+.slot-pill:disabled { opacity: 0.5; }
+
+.period-quick { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.period-quick .pill-option[aria-pressed='true'] { background: rgb(var(--gray-900)); color: rgb(var(--surface)); border-color: transparent; }
+
+.period-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; max-height: 236px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.period-grid.months { grid-template-columns: repeat(3, 1fr); max-height: none; }
+.period-cell, .period-back {
+  height: 42px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--gray-200));
+  background: transparent;
+  color: rgb(var(--gray-900));
+  font: 500 14px var(--font-sans);
+}
+.period-cell:hover:not(:disabled) { border-color: rgb(var(--gray-300)); background: rgb(var(--gray-100)); }
+.period-cell[aria-selected='true'] { background: rgb(var(--primary-600)); border-color: transparent; color: #fff; }
+.period-cell:disabled { opacity: 0.3; cursor: default; }
+.period-back { grid-column: 1 / -1; text-align: left; padding: 0 0.75rem; color: rgb(var(--gray-600)); }
+.period-preview { font-size: 13px; color: rgb(var(--gray-600)); }
+
+/* --- Photo et recadrage --------------------------------------------------- */
+
+button.photo-frame { padding: 0; font: inherit; }
+.photo-frame:focus-visible { outline: 2px solid rgb(var(--primary-600)); outline-offset: 2px; }
+.photo-actions { flex-wrap: wrap; }
+.photo-actions [hidden] { display: none !important; }
+
+.crop-stage { display: grid; place-items: center; }
+.crop-canvas { border-radius: var(--radius-md); background: rgb(var(--gray-100)); touch-action: none; cursor: grab; }
+.crop-canvas:active { cursor: grabbing; }
+.crop-zoom-row { display: flex; align-items: center; gap: 0.6rem; color: rgb(var(--gray-500)); }
+.crop-zoom { flex: 1; accent-color: rgb(var(--primary-600)); }
+.crop-hint { text-align: center; }

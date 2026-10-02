@@ -2,6 +2,7 @@
 // suppression, repli) au lieu de reconstruire l'étape : le focus, le scroll et
 // la saisie en cours restent en place.
 import { h } from './dom.js';
+import { loadImage, openCropper } from './crop.js';
 
 let uid = 0;
 
@@ -213,28 +214,20 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
   return { el, add };
 }
 
-// Photo d'identité : recadrée au centre en carré, réduite à 360 px et compressée en
-// JPEG dans le navigateur (~30-60 Ko), gardée dans le brouillon en data URL.
-const PHOTO_SIZE = 360;
-
-async function squareJpeg(file) {
-  const bitmap = await createImageBitmap(file);
-  const side = Math.min(bitmap.width, bitmap.height);
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = PHOTO_SIZE;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PHOTO_SIZE, PHOTO_SIZE);
-  bitmap.close?.();
-  return canvas.toDataURL('image/jpeg', 0.85);
-}
+// Photo d'identité : l'image choisie s'ouvre dans le recadrage (app/crop.js) ; toucher la
+// photo la rouvre pour la recadrer (pas de nouveau sélecteur de fichier). Carré JPEG de
+// 360 px gardé dans le brouillon en data URL.
+let photoSource = null; // image d'origine de la session, pour recadrer sans perte
 
 export function photoInput({ profile, onChange }) {
   const id = `p${++uid}`;
   const img = h('img', { class: 'photo-img', alt: '' });
   const empty = h('span', { class: 'photo-empty', 'aria-hidden': 'true' }, '＋');
   const file = h('input', { id, type: 'file', accept: 'image/*', class: 'visually-hidden' });
-  const pick = h('label', { class: 'btn-ghost', for: id });
+  const frame = h('button', { class: 'photo-frame', type: 'button' }, img, empty);
+  const add = h('label', { class: 'btn-ghost', for: id }, 'Ajouter une photo');
+  const recrop = h('button', { class: 'btn-ghost', type: 'button' }, 'Recadrer');
+  const change = h('label', { class: 'btn-text', for: id }, 'Changer');
   const remove = h('button', { class: 'btn-text', type: 'button' }, 'Retirer');
   const error = h('p', { class: 'hint photo-error', hidden: true });
 
@@ -243,27 +236,40 @@ export function photoInput({ profile, onChange }) {
     img.hidden = !has;
     empty.hidden = has;
     if (has) img.src = profile.photo;
-    pick.textContent = has ? 'Changer' : 'Ajouter une photo';
-    remove.hidden = !has;
+    frame.setAttribute('aria-label', has ? 'Recadrer la photo' : 'Ajouter une photo');
+    add.hidden = has;
+    recrop.hidden = change.hidden = remove.hidden = !has;
+  }
+
+  async function crop(source) {
+    error.hidden = true;
+    try {
+      const image = await loadImage(await source);
+      openCropper(image, (dataUrl) => {
+        profile.photo = dataUrl;
+        sync();
+        onChange();
+      });
+      return image;
+    } catch {
+      error.textContent = "Cette image n'a pas pu être lue. Essaie une photo JPEG ou PNG.";
+      error.hidden = false;
+      return null;
+    }
   }
 
   file.addEventListener('change', async () => {
     const f = file.files?.[0];
     file.value = '';
-    if (!f) return;
-    error.hidden = true;
-    try {
-      profile.photo = await squareJpeg(f);
-    } catch {
-      error.textContent = "Cette image n'a pas pu être lue. Essaie une photo JPEG ou PNG.";
-      error.hidden = false;
-      return;
-    }
-    sync();
-    onChange();
+    if (f) photoSource = (await crop(f)) ?? photoSource;
   });
+  // Toucher la photo : recadrer (l'originale de la session si on l'a, sinon la photo actuelle).
+  const reopen = () => (profile.photo ? crop(photoSource ? imageToBlob(photoSource) : profile.photo) : file.click());
+  frame.addEventListener('click', reopen);
+  recrop.addEventListener('click', reopen);
   remove.addEventListener('click', () => {
     profile.photo = '';
+    photoSource = null;
     sync();
     onChange();
   });
@@ -273,8 +279,17 @@ export function photoInput({ profile, onChange }) {
     'div',
     { class: 'field' },
     h('span', { class: 'field-label' }, 'Photo (facultatif)'),
-    h('div', { class: 'photo-row' }, h('label', { class: 'photo-frame', for: id }, img, empty), h('div', { class: 'photo-actions' }, pick, remove, file)),
+    h('div', { class: 'photo-row' }, frame, h('div', { class: 'photo-actions' }, add, recrop, change, remove, file)),
     h('p', { class: 'hint' }, 'Visible dans tous les modèles sauf Minimal. Photo de face, fond clair.'),
     error,
   );
+}
+
+// Image décodée → Blob PNG, pour la rouvrir dans le recadrage.
+function imageToBlob(image) {
+  const c = document.createElement('canvas');
+  c.width = image.width;
+  c.height = image.height;
+  c.getContext('2d').drawImage(image, 0, 0);
+  return new Promise((resolve) => c.toBlob(resolve, 'image/jpeg', 0.92));
 }

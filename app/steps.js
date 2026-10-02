@@ -4,6 +4,7 @@
 // l'aperçu à jour ; une étape à liste déclare `ctx.onAdd` pour Ctrl+Entrée.
 import { h, field } from './dom.js';
 import { itemsInput, choicePills, accordion, photoInput } from './components.js';
+import { periodField } from './period.js';
 import { emptyItem, emptyLanguage, LEVELS, checklist } from './state.js';
 
 export const STEPS = [
@@ -98,7 +99,7 @@ function timeline(ctx, key, copy) {
     summary: timelineSummary,
     onChange: ctx.changed,
     fields: (item, onInput) => [
-      field('Période', item, 'period', onInput, { placeholder: '2024 — 2025' }),
+      periodField(item, 'period', onInput),
       field(copy.fields.title[0], item, 'title', onInput, { placeholder: copy.fields.title[1] }),
       field(copy.fields.org[0], item, 'org', onInput, { placeholder: copy.fields.org[1] }),
       field(copy.details[0], item, 'details', onInput, { multiline: true, rows: 3, placeholder: copy.details[1], hint: 'Une ligne par élément.' }),
