@@ -32,7 +32,7 @@ const section = z.discriminatedUnion('type', [
 
 export const resumeSchema = z.object({
   version: z.literal(1).default(1),
-  template: z.enum(['minimal', 'bandeau']).default('minimal'),
+  template: z.enum(['minimal', 'bandeau', 'vitae', 'diagonale', 'epure', 'marine', 'contraste']).default('minimal'),
   theme: z.object({ accent: hex.optional() }).default({}),
   profile: z.object({
     name: str(80).min(1, 'Le nom est obligatoire'),

@@ -8,6 +8,7 @@
 //   { t: 'rect',   x, y, w, h, r?, fill?, stroke?, lw? }
 //   { t: 'line',   x1, y1, x2, y2, color, lw }
 //   { t: 'circle', cx, cy, r, fill }
+//   { t: 'poly',   points: [[x, y], …], fill }   polygone plein (diagonales, losanges)
 //   { t: 'image',  x, y, w, h, r?, src }   src = clé dans doc.images, r = rayon des coins (w/2 : rond)
 
 export const PAGE_SIZES = { A4: { width: 595.28, height: 841.89 } };
@@ -150,6 +151,8 @@ function translate(op, dy) {
       return { ...op, y1: op.y1 + dy, y2: op.y2 + dy };
     case 'circle':
       return { ...op, cy: op.cy + dy };
+    case 'poly':
+      return { ...op, points: op.points.map(([x, y]) => [x, y + dy]) };
     default:
       return { ...op, y: op.y + dy };
   }

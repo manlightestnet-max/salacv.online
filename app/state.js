@@ -23,6 +23,11 @@ export function emptyLanguage() {
 export const TEMPLATES = [
   { id: 'minimal', name: 'Minimal' },
   { id: 'bandeau', name: 'Bandeau' },
+  { id: 'vitae', name: 'Vitae' },
+  { id: 'diagonale', name: 'Diagonale' },
+  { id: 'epure', name: 'Épuré' },
+  { id: 'marine', name: 'Marine' },
+  { id: 'contraste', name: 'Contraste' },
 ];
 const PHOTO = /^data:image\/(jpeg|png);base64,/;
 

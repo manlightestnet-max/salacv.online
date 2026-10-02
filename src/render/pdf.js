@@ -114,6 +114,15 @@ export async function renderPdf(doc, fonts, meta = {}) {
         case 'circle':
           page.drawCircle({ x: op.cx, y: H - op.cy, size: op.r, color: color(op.fill) });
           break;
+        case 'poly':
+          page.drawSvgPath(`M${op.points.map(([x, y]) => `${x},${y}`).join(' L')} Z`, {
+            x: 0,
+            y: H,
+            color: color(op.fill),
+            opacity: op.opacity ?? 1,
+            borderWidth: 0,
+          });
+          break;
         case 'image': {
           const img = await pdfImage(op.src);
           if (!img) break;

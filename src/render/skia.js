@@ -90,6 +90,14 @@ export function createSkiaRenderer(CK, fonts) {
           setColor(op.fill);
           canvas.drawCircle(op.cx, op.cy, op.r, paint);
           break;
+        case 'poly': {
+          const path = CK.Path.MakeFromSVGString(`M${op.points.map(([x, y]) => `${x} ${y}`).join(' L')} Z`);
+          paint.setStyle(CK.PaintStyle.Fill);
+          setColor(op.fill, op.opacity);
+          canvas.drawPath(path, paint);
+          path.delete();
+          break;
+        }
         case 'image': {
           const img = image(doc.images?.[op.src]);
           if (!img) break;

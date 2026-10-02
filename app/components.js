@@ -274,7 +274,7 @@ export function photoInput({ profile, onChange }) {
     { class: 'field' },
     h('span', { class: 'field-label' }, 'Photo (facultatif)'),
     h('div', { class: 'photo-row' }, h('label', { class: 'photo-frame', for: id }, img, empty), h('div', { class: 'photo-actions' }, pick, remove, file)),
-    h('p', { class: 'hint' }, 'Visible avec les modèles qui ont une photo (Bandeau). Photo de face, fond clair.'),
+    h('p', { class: 'hint' }, 'Visible dans tous les modèles sauf Minimal. Photo de face, fond clair.'),
     error,
   );
 }
