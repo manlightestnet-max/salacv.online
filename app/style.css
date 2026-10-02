@@ -568,3 +568,55 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* --- Assistant ------------------------------------------------------------ */
+
+.assistant-btn { gap: 0.35rem; padding: 0 0.75rem; color: rgb(var(--primary-700)); border-color: rgb(var(--primary-600) / 0.45); }
+.assistant-btn[aria-pressed='true'] { background: rgb(var(--primary-600)); border-color: transparent; color: #fff; }
+
+.agent-view { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid rgb(var(--gray-200)); }
+.agent-view[hidden] { display: none; }
+.agent, .agent-inner { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+.agent-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid rgb(var(--gray-200)); }
+.agent-head-title { display: flex; flex-direction: column; margin-right: auto; min-width: 0; }
+.agent-head-title strong { font-size: 14px; }
+.agent-head-title span { font-size: 12px; color: rgb(var(--gray-500)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-back, .agent-logout { font-size: 13px; }
+
+.agent-scroll { flex: 1; overflow-y: auto; }
+.agent-login { display: flex; flex-direction: column; gap: 0.9rem; padding: 1.1rem 1rem; max-width: 460px; }
+.agent-error { font-size: 13px; color: rgb(var(--red-600)); background: rgb(var(--red-50)); border-radius: var(--radius-md); padding: 0.5rem 0.7rem; }
+.agent-error[hidden] { display: none; }
+
+.agent-messages { flex: 1; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem; }
+
+.msg { max-width: 88%; padding: 0.6rem 0.8rem; border-radius: var(--radius-lg); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; animation: fade-up 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.msg-user { align-self: flex-end; background: rgb(var(--primary-600)); color: #fff; border-bottom-right-radius: var(--radius-sm); }
+.msg-assistant { align-self: flex-start; background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); border-bottom-left-radius: var(--radius-sm); }
+.msg-error { background: rgb(var(--red-50)); color: rgb(var(--red-700)); }
+
+.msg-changes { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.45rem; font-size: 12px; color: rgb(var(--gray-500)); }
+.msg-chip { padding: 1px 8px; border-radius: 9999px; background: rgb(var(--emerald-50)); color: rgb(var(--emerald-700)); font-weight: 500; }
+
+.msg-typing { display: flex; align-items: center; gap: 4px; }
+.msg-typing span { width: 6px; height: 6px; border-radius: 9999px; background: rgb(var(--gray-400)); animation: typing 1s ease-in-out infinite; }
+.msg-typing span:nth-child(2) { animation-delay: 0.15s; }
+.msg-typing span:nth-child(3) { animation-delay: 0.3s; }
+.msg-typing em { margin-left: 0.4rem; font-style: normal; font-size: 13px; color: rgb(var(--gray-500)); }
+@keyframes typing { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+
+.agent-compose { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.6rem 0.75rem calc(0.6rem + env(safe-area-inset-bottom)); border-top: 1px solid rgb(var(--gray-200)); }
+.agent-suggestions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.agent-suggestions[hidden] { display: none; }
+.agent-compose-row { display: flex; gap: 0.5rem; align-items: flex-end; }
+.agent-input { resize: none; min-height: 44px; max-height: 180px; }
+.agent-compose .btn-primary { height: 44px; }
+
+/* En mode assistant, la sheet repliée montre l'en-tête : le bouton Assistant la rouvre. */
+@media (max-width: 959px) {
+  .sheet.agent-mode[data-state='collapsed'] .agent-view { visibility: hidden; }
+  .assistant-btn { padding: 0 0.6rem; }
+}
+/* `hidden` doit l'emporter sur les display: flex/grid de ces blocs. */
+.stepper[hidden], .sheet-body[hidden] { display: none !important; }

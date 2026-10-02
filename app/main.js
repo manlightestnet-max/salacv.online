@@ -9,6 +9,7 @@ import { createSkiaRenderer } from '../src/render/skia.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
+import { createAgentPanel } from './agent.js';
 import { emptyState, normalizeState, fromResume, toResume, checklist, hasGhost } from './state.js';
 
 const fontUrls = import.meta.glob('../fonts/*.ttf', { query: '?url', import: 'default', eager: true });
@@ -72,6 +73,7 @@ $('theme').addEventListener('click', () => {
   root.dataset.theme = next;
   store(THEME_KEY, next);
 });
+$('assistant').addEventListener('click', () => (agentOpen ? closeAgent() : openAgent()));
 $('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded'));
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
 $('peek').addEventListener('click', () => setSheet('collapsed'));
@@ -151,6 +153,7 @@ function setSheet(next) {
   const open = desktop.matches || next === 'expanded';
   $('toggle').textContent = next === 'expanded' ? 'Aperçu' : 'Modifier';
   $('sheet-body').inert = !open; // pas de focus clavier dans la partie cachée
+  $('agent-view').inert = !open;
   if (!open) document.activeElement?.blur();
 }
 
@@ -227,6 +230,45 @@ function initSplitter() {
     store(SIDEBAR_KEY, String(setSidebarWidth(now + (e.key === 'ArrowRight' ? 24 : -24))));
     repaint();
   });
+}
+
+// --- Assistant ---------------------------------------------------------------
+
+let agentOpen = false;
+let agentPanel = null;
+
+// Le panneau remplace les étapes dans la barre ; le CV modifié par l'agent remplace
+// celui du formulaire (aperçu mis à jour), l'étudiant peut ensuite tout corriger.
+function openAgent() {
+  agentPanel ??= createAgentPanel({
+    getState: () => state,
+    setState: (next) => {
+      state = normalizeState(next);
+      schedule();
+    },
+    onClose: closeAgent,
+  });
+  if (!agentPanel.el.isConnected) $('agent-view').append(agentPanel.el);
+  agentOpen = true;
+  sheet.classList.add('agent-mode');
+  $('stepper').hidden = true;
+  $('sheet-body').hidden = true;
+  $('agent-view').hidden = false;
+  $('assistant').setAttribute('aria-pressed', 'true');
+  $('step-title').textContent = 'Assistant';
+  $('progress').textContent = 'Il remplit ton CV pour toi';
+  setSheet('expanded');
+  agentPanel.focus();
+}
+
+function closeAgent() {
+  agentOpen = false;
+  sheet.classList.remove('agent-mode');
+  $('stepper').hidden = false;
+  $('sheet-body').hidden = false;
+  $('agent-view').hidden = true;
+  $('assistant').setAttribute('aria-pressed', 'false');
+  renderStep(); // le formulaire reflète ce que l'agent a rempli
 }
 
 // --- Étapes ------------------------------------------------------------------

@@ -20,10 +20,10 @@ du vrai texte (sélectionnable, lisible par les logiciels de tri de CV).
 
 ```bash
 npm install
-npm test                                   # tests du DSL, du layout et du PDF
+npm test                                   # tests du DSL, du layout, du PDF, du formulaire et de l'agent
 npm run render examples/etudiant.json out  # PDF + PNG Skia dans out/
 npm run render examples/etudiant.json out -- --watermark
-npm run dev                                # éditeur étudiant (app/) : aperçu plein écran + bottom sheet + PDF
+npm run dev                                # éditeur (app/) ; /api est relayé vers npm start (port 3000)
 npm run build                              # site statique dans dist/ (déployé par Vercel)
 ```
 
@@ -70,6 +70,37 @@ Créer `src/templates/<nom>.js` qui exporte `{ id, margin, build(resume, kit, pa
 ## Polices
 
 Geist et Geist Mono (SIL Open Font License, voir `fonts/OFL-*.txt`). Thème : tokens Salacope (`app/tokens.css`).
+
+## Assistant (agent)
+
+`server/agent/` : l'étudiant écrit ses infos en vrac ou une modification (« ajoute
+Excel »), l'agent remplit le CV avec des outils puis répond en une phrase. Même
+architecture que l'agent Ivy : un outil = un fichier (`tools/`), boucle jusqu'à
+`final_answer`, rotation des clés et bascule de fournisseur sur 429, skills.
+Aucun outil shell, fichier ou réseau : l'agent ne peut que modifier le CV reçu.
+
+Routes (`server/agent/web.js`), identiques sur Vercel (`api/*.js`) et sur le VPS
+(`server/index.js`, site + API dans le même process Node) :
+
+- `POST /api/login` `{ username, password }` : connexion fictive (pas de base de
+  données), renvoie un jeton signé côté serveur, valable 7 jours.
+- `POST /api/agent` `{ state, message, history? }` avec `Authorization: Bearer <jeton>`.
+
+Variables d'environnement (Vercel → Settings → Environment Variables, ou `.env` du VPS) :
+
+| Variable | Rôle |
+|---|---|
+| `OLLAMA_API_KEY` | **La seule obligatoire.** Clé du modèle (`gemma4:31b-cloud`). Plusieurs clés : `OLLAMA_API_KEYS=a,b`. Secours : `GEMINI_API_KEY`, `GROQ_API_KEY`. |
+| `OLLAMA_MODEL`, `OLLAMA_BASE_URL` | Changer de modèle ou d'URL sans toucher au code. |
+| `SALACV_DEMO_PASSWORD` | Facultatif : seul ce mot de passe ouvre une session (réserver l'assistant aux testeurs). |
+| `SALACV_SESSION_SECRET` | Facultatif : clé de signature des sessions (sinon dérivée de la clé du modèle). |
+| `AGENT_RATE_PER_MINUTE`, `AGENT_CONCURRENCY`, `AGENT_TIMEOUT`, `AGENT_MAX_ITERATIONS` | Limites (6/min par utilisateur, 8 requêtes simultanées, 25 s par appel au modèle, 8 tours). |
+
+Aucune clé dans le repo, ni en clair ni encodée.
+
+```bash
+npm start      # VPS : site (dist/) + API sur PORT (3000), après npm run build
+```
 
 ## Déploiement
 
