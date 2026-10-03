@@ -11,8 +11,9 @@ import path from 'node:path';
 const PREFIX = 'salacv:';
 
 function upstash(env) {
-  const url = env.UPSTASH_REDIS_REST_URL;
-  const token = env.UPSTASH_REDIS_REST_TOKEN;
+  // Noms d'Upstash, ou ceux que l'intégration Vercel (Marketplace) crée toute seule.
+  const url = env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL;
+  const token = env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
   const call = async (command) => {
     const res = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(command) });
