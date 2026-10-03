@@ -103,6 +103,7 @@ $('prev').addEventListener('click', () => goTo(stepIndex - 1));
 $('peek').addEventListener('click', () => setSheet('collapsed'));
 $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('generate').addEventListener('click', download);
+$('gen-top').addEventListener('click', download);
 initHorizontalScroll($('stepper'));
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));

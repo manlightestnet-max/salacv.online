@@ -1485,3 +1485,18 @@ button.logo-mark { border: 0; cursor: pointer; }
 .step-nav #prev[hidden] { display: none; }
 .step-nav #generate { margin-left: auto; }
 @media (min-width: 960px) { .step-nav .shortcut-hint { margin-left: 8px; } }
+
+/* PC : Générer toujours là, en haut à droite (jamais caché avec un panneau). */
+.gen-top { display: none; }
+@media (min-width: 960px) {
+  .gen-top {
+    display: inline-flex; align-items: center; position: fixed; top: 16px; right: 64px; z-index: 6; height: 38px; padding: 0 18px;
+    border: 0; border-radius: 11px; background: rgb(var(--gray-900)); color: rgb(var(--canvas)); font: 600 13.5px var(--font-sans);
+    box-shadow: var(--shadow-lg); cursor: pointer;
+  }
+  .gen-top:hover { opacity: 0.92; }
+  .preview-hidden .gen-top { right: 120px; }
+  /* Le pied du panneau n'a plus besoin de son propre Générer. */
+  .step-nav #generate { display: none; }
+  .step-nav #next { margin-left: auto; }
+}
