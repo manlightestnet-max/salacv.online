@@ -35,6 +35,11 @@ export const TEMPLATES = [
   { id: 'epure', name: 'Épuré' },
   { id: 'marine', name: 'Marine' },
   { id: 'contraste', name: 'Contraste' },
+  { id: 'classique', name: 'Classique' },
+  { id: 'cursus', name: 'Cursus' },
+  { id: 'encadre', name: 'Encadré' },
+  { id: 'sobre', name: 'Sobre' },
+  { id: 'cahier', name: 'Cahier' },
 ];
 const PHOTO = /^data:image\/(jpeg|png);base64,/;
 

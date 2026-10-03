@@ -32,7 +32,7 @@ const section = z.discriminatedUnion('type', [
 
 export const resumeSchema = z.object({
   version: z.literal(1).default(1),
-  template: z.enum(['minimal', 'bandeau', 'vitae', 'diagonale', 'epure', 'marine', 'contraste']).default('minimal'),
+  template: z.enum(['minimal', 'bandeau', 'vitae', 'diagonale', 'epure', 'marine', 'contraste', 'classique', 'cursus', 'encadre', 'sobre', 'cahier']).default('minimal'),
   theme: z.object({ accent: hex.optional() }).default({}),
   // Langue du CV (libellés : i18n/cv.csv). Le contenu est saisi ou traduit dans cette langue.
   lang: z.string().regex(/^[a-z]{2}$/).default('fr'),

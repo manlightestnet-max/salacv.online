@@ -13,6 +13,9 @@ label.email,Email,Email,Email,Barua pepe,Email
 label.address,Adresse,Address,Adresi,Anwani,Morada
 label.link,Lien,Link,Lien,Kiungo,Link
 label.curriculum,Curriculum Vitae,Curriculum Vitae,Curriculum Vitae,Wasifu Binafsi,Curriculum Vitae
+label.identity,État civil,Personal details,Bomoto,Taarifa binafsi,Dados pessoais
+label.name,Nom,Name,Nkombo,Jina,Nome
+label.profession,Profession,Profession,Mosala,Taaluma,Profissão
 level.Natif,Natif,Native,Monoko ya mboka,Lugha ya asili,Nativo
 level.Courant,Courant,Fluent,Nalobaka malamu,Fasaha,Fluente
 level.Professionnel,Professionnel,Professional,Ya mosala,Kitaaluma,Profissional
