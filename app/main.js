@@ -44,7 +44,7 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
-const project = openProject();
+let project = openProject();
 project.variants ??= {};
 let state = project.state;
 let activeLang = state.lang; // onglet de langue affiché (voir langs.js)
@@ -181,8 +181,8 @@ async function initEngine() {
       // L'IA d'une fenêtre d'édition renvoie un CV : on garde photo, modèle et langue.
       replaceState: applyAiState,
       askLogin: () => openAgent(),
-      // Mode Pro : la sélection s'édite dans le panneau de gauche.
-      inspector: () => (workspace?.on ? stepEl : null),
+      // Mêmes fenêtres flottantes d'édition dans tous les modes (Lite, Pro, God mode).
+      inspector: () => null,
     });
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
@@ -780,8 +780,8 @@ function curDoc() {
 const docLabel = (d) => normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
 
 // Passer à un autre CV du projet (et à l'une de ses langues), sans recharger.
-function switchDoc(id, lang, { focus = false } = {}) {
-  saveCurrent();
+function switchDoc(id, lang, { focus = false, save = true } = {}) {
+  if (save) saveCurrent();
   activeDoc = id;
   const d = curDoc();
   d.variants ??= {};
@@ -798,6 +798,18 @@ function switchDoc(id, lang, { focus = false } = {}) {
     renderStepFab();
     if (focus) workspace.focusActive();
   }
+}
+
+// God mode : passer à un autre projet sur place (pas de rechargement), on modifie
+// directement ce qu'on voit.
+function switchProject(id, lang) {
+  const next = getProject(id);
+  if (!next) return;
+  saveCurrent();
+  project = next;
+  project.docs ??= [];
+  history.replaceState(null, '', `${location.pathname}?p=${project.id}`);
+  switchDoc('main', lang, { save: false }); // déjà enregistré, avant de changer de projet
 }
 
 // Nouveau CV dans le projet : mêmes informations, nouvelle profession à écrire.
@@ -1027,7 +1039,7 @@ function setWorkspace(enabled) {
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
     onSwitch(key) {
       const [id, lang] = key.split(':');
-      if (id.startsWith('@')) return void (saveCurrent(), (location.href = `/studio/?p=${id.slice(1)}`));
+      if (id.startsWith('@')) return switchProject(id.slice(1), lang);
       switchDoc(id, lang);
     },
   });
