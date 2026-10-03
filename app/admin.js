@@ -10,6 +10,7 @@ import { TEMPLATES, normalizeState, toResume } from './state.js';
 import example from '../examples/etudiant.json';
 import { registerTemplate } from '../src/templates/index.js';
 import { parseTemplateSpec, templateFromSpec } from '../src/templates/spec.js';
+import SKILL from '../skills/salacv-modele-cv/SKILL.md?raw';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -432,7 +433,35 @@ async function templatesView() {
       h('div', { class: 'tpl-dsl-side' }, h('span', { class: 'admin-label' }, 'Aperçu en direct'), prev),
     ),
   );
-  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, card(`${list.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')), upload);
+  // Le skill : à donner à n'importe quel agent (Claude, Gemini, ChatGPT…) avec l'image d'un CV ;
+  // il répond avec le JSON à coller ci-dessus.
+  const copied = h('span', { class: 'admin-label', 'aria-live': 'polite' });
+  const skillCard = card(
+    'Skill pour les agents',
+    null,
+    h(
+      'div',
+      { class: 'card-pad skill-share' },
+      h('p', { class: 'admin-hint' }, 'Donne ce skill à un agent (Claude, Gemini, ChatGPT…) avec la photo d’un CV : il répond avec le JSON du modèle, à coller dans « Téléverser un modèle ».'),
+      h('pre', { class: 'skill-text' }, SKILL),
+      h(
+        'div',
+        { class: 'row' },
+        h('button', { type: 'button', class: 'btn-primary', onClick: async () => { await navigator.clipboard?.writeText(SKILL).catch(() => {}); copied.textContent = 'Copié ✓'; } }, 'Copier le skill'),
+        h('button', {
+          type: 'button',
+          class: 'btn-ghost',
+          onClick: () => {
+            const url = URL.createObjectURL(new Blob([SKILL], { type: 'text/markdown' }));
+            h('a', { href: url, download: 'SKILL.md' }).click();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          },
+        }, 'Télécharger SKILL.md'),
+        copied,
+      ),
+    ),
+  );
+  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, card(`${list.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')), upload, skillCard);
 }
 
 // --- Skills de l'agent ----------------------------------------------------------------------

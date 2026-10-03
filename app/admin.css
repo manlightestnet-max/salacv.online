@@ -154,3 +154,6 @@ body.admin {
 .tpl-dsl-side { display: flex; flex-direction: column; gap: 8px; }
 .tpl-dsl-preview { width: 260px; background: #fff; border-radius: 4px; box-shadow: 0 0 0 1px var(--line), 0 18px 40px -22px rgb(0 0 0 / 0.6); }
 @media (max-width: 900px) { .tpl-dsl { grid-template-columns: 1fr; } }
+.skill-share { display: flex; flex-direction: column; gap: 12px; }
+.skill-text { max-height: 320px; overflow: auto; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: rgb(var(--gray-900) / 0.03); font: 12px/1.55 var(--font-mono); white-space: pre-wrap; }
+.admin-hint { margin: 0; font-size: 13px; color: rgb(var(--gray-500)); }

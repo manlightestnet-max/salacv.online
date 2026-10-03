@@ -47,3 +47,12 @@ test('DSL des modèles : un modèle JSON se dessine comme les autres', async () 
   assert.equal(r.ok, true);
   assert.ok(r.doc.pages[0].length > 50);
 });
+
+test('skill des agents : ses exemples JSON sont acceptés par le DSL', async () => {
+  const { parseTemplateSpec } = await import('../src/templates/spec.js');
+  const md = await readFile(new URL('../skills/salacv-modele-cv/SKILL.md', import.meta.url), 'utf8');
+  const lines = md.split('\n').filter((l) => l.startsWith('{ "id"'));
+  const block = md.match(/```json\n(\{[\s\S]*?\})\n```/)[1];
+  for (const json of [block, ...lines]) assert.equal(parseTemplateSpec(JSON.parse(json)).ok, true, json);
+  assert.ok(lines.length >= 5);
+});
