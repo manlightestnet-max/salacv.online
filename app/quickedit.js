@@ -51,7 +51,7 @@ function hitTest(ops, kit, px, py) {
   let best = null;
   for (const l of lines) {
     const box = lineBox(l);
-    if (inside(box, px, py) && (!best || box.w * box.h < best.box.w * best.box.h)) best = { text: l.s, box };
+    if (inside(box, px, py) && (!best || box.w * box.h < best.box.w * best.box.h)) best = { text: l.s, box, line: l };
   }
   if (best) return { ...best, lines };
   const photo = ops.find((o) => o.t === 'image' && inside(o, px, py));
@@ -62,13 +62,32 @@ function hitTest(ops, kit, px, py) {
 
 const keyOf = (t) => (t ? `${t.kind}:${t.list ?? ''}:${t.index ?? ''}:${t.ghost ? 1 : 0}` : '');
 
-// Sélection au niveau du groupe (toute l'expérience, tout le bloc contact…), comme
-// une sélection d'objet : le contour englobe toutes les lignes de la même saisie.
-function groupBox(lines, target, resolve) {
+// Sélection au niveau du groupe, comme dans un éditeur vidéo : le contour englobe les
+// lignes de la même saisie ET qui se touchent (même bloc à l'écran). Une ligne identique
+// ailleurs sur la page (autre colonne, autre section) n'est jamais aspirée dans le groupe.
+// Ce qui ne correspond à aucune saisie (décor, filigrane, libellés du modèle) est verrouillé.
+function groupBox(lines, hit, target, resolve) {
   const key = keyOf(target);
+  const same = lines.filter((l) => l !== hit && keyOf(resolve(l)) === key);
+  const cluster = [hit];
+  const near = (a, b) => {
+    const A = lineBox(a);
+    const B = lineBox(b);
+    const gapY = Math.max(0, Math.max(A.y, B.y) - Math.min(A.y + A.h, B.y + B.h));
+    const gapX = Math.max(0, Math.max(A.x, B.x) - Math.min(A.x + A.w, B.x + B.w));
+    return gapY <= Math.max(a.size, b.size) * 1.6 && gapX <= 24;
+  };
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (let k = same.length - 1; k >= 0; k--) {
+      if (cluster.some((c) => near(c, same[k]))) {
+        cluster.push(same.splice(k, 1)[0]);
+        grew = true;
+      }
+    }
+  }
   let box = null;
-  for (const l of lines) {
-    if (keyOf(resolve(l.s)) !== key) continue;
+  for (const l of cluster) {
     const b = lineBox(l);
     if (!box) box = { ...b };
     else {
@@ -122,19 +141,46 @@ export function resolveTarget(text, state, mockupState, pools = [candidates(stat
   if (f.length < 2) return null;
   const score = (c) => {
     if (c.v === f) return 1000 + f.length;
-    if (c.v.includes(f)) return 500 + (f.length / c.v.length) * 100;
-    if (f.includes(c.v) && c.v.length >= 3) return 200 + c.v.length;
+    // Fragment d'une saisie (ligne coupée d'un paragraphe) : assez long pour ne pas être un hasard.
+    if (f.length >= 8 && c.v.includes(f)) return 500 + (f.length / c.v.length) * 100;
+    // Une saisie contenue dans la ligne (« période | titre — école ») : mot entier, assez longue.
+    if (c.v.length >= 6 && ` ${f} `.includes(` ${c.v} `)) return 200 + c.v.length;
     return 0;
   };
   for (const pool of pools) {
     let best = null;
+    let tie = false;
+    const fragments = new Set();
     for (const c of pool) {
       const s = score(c);
-      if (s && (!best || s > best.s)) best = { s, target: c.target };
+      if (!s) continue;
+      if (!best || s > best.s) best = { s, target: c.target };
+      if (s < 1000) fragments.add(keyOf(c.target));
     }
-    if (best) return best.target;
+    // Un fragment qui appartient à plusieurs saisies différentes, sans correspondance exacte.
+    tie = Boolean(best) && best.s < 1000 && fragments.size > 1;
+    // Fragment commun à deux saisies (« CERTIFICATIONS ») : on ne devine pas.
+    if (best) return tie ? AMBIGUOUS : best.target;
   }
   return null;
+}
+const AMBIGUOUS = { ambiguous: true };
+
+// Une ligne, et si elle est ambiguë, avec sa voisine du dessus ou du dessous (même colonne) :
+// un titre coupé en deux lignes se reconnaît en entier.
+function lineResolver(lines, resolveText) {
+  const column = (a, b) => Math.abs(a.x - b.x) < 3 && Math.abs(a.size - b.size) < 0.5;
+  return (line) => {
+    const t = resolveText(line.s);
+    if (t !== AMBIGUOUS) return t;
+    const above = lines.find((o) => o !== line && column(o, line) && line.y - o.y > 0 && line.y - o.y < line.size * 1.8);
+    const below = lines.find((o) => o !== line && column(o, line) && o.y - line.y > 0 && o.y - line.y < line.size * 1.8);
+    for (const text of [above && `${above.s} ${line.s}`, below && `${line.s} ${below.s}`]) {
+      const r = text && resolveText(text);
+      if (r && r !== AMBIGUOUS) return r;
+    }
+    return null;
+  };
 }
 
 // Contenu d'exemple touché : la cible devient le premier élément vide du formulaire.
@@ -238,12 +284,12 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     if (!hit) return null;
     const state = getState();
     const pools = [candidates(state, false), candidates(mockupState, true)];
-    const resolve = (text) => resolveTarget(text, state, mockupState, pools);
+    const resolve = lineResolver(hit.lines, (text) => resolveTarget(text, state, mockupState, pools));
     // Initiales affichées à la place de la photo (pas encore de photo) : on ouvre la photo.
     const initials = !hit.photo && /^[A-ZÀ-Ý]{1,3}$/.test(hit.text.trim());
-    const target = hit.photo || initials ? { kind: 'photo' } : resolve(hit.text);
+    const target = hit.photo || initials ? { kind: 'photo' } : resolve(hit.line);
     if (!target) return null;
-    const b = (target.kind !== 'photo' && groupBox(hit.lines, target, resolve)) || hit.box;
+    const b = (target.kind !== 'photo' && groupBox(hit.lines, hit.line, target, resolve)) || hit.box;
     const box = { left: r.left + b.x * k - 3, top: r.top + b.y * k - 3, width: b.w * k + 6, height: b.h * k + 6 };
     return { target, box };
   }
@@ -262,7 +308,8 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     frame = requestAnimationFrame(() => {
       const found = locate(e);
       canvases.style.cursor = found ? 'pointer' : '';
-      if (found && !selected) show(found.box);
+      if (selected) return; // la sélection reste affichée tant qu'on ne la quitte pas
+      if (found) show(found.box);
       else outline.hidden = true;
     });
   });
