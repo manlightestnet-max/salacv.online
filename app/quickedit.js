@@ -256,31 +256,115 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
   // PC : contour au survol de ce qui est modifiable.
   let frame = 0;
   canvases.addEventListener('pointermove', (e) => {
-    if (e.pointerType !== 'mouse' || editing || !enabled()) return;
+    if (e.pointerType !== 'mouse' || editing || selected || !enabled()) return;
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
       const found = locate(e);
       canvases.style.cursor = found ? 'pointer' : '';
-      if (found) show(found.box);
+      if (found && !selected) show(found.box);
       else outline.hidden = true;
     });
   });
-  canvases.addEventListener('pointerleave', () => !editing && (outline.hidden = true));
+  canvases.addEventListener('pointerleave', () => !editing && !selected && (outline.hidden = true));
   preview.addEventListener('scroll', () => !editing && (outline.hidden = true), { passive: true });
+
+  // --- Barre d'actions flottante -------------------------------------------------
+  // Toucher un élément le sélectionne (contour) et fait apparaître juste au-dessus une
+  // petite barre : Modifier, Ajouter, Supprimer — le geste de Canva ou Google Docs.
+  // Double-clic (PC) : directement Modifier.
+  const bar = h('div', { class: 'qe-bar', role: 'toolbar', 'aria-label': 'Actions', hidden: true });
+  document.body.append(bar);
+  let selected = null; // { raw, box }
+
+  function deselect() {
+    selected = null;
+    bar.hidden = true;
+    if (!editing) outline.hidden = true;
+  }
+
+  function actions(raw) {
+    const state = getState();
+    const list = raw.kind === 'item' || raw.kind === 'section' ? raw.list : null;
+    const noun = { education: 'une formation', experiences: 'une expérience' }[list];
+    const out = [];
+    if (raw.kind !== 'section') out.push({ icon: ICONS.edit, label: 'Modifier', run: () => open(realTarget(raw, state), selected.box) });
+    if (list) out.push({ icon: ICONS.add, label: `Ajouter ${noun}`, short: 'Ajouter', run: () => open(addItem(state, list), selected.box) });
+    if (raw.kind === 'skills' || raw.kind === 'hobbies') out.push({ icon: ICONS.add, label: 'Ajouter', run: () => open({ kind: raw.kind, focusAdd: true }, selected.box) });
+    if (raw.kind === 'language') out.push({ icon: ICONS.add, label: 'Ajouter une langue', short: 'Ajouter', run: () => open(addLanguage(state), selected.box) });
+    if (!raw.ghost && raw.kind === 'item') out.push({ icon: ICONS.remove, label: 'Supprimer', danger: true, run: () => removeItem(state, raw) });
+    if (!raw.ghost && raw.kind === 'language') out.push({ icon: ICONS.remove, label: 'Supprimer', danger: true, run: () => removeLanguage(state, raw) });
+    if (raw.kind === 'photo' && state.profile.photo) out.push({ icon: ICONS.remove, label: 'Retirer', danger: true, run: () => ((state.profile.photo = ''), changed(), deselect()) });
+    return out;
+  }
+
+  function select(raw, box) {
+    selected = { raw, box };
+    show(box, true);
+    const label = raw.kind === 'item' ? (raw.list === 'education' ? 'Formation' : 'Expérience') : raw.kind === 'section' ? (raw.list === 'education' ? 'Formation' : 'Expérience') : TITLES[raw.kind];
+    bar.replaceChildren(
+      h('span', { class: 'qe-bar-label' }, label, raw.ghost && h('em', {}, ' · exemple')),
+      ...actions(raw).map((a) =>
+        h(
+          'button',
+          { type: 'button', class: `qe-act${a.danger ? ' danger' : ''}`, title: a.label, 'aria-label': a.label, onClick: (e) => (e.stopPropagation(), a.run()) },
+          icon(a.icon),
+          h('span', { class: 'qe-act-text' }, a.short ?? a.label),
+        ),
+      ),
+    );
+    bar.hidden = false;
+    // Au-dessus de l'élément, sinon en dessous ; toujours dans l'écran.
+    const r = bar.getBoundingClientRect();
+    const top = box.top - r.height - 8 > 8 ? box.top - r.height - 8 : box.top + box.height + 8;
+    const left = Math.min(window.innerWidth - r.width - 8, Math.max(8, box.left + box.width / 2 - r.width / 2));
+    Object.assign(bar.style, { top: `${top}px`, left: `${left}px` });
+  }
+
+  function addItem(state, list) {
+    let index = state[list].findIndex((i) => !i.title.trim());
+    if (index < 0) index = state[list].push(emptyItem()) - 1;
+    return { kind: 'item', list, index, fresh: true };
+  }
+  function addLanguage(state) {
+    let index = state.languages.findIndex((l) => !l.name.trim());
+    if (index < 0) index = state.languages.push(emptyLanguage()) - 1;
+    return { kind: 'language', index, fresh: true };
+  }
+  function removeItem(state, raw) {
+    const list = state[raw.list];
+    list.splice(raw.index, 1);
+    if (!list.length) list.push(emptyItem());
+    changed();
+    deselect();
+  }
+  function removeLanguage(state, raw) {
+    state.languages.splice(raw.index, 1);
+    if (!state.languages.length) state.languages.push(emptyLanguage());
+    changed();
+    deselect();
+  }
 
   canvases.addEventListener('click', (e) => {
     if (!enabled()) return;
     const found = locate(e);
-    if (!found) return;
-    const target = realTarget(found.target, getState());
-    show(found.box, true);
-    open(target, found.box);
+    if (!found) return deselect();
+    e.stopPropagation();
+    select(found.target, found.box);
   });
+  canvases.addEventListener('dblclick', (e) => {
+    if (!enabled() || !selected) return;
+    open(realTarget(selected.raw, getState()), selected.box);
+  });
+  document.addEventListener('click', (e) => !e.target.closest('.qe-bar, #canvases, .dialog-backdrop') && deselect());
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && !editing && deselect());
+  preview.addEventListener('scroll', () => selected && !editing && deselect(), { passive: true });
 
   function open(target, box) {
+    bar.hidden = true;
     const state = getState();
     const isItem = target.kind === 'item';
-    const title = isItem ? (target.list === 'education' ? 'Formation' : 'Expérience') : TITLES[target.kind];
+    const base = isItem ? (target.list === 'education' ? 'Formation' : 'Expérience') : TITLES[target.kind];
+    const title = target.fresh ? `Nouvelle ${base === 'Expérience' ? 'expérience' : base === 'Formation' ? 'formation' : 'langue'}` : base;
     let dialog;
     const close = () => dialog.close();
     dialog = openDialog({
@@ -291,6 +375,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
       onClose: () => {
         editing = null;
         outline.hidden = true;
+        selected = null;
         onClose?.();
       },
     });
@@ -301,11 +386,19 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
       const right = box.left + box.width + 16;
       const left = right + w < window.innerWidth - 12 ? right : Math.max(12, box.left - w - 16);
       dialog.el.parentElement.classList.add('qe-backdrop');
-      Object.assign(dialog.el.style, { position: 'fixed', width: `${w}px`, left: `${left}px`, top: `${Math.max(12, Math.min(box.top - 20, window.innerHeight - 420))}px` });
+      Object.assign(dialog.el.style, { position: 'fixed', width: `${w}px`, left: `${left}px`, maxHeight: `${window.innerHeight - 24}px` });
+      // Hauteur réelle connue après rendu : la fenêtre reste entière dans l'écran.
+      const place = () => {
+        const hgt = dialog.el.offsetHeight;
+        dialog.el.style.top = `${Math.max(12, Math.min(box.top - 12, window.innerHeight - hgt - 12))}px`;
+      };
+      place();
+      requestAnimationFrame(place);
       draggable(dialog.el);
     }
     // Premier champ prêt à la saisie (pas sur mobile : le clavier cacherait le CV d'un coup).
-    if (!window.matchMedia('(pointer: coarse)').matches) requestAnimationFrame(() => dialog.el.querySelector('.input')?.focus());
+    if (target.focusAdd) requestAnimationFrame(() => dialog.el.querySelector('.items-entry .input, .input')?.focus());
+    else if (!window.matchMedia('(pointer: coarse)').matches) requestAnimationFrame(() => dialog.el.querySelector('.input')?.focus());
   }
 }
 
@@ -334,4 +427,17 @@ function draggable(panel) {
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
+}
+
+const svg = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICONS = {
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/>'),
+  add: svg('<path d="M12 5v14M5 12h14"/>'),
+  remove: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+};
+
+function icon(markup) {
+  const el = h('span', { class: 'qe-ico', 'aria-hidden': 'true' });
+  el.innerHTML = markup; // SVG constant du code, jamais du contenu saisi
+  return el;
 }
