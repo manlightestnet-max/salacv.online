@@ -39,7 +39,18 @@ async function api(action, body = {}) {
   return data;
 }
 
-const header = (title, sub, action) => h('div', { class: 'view-head' }, h('div', {}, h('h1', {}, title), sub && h('p', { class: 'sub' }, sub)), action);
+// Page au format Salacope : fil d'Ariane, titre, puis les cartes.
+const page = (title, sub, action, ...body) =>
+  h(
+    'div',
+    {},
+    h('div', { class: 'ad-head' }, h('div', { class: 'ad-head-inner' }, h('p', { class: 'crumbs' }, h('span', {}, 'Administration'), h('span', { 'aria-hidden': 'true' }, '›'), h('span', {}, title)), h('div', { class: 'ad-title' }, h('h1', {}, title), action), sub && h('p', { class: 'ad-sub' }, sub))),
+    h('div', { class: 'ad-body' }, ...body),
+  );
+const card = (title, extra, ...children) => h('section', { class: 'card-sec' }, h('header', {}, h('h2', {}, title), extra), ...children);
+const statCell = (k, v, sub, accent) => h('div', { class: 'stat-cell' }, h('span', { class: 'k' }, k), h('strong', { class: `v${accent ? ' accent' : ''}` }, String(v)), sub && (typeof sub === 'string' ? h('span', { class: 's' }, sub) : sub));
+const rowsOf = (items, empty) => h('div', { class: 'rows' }, items.length ? items : h('p', { class: 'rows-empty' }, empty));
+const dateTime = (ts) => new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const notice = (text, kind = '') => h('p', { class: `admin-notice ${kind}` }, text);
 const fold = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -62,60 +73,75 @@ function loginView() {
     if (!r.ok) return (error.textContent = r.error);
     token = r.token;
     sessionStorage.setItem(TOKEN_KEY, token);
-    location.hash = '#utilisateurs';
+    location.hash = '#apercu';
     render();
   });
   requestAnimationFrame(() => input.focus());
   return h('section', { class: 'admin-center' }, form);
 }
 
-// --- Vue d'ensemble (en tête de chaque page) ---------------------------------------------
-async function overview() {
+// --- Aperçu -----------------------------------------------------------------------------
+let lastOverview = null;
+async function overviewView() {
   const o = await api('overview');
-  if (!o.ok) return notice(o.error, 'error');
-  const stat = (n, label) => h('div', { class: 'stat' }, h('strong', {}, String(n)), h('span', {}, label));
-  return h(
-    'div',
-    {},
+  if (!o.ok) return page('Aperçu', null, null, notice(o.error, 'error'));
+  lastOverview = o;
+  syncBadge();
+  const res = o.resources ? Object.values(o.resources).reduce((a, b) => a + b, 0) : 0;
+  const journal = o.journal.map(journalRow);
+  return page(
+    'Aperçu',
+    null,
+    null,
     !o.durable && notice('Stockage temporaire : sur Vercel, ajoute UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN pour garder les données. Sur le VPS, tout est gardé dans data/.', 'warn'),
-    h('div', { class: 'stats' }, stat(o.users, 'utilisateurs'), stat(o.blocked, 'bloqués'), stat(o.cvs, 'CV d’essai'), stat(o.skills, 'skills ajoutées')),
+    card(
+      'Utilisateurs et comptes',
+      null,
+      h(
+        'div',
+        { class: 'stat-grid' },
+        statCell('Utilisateurs', o.users, h('a', { class: 's', href: '#utilisateurs' }, 'Voir la liste →')),
+        statCell('Actifs', o.active7, 'sur les 7 derniers jours'),
+        statCell('Nouveaux', o.new7, 'cette semaine'),
+        statCell('Mesures', o.blocked, `${o.blocked} compte${o.blocked > 1 ? 's' : ''} bloqué${o.blocked > 1 ? 's' : ''}`),
+      ),
+    ),
+    card(
+      'Activité',
+      null,
+      h(
+        'div',
+        { class: 'stat-grid' },
+        statCell('CV générés', o.cvs, h('a', { class: 's', href: '#cv' }, 'Phase d’essai →')),
+        statCell('Aujourd’hui', o.cvsToday, `${o.cvs7} sur 7 jours`),
+        statCell('Ressources', res, o.resources ? `${o.resources.metiers} métiers · ${o.resources.etablissements} établissements` : 'À importer', false),
+        statCell('Skills ajoutées', o.skills, 'en plus de celles du code', true),
+      ),
+    ),
+    card('Dernières actions', h('a', { href: '#journal' }, 'Tout le journal'), rowsOf(journal, 'Aucune action pour l’instant.')),
   );
+}
+
+function journalRow(e) {
+  return h('div', { class: 'row-item' }, h('div', { class: 'row-main' }, h('strong', {}, e.title), e.detail && h('small', {}, e.detail)), h('span', { class: 'row-meta' }, dateTime(e.at)));
+}
+
+async function journalView() {
+  const r = await api('journal');
+  if (!r.ok) return page('Journal', null, null, notice(r.error, 'error'));
+  return page('Journal', 'Toutes les actions faites depuis l’administration, la plus récente en premier.', null, card(`${r.journal.length} action${r.journal.length > 1 ? 's' : ''}`, null, rowsOf(r.journal.map(journalRow), 'Le journal est vide.')));
+}
+
+function syncBadge() {
+  const b = document.getElementById('badge-blocked');
+  b.hidden = !lastOverview?.blocked;
+  b.textContent = String(lastOverview?.blocked ?? '');
 }
 
 // --- Utilisateurs ------------------------------------------------------------------------
 async function usersView() {
   const r = await api('users');
-  if (!r.ok) return notice(r.error, 'error');
-  const rows = h('div', { class: 'admin-list' });
-  const draw = (q = '') => {
-    const list = r.users.filter((u) => fold(u.username).includes(fold(q)));
-    rows.replaceChildren(
-      ...(list.length
-        ? list.map((u) =>
-            h(
-              'div',
-              { class: `admin-row${u.blocked ? ' blocked' : ''}` },
-              h('span', { class: 'avatar', 'aria-hidden': 'true' }, u.username[0].toUpperCase()),
-              h(
-                'div',
-                { class: 'row-text' },
-                h('strong', {}, u.username, u.blocked && h('span', { class: 'tag danger' }, 'Bloqué')),
-                h('small', {}, `${u.logins} connexion${u.logins > 1 ? 's' : ''} · dernière ${u.last ? relativeDate(u.last) : '—'} · depuis ${new Date(u.first).toLocaleDateString('fr-FR')}`, u.reason && ` · ${u.reason}`),
-              ),
-              h(
-                'button',
-                {
-                  type: 'button',
-                  class: u.blocked ? 'btn-ghost' : 'btn-ghost danger-btn',
-                  onClick: () => (u.blocked ? setBlocked(u, false) : confirmBlock(u)),
-                },
-                u.blocked ? 'Débloquer' : 'Bloquer',
-              ),
-            ),
-          )
-        : [h('p', { class: 'empty' }, q ? 'Aucun utilisateur ne correspond.' : 'Aucun utilisateur pour l’instant. Ils apparaissent à leur première connexion à l’assistant.')]),
-    );
-  };
+  if (!r.ok) return page('Utilisateurs', null, null, notice(r.error, 'error'));
   async function setBlocked(u, blocked, reason) {
     const res = await api(blocked ? 'block' : 'unblock', { username: u.username, reason });
     if (res.ok) render();
@@ -131,37 +157,55 @@ async function usersView() {
       ],
     });
   }
-  const search = h('input', { class: 'admin-input', type: 'search', placeholder: 'Rechercher un utilisateur…', onInput: (e) => draw(e.target.value) });
-  draw();
-  return h('section', {}, header('Utilisateurs', 'Connexions à l’assistant. Bloquer coupe l’accès à l’assistant et à la traduction.'), await overview(), search, rows);
+  const rows = r.users.map((u) =>
+    h(
+      'div',
+      { class: `row-item${u.blocked ? ' blocked' : ''}` },
+      h('span', { class: 'avatar', 'aria-hidden': 'true' }, u.username[0].toUpperCase()),
+      h(
+        'div',
+        { class: 'row-main' },
+        h('strong', {}, u.username, u.blocked && h('span', { class: 'tag danger' }, 'Bloqué')),
+        h('small', {}, `${u.logins} connexion${u.logins > 1 ? 's' : ''} · depuis le ${new Date(u.first).toLocaleDateString('fr-FR')}${u.reason ? ` · ${u.reason}` : ''}`),
+      ),
+      h('span', { class: 'row-meta' }, u.last ? relativeDate(u.last) : '—'),
+      h('button', { type: 'button', class: u.blocked ? 'btn-ghost' : 'btn-ghost danger-btn', onClick: () => (u.blocked ? setBlocked(u, false) : confirmBlock(u)) }, u.blocked ? 'Débloquer' : 'Bloquer'),
+    ),
+  );
+  return page(
+    'Utilisateurs',
+    'Comptes connectés à l’assistant. Bloquer coupe l’accès à l’assistant et à la traduction.',
+    null,
+    card(`${r.users.length} compte${r.users.length > 1 ? 's' : ''}`, null, rowsOf(rows, 'Aucun utilisateur pour l’instant. Ils apparaissent à leur première connexion à l’assistant.')),
+  );
 }
 
 // --- CV de la phase d'essai --------------------------------------------------------------
 let engine = null;
 async function cvView() {
   const r = await api('cvs', { limit: 500 });
-  if (!r.ok) return notice(r.error, 'error');
+  if (!r.ok) return page('CV d’essai', null, null, notice(r.error, 'error'));
   const download = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(r.cvs, null, 2)], { type: 'application/json' }));
     h('a', { href: url, download: `salacv-cv-essai-${new Date().toISOString().slice(0, 10)}.json` }).click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
-  const list = r.cvs.map((c) => {
+  const rows = r.cvs.map((c) => {
     const p = c.resume.profile ?? {};
     return h(
       'div',
-      { class: 'admin-row' },
+      { class: 'row-item' },
       h('span', { class: 'avatar', 'aria-hidden': 'true' }, (p.name ?? '?')[0].toUpperCase()),
-      h('div', { class: 'row-text' }, h('strong', {}, p.name ?? 'Sans nom'), h('small', {}, [p.title, c.resume.template, (c.resume.lang ?? 'fr').toUpperCase(), relativeDate(c.at), c.username && `@${c.username}`].filter(Boolean).join(' · '))),
+      h('div', { class: 'row-main' }, h('strong', {}, p.name ?? 'Sans nom'), h('small', {}, [p.title, c.resume.template, (c.resume.lang ?? 'fr').toUpperCase(), c.username && `@${c.username}`].filter(Boolean).join(' · '))),
+      h('span', { class: 'row-meta' }, dateTime(c.at)),
       h('button', { type: 'button', class: 'btn-ghost', onClick: () => preview(c) }, 'Aperçu'),
     );
   });
-  return h(
-    'section',
-    {},
-    header('CV d’essai', 'CV générés pendant la phase d’essai, sans photo, pour améliorer l’application.', r.cvs.length > 0 && h('button', { type: 'button', class: 'btn-ghost', onClick: download }, 'Exporter en JSON')),
-    await overview(),
-    h('div', { class: 'admin-list' }, list.length ? list : h('p', { class: 'empty' }, 'Aucun CV généré pour l’instant.')),
+  return page(
+    'CV d’essai',
+    'CV générés pendant la phase d’essai, conservés sans photo pour améliorer l’application.',
+    r.cvs.length > 0 && h('button', { type: 'button', class: 'btn-ghost', onClick: download }, 'Exporter en JSON'),
+    card(`${r.cvs.length} CV`, null, rowsOf(rows, 'Aucun CV généré pour l’instant.')),
   );
 }
 
@@ -186,7 +230,7 @@ let resTab = 'metiers';
 
 async function resourcesView() {
   const r = await api('resources');
-  if (!r.ok) return notice(r.error, 'error');
+  if (!r.ok) return page('Ressources', null, null, notice(r.error, 'error'));
   const res = r.resources;
   const status = h('p', { class: 'admin-error', 'aria-live': 'polite' });
   const file = h('input', { type: 'file', accept: 'application/json,.json', class: 'visually-hidden', id: 'res-file' });
@@ -211,53 +255,43 @@ async function resourcesView() {
     h('a', { href: url, download: 'salacv-ressources.json' }).click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
-
-  const chips = LISTS.map(([key, label]) => h('button', { type: 'button', class: 'chip', 'aria-pressed': String(resTab === key), onClick: () => ((resTab = key), render()) }, `${label} · ${res?.[key]?.length ?? 0}`));
   const [, , title, meta] = LISTS.find(([k]) => k === resTab);
-  const items = res?.[resTab] ?? [];
-  const search = h('input', { class: 'admin-input', type: 'search', placeholder: 'Filtrer…' });
-  const rows = h('div', { class: 'admin-list' });
-  const draw = () => {
-    const q = fold(search.value);
-    rows.replaceChildren(
-      ...items
-        .filter((x) => fold(JSON.stringify(x)).includes(q))
-        .map((x) =>
-          h(
-            'div',
-            { class: 'admin-row' },
-            h('div', { class: 'row-text' }, h('strong', {}, title(x) ?? '—'), h('small', {}, meta(x).filter(Boolean).join(' · '))),
-            x.sources?.[0] && h('a', { class: 'row-link', href: x.sources[0], target: '_blank', rel: 'noopener noreferrer' }, 'Source ↗'),
-          ),
-        ),
-    );
-    if (!rows.children.length) rows.append(h('p', { class: 'empty' }, res ? 'Rien dans cette liste.' : 'Aucune ressource : importe le JSON de la recherche.'));
-  };
-  search.addEventListener('input', draw);
-  draw();
-
-  return h(
-    'section',
-    {},
-    header('Ressources', res?.updatedAt ? `Mises à jour ${relativeDate(res.updatedAt)}. Elles servent aux suggestions et à l’agent.` : 'Métiers, compétences, établissements et entreprises.', res && h('button', { type: 'button', class: 'btn-ghost', onClick: exportJson }, 'Exporter')),
+  const rows = (res?.[resTab] ?? []).map((x) =>
     h(
       'div',
-      { class: 'panel admin-import' },
-      h('strong', {}, res ? 'Remplacer les ressources' : 'Importer les ressources'),
-      area,
-      status,
-      h('div', { class: 'row' }, h('label', { class: 'btn-ghost', for: 'res-file' }, 'Choisir un fichier .json'), file, h('button', { type: 'button', class: 'btn-primary', onClick: save }, 'Enregistrer')),
+      { class: 'row-item' },
+      h('div', { class: 'row-main' }, h('strong', {}, title(x) ?? '—'), h('small', {}, meta(x).filter(Boolean).join(' · '))),
+      x.sources?.[0] && h('a', { class: 'row-link', href: x.sources[0], target: '_blank', rel: 'noopener noreferrer' }, 'Source ↗'),
     ),
-    h('div', { class: 'chips' }, chips),
-    search,
-    rows,
+  );
+  return page(
+    'Ressources',
+    res?.updatedAt ? `Mises à jour ${relativeDate(res.updatedAt)}. Elles servent aux suggestions du studio et à l’agent.` : 'Métiers, compétences, établissements et entreprises, issus de la recherche web.',
+    res && h('button', { type: 'button', class: 'btn-ghost', onClick: exportJson }, 'Exporter'),
+    res &&
+      card(
+        'Contenu',
+        null,
+        h('div', { class: 'stat-grid' }, ...LISTS.map(([k, label]) => statCell(label, res[k]?.length ?? 0, null))),
+      ),
+    card(
+      res ? 'Listes' : 'Aucune ressource',
+      null,
+      h('div', { class: 'chips' }, LISTS.map(([key, label]) => h('button', { type: 'button', class: 'chip', 'aria-pressed': String(resTab === key), onClick: () => ((resTab = key), render()) }, `${label} · ${res?.[key]?.length ?? 0}`))),
+      rowsOf(rows, res ? 'Rien dans cette liste.' : 'Importe le JSON de la recherche ci-dessous.'),
+    ),
+    card(
+      res ? 'Remplacer les ressources' : 'Importer les ressources',
+      null,
+      h('div', { class: 'card-pad' }, area, status, h('div', { class: 'row' }, h('label', { class: 'btn-ghost', for: 'res-file' }, 'Choisir un fichier .json'), file, h('button', { type: 'button', class: 'btn-primary', onClick: save }, 'Enregistrer'))),
+    ),
   );
 }
 
 // --- Skills de l'agent ----------------------------------------------------------------------
 async function skillsView() {
   const r = await api('skills');
-  if (!r.ok) return notice(r.error, 'error');
+  if (!r.ok) return page('Skills', null, null, notice(r.error, 'error'));
   const edit = (skill = {}) => {
     const f = (label, key, attrs = {}) => {
       const el = h(attrs.rows ? 'textarea' : 'input', { class: 'admin-input', value: skill[key] ?? '', ...attrs });
@@ -291,7 +325,7 @@ async function skillsView() {
       ],
     });
   };
-  const remove = async (s) => {
+  const remove = (s) => {
     const d = openDialog({
       title: `Supprimer « ${s.title} » ?`,
       content: h('p', { class: 'dialog-text' }, 'L’agent ne pourra plus charger cette skill.'),
@@ -304,36 +338,85 @@ async function skillsView() {
   const row = (s, builtin) =>
     h(
       'div',
-      { class: 'admin-row' },
-      h('div', { class: 'row-text' }, h('strong', {}, s.title, builtin && h('span', { class: 'tag' }, 'Code')), h('small', {}, `${s.slug} · ${s.description ?? ''}`)),
+      { class: 'row-item' },
+      h('div', { class: 'row-main' }, h('strong', {}, s.title, builtin && h('span', { class: 'tag' }, 'Code')), h('small', {}, `${s.slug} · ${s.description ?? ''}`)),
+      s.updatedAt && h('span', { class: 'row-meta' }, relativeDate(s.updatedAt)),
       !builtin && h('button', { type: 'button', class: 'btn-ghost', onClick: () => edit(s) }, 'Modifier'),
       !builtin && h('button', { type: 'button', class: 'btn-ghost danger-btn', onClick: () => remove(s) }, 'Supprimer'),
     );
-  return h(
-    'section',
-    {},
-    header('Skills de l’agent', 'L’agent voit le titre et la description de chaque skill, et charge son contenu quand la demande y correspond.', h('button', { type: 'button', class: 'btn-primary', onClick: () => edit() }, 'Nouvelle skill')),
-    h('div', { class: 'admin-list' }, r.builtin.map((s) => row(s, true)), r.custom.map((s) => row(s, false))),
+  return page(
+    'Skills',
+    'L’agent voit le titre et la description de chaque skill, et charge son contenu quand la demande y correspond.',
+    h('button', { type: 'button', class: 'btn-primary', onClick: () => edit() }, 'Nouvelle skill'),
+    card('Skills du code', null, rowsOf(r.builtin.map((x) => row(x, true)), '—')),
+    card('Skills ajoutées', null, rowsOf(r.custom.map((x) => row(x, false)), 'Aucune pour l’instant.')),
   );
 }
 
+// --- Icônes de la barre latérale --------------------------------------------------------------
+const ICON_PATHS = {
+  explore: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+  shield: '<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2 .8 3 2.8 3 6"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  box: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
+  log: '<path d="M8 4h11v16H8z"/><path d="M5 4v16M11 8h5M11 12h5M11 16h3"/>',
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>',
+};
+document.querySelectorAll('.ad-ico').forEach((el) => {
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[el.dataset.i] ?? ''}</svg>`;
+});
+
+// --- Barre latérale : masquable (PC), tiroir (mobile) ---------------------------------------
+const side = $('side');
+const scrim = $('scrim');
+const mobile = window.matchMedia('(max-width: 899px)');
+let sideOpen = !mobile.matches;
+function syncSide() {
+  side.hidden = !token || !sideOpen;
+  scrim.hidden = side.hidden || !mobile.matches;
+}
+$('menu').addEventListener('click', () => ((sideOpen = !sideOpen), syncSide()));
+scrim.addEventListener('click', () => ((sideOpen = false), syncSide()));
+side.addEventListener('click', (e) => e.target.closest('a') && mobile.matches && ((sideOpen = false), syncSide()));
+mobile.addEventListener('change', () => ((sideOpen = !mobile.matches), syncSide()));
+
+// --- Recherche dans la page (filtre les lignes affichées) ------------------------------------
+const search = $('search');
+search.addEventListener('input', () => {
+  const q = fold(search.value.trim());
+  document.querySelectorAll('.row-item').forEach((row) => (row.hidden = Boolean(q) && !fold(row.textContent).includes(q)));
+});
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && token) {
+    e.preventDefault();
+    search.focus();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && token) {
+    e.preventDefault();
+    sideOpen = !sideOpen;
+    syncSide();
+  }
+});
+
 // --- Navigation ----------------------------------------------------------------------------
-const VIEWS = { utilisateurs: usersView, cv: cvView, ressources: resourcesView, skills: skillsView };
+const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, skills: skillsView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);
   $('logout').hidden = !logged;
-  document.querySelector('.tabs').hidden = !logged;
-  document.querySelector('.admin-tabs').hidden = !logged;
+  document.querySelector('.ad-search').hidden = !logged;
+  syncSide();
   if (!logged) return view.replaceChildren(loginView());
-  const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'utilisateurs';
+  const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'apercu';
   document.querySelectorAll('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === tab)));
-  view.replaceChildren(h('p', { class: 'empty' }, 'Chargement…'));
+  search.value = '';
   const content = await VIEWS[tab]();
   view.replaceChildren(content);
   view.classList.remove('enter');
   void view.offsetWidth;
   view.classList.add('enter');
+  if (tab !== 'apercu' && !lastOverview) api('overview').then((o) => o.ok && ((lastOverview = o), syncBadge()));
 }
 
 window.addEventListener('hashchange', render);

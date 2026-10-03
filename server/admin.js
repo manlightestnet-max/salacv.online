@@ -55,6 +55,10 @@ export async function customSkills() {
   }
 }
 
+// --- Journal des actions de l'admin --------------------------------------------------------
+const MAX_JOURNAL = 500;
+const log = (title, detail = '') => store().push('journal', { at: Date.now(), title, detail }, MAX_JOURNAL).catch(() => {});
+
 // --- Route ------------------------------------------------------------------------------
 
 export async function admin(payload, token, env = process.env) {
@@ -63,6 +67,7 @@ export async function admin(payload, token, env = process.env) {
     if (!env.SALACV_ADMIN_PASSWORD) return [503, { ok: false, error: 'Admin fermée : définis SALACV_ADMIN_PASSWORD.' }];
     if (!same(payload.password ?? '', env.SALACV_ADMIN_PASSWORD)) return [401, { ok: false, error: 'Mot de passe incorrect.' }];
     const t = issue(ADMIN, env);
+    if (t) await log('Connexion admin');
     return t ? [200, { ok: true, token: t }] : [503, { ok: false, error: 'Clé de signature absente (OLLAMA_API_KEY ou SALACV_SESSION_SECRET).' }];
   }
   if (!env.SALACV_ADMIN_PASSWORD || verify(token, env) !== ADMIN) return [401, { ok: false, error: 'Connexion admin requise.' }];
@@ -70,11 +75,31 @@ export async function admin(payload, token, env = process.env) {
   const s = store(env);
   switch (action) {
     case 'overview': {
-      const users = await s.get('users', {});
+      const users = Object.values(await s.get('users', {}));
       const cvs = await s.range('cvs', MAX_CVS);
       const resources = await s.get('resources', null);
-      return [200, { ok: true, durable: s.durable, users: Object.keys(users).length, blocked: Object.values(users).filter((u) => u.blocked).length, cvs: cvs.length, resources: resources ? counts(resources) : null, skills: (await s.get('skills', [])).length }];
+      const week = Date.now() - 7 * 86400000;
+      const today = new Date().setHours(0, 0, 0, 0);
+      return [
+        200,
+        {
+          ok: true,
+          durable: s.durable,
+          users: users.length,
+          blocked: users.filter((u) => u.blocked).length,
+          active7: users.filter((u) => (u.last ?? 0) >= week).length,
+          new7: users.filter((u) => u.first >= week).length,
+          cvs: cvs.length,
+          cvsToday: cvs.filter((c) => c.at >= today).length,
+          cvs7: cvs.filter((c) => c.at >= week).length,
+          resources: resources ? counts(resources) : null,
+          skills: (await s.get('skills', [])).length,
+          journal: await s.range('journal', 6),
+        },
+      ];
     }
+    case 'journal':
+      return [200, { ok: true, journal: await s.range('journal', MAX_JOURNAL) }];
     case 'users': {
       const users = await s.get('users', {});
       return [200, { ok: true, users: Object.entries(users).map(([username, u]) => ({ username, ...u })).sort((a, b) => (b.last ?? 0) - (a.last ?? 0)) }];
@@ -87,6 +112,7 @@ export async function admin(payload, token, env = process.env) {
       users[name].blocked = action === 'block';
       users[name].reason = action === 'block' ? String(payload.reason ?? '').slice(0, 200) : undefined;
       await s.set('users', users);
+      await log(action === 'block' ? 'Compte bloqué' : 'Compte débloqué', name + (users[name].reason ? ` · ${users[name].reason}` : ''));
       return [200, { ok: true }];
     }
     case 'cvs':
@@ -98,6 +124,7 @@ export async function admin(payload, token, env = process.env) {
       const error = checkResources(r);
       if (error) return [400, { ok: false, error }];
       await s.set('resources', { ...r, updatedAt: Date.now() });
+      await log('Ressources importées', Object.entries(counts(r)).map(([k, n]) => `${n} ${k}`).join(' · '));
       return [200, { ok: true, counts: counts(r) }];
     }
     case 'skills':
@@ -110,10 +137,12 @@ export async function admin(payload, token, env = process.env) {
       if (!skill.title || !skill.content.trim()) return [400, { ok: false, error: 'Titre et contenu obligatoires.' }];
       const list = (await s.get('skills', [])).filter((x) => x.slug !== skill.slug);
       await s.set('skills', [...list, { ...skill, updatedAt: Date.now() }]);
+      await log('Skill enregistrée', `${skill.title} · ${skill.slug}`);
       return [200, { ok: true }];
     }
     case 'deleteSkill': {
       await s.set('skills', (await s.get('skills', [])).filter((x) => x.slug !== payload.slug));
+      await log('Skill supprimée', String(payload.slug ?? ''));
       return [200, { ok: true }];
     }
     default:
