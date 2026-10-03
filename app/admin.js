@@ -227,6 +227,14 @@ const LISTS = [
   ['entreprises', 'Entreprises', (x) => x.nom, (x) => [x.ville, x.secteur]],
 ];
 let resTab = 'metiers';
+let resQuery = '';
+// Champs du formulaire « Ajouter », par liste (les listes se saisissent séparées par des virgules).
+const FIELDS = {
+  metiers: [['profession', 'Profession'], ['domaine', 'Domaine'], ['competences', 'Compétences', true], ['intitules_alternatifs', 'Autres intitulés', true], ['villes', 'Villes', true]],
+  domaines: [['domaine', 'Domaine'], ['metiers_types', 'Métiers types', true]],
+  etablissements: [['nom', 'Nom'], ['sigle', 'Sigle'], ['ville', 'Ville'], ['type', 'Type (université, lycée technique…)'], ['diplomes_courants', 'Diplômes', true], ['facultes_ou_filieres', 'Filières', true]],
+  entreprises: [['nom', 'Nom'], ['ville', 'Ville'], ['secteur', 'Secteur'], ['metiers_recrutes', 'Métiers recrutés', true]],
+};
 
 async function resourcesView() {
   const r = await api('resources');
@@ -255,15 +263,53 @@ async function resourcesView() {
     h('a', { href: url, download: 'salacv-ressources.json' }).click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
-  const [, , title, meta] = LISTS.find(([k]) => k === resTab);
-  const rows = (res?.[resTab] ?? []).map((x) =>
+  const [, label, title, meta] = LISTS.find(([k]) => k === resTab);
+  // Enregistre une copie modifiée (ajout / suppression) puis réaffiche.
+  const commit = async (next) => {
+    const out = await api('setResources', { resources: next });
+    if (!out.ok) return alert(out.error);
+    render();
+  };
+  const remove = (x) => {
+    if (!confirm(`Supprimer « ${title(x)} » ?`)) return;
+    commit({ ...res, [resTab]: res[resTab].filter((y) => y !== x) });
+  };
+  const q = resQuery.trim().toLowerCase();
+  const list = (res?.[resTab] ?? []).filter((x) => !q || JSON.stringify(x).toLowerCase().includes(q));
+  const rows = list.map((x) =>
     h(
       'div',
       { class: 'row-item' },
       h('div', { class: 'row-main' }, h('strong', {}, title(x) ?? '—'), h('small', {}, meta(x).filter(Boolean).join(' · '))),
       x.sources?.[0] && h('a', { class: 'row-link', href: x.sources[0], target: '_blank', rel: 'noopener noreferrer' }, 'Source ↗'),
+      h('button', { type: 'button', class: 'row-del', title: 'Supprimer', 'aria-label': 'Supprimer', onClick: () => remove(x) }, '✕'),
     ),
   );
+  const search = h('input', { class: 'admin-input', type: 'search', placeholder: `Rechercher dans ${label.toLowerCase()}…`, value: resQuery });
+  search.addEventListener('input', () => {
+    resQuery = search.value;
+    clearTimeout(search._t);
+    search._t = setTimeout(async () => {
+      await render();
+      const el = document.querySelector('.res-search');
+      el?.focus();
+      el?.setSelectionRange(el.value.length, el.value.length);
+    }, 250);
+  });
+  search.classList.add('res-search');
+  // Ajouter un élément à la liste ouverte.
+  const inputs = FIELDS[resTab].map(([key, lab, many]) => [key, many, h('input', { class: 'admin-input', placeholder: many ? `${lab} (séparés par des virgules)` : lab })]);
+  const add = () => {
+    const item = {};
+    for (const [key, many, el] of inputs) {
+      const v = el.value.trim();
+      if (v) item[key] = many ? v.split(',').map((t) => t.trim()).filter(Boolean) : v;
+    }
+    const main = FIELDS[resTab][0][0];
+    if (!item[main]) return inputs[0][2].focus();
+    commit({ ...res, [resTab]: [item, ...(res?.[resTab] ?? [])] });
+  };
+  const addCard = card(`Ajouter · ${label}`, null, h('div', { class: 'card-pad res-add' }, inputs.map(([, , el]) => el), h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn-primary', onClick: add }, 'Ajouter'))));
   return page(
     'Ressources',
     res?.updatedAt ? `Mises à jour ${relativeDate(res.updatedAt)}. Elles servent aux suggestions du studio et à l’agent.` : 'Métiers, compétences, établissements et entreprises, issus de la recherche web.',
@@ -278,8 +324,10 @@ async function resourcesView() {
       res ? 'Listes' : 'Aucune ressource',
       null,
       h('div', { class: 'chips' }, LISTS.map(([key, label]) => h('button', { type: 'button', class: 'chip', 'aria-pressed': String(resTab === key), onClick: () => ((resTab = key), render()) }, `${label} · ${res?.[key]?.length ?? 0}`))),
-      rowsOf(rows, res ? 'Rien dans cette liste.' : 'Importe le JSON de la recherche ci-dessous.'),
+      h('div', { class: 'card-pad' }, search),
+      rowsOf(rows, res ? (q ? 'Aucun résultat.' : 'Rien dans cette liste.') : 'Importe le JSON de la recherche ci-dessous.'),
     ),
+    addCard,
     card(
       res ? 'Remplacer les ressources' : 'Importer les ressources',
       null,

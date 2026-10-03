@@ -9,6 +9,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { issue, verify } from './agent/auth.js';
 import { SKILLS } from './agent/skills/index.js';
 import { store } from './store.js';
+import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
+
+// Ressources de départ (recherche Congo-Brazzaville, dans le repo) tant que l'admin n'a rien
+// enregistré : l'interface les montre tout de suite, on ajoute / supprime à partir d'elles.
+export const seedResources = () => structuredClone(SEED);
+const loadResources = async (s) => (await s.get('resources', null)) ?? seedResources();
 
 export const ADMIN = '#admin';
 export const MAX_CVS = 2000;
@@ -77,7 +83,7 @@ export async function admin(payload, token, env = process.env) {
     case 'overview': {
       const users = Object.values(await s.get('users', {}));
       const cvs = await s.range('cvs', MAX_CVS);
-      const resources = await s.get('resources', null);
+      const resources = await loadResources(s);
       const week = Date.now() - 7 * 86400000;
       const today = new Date().setHours(0, 0, 0, 0);
       return [
@@ -118,7 +124,7 @@ export async function admin(payload, token, env = process.env) {
     case 'cvs':
       return [200, { ok: true, cvs: await s.range('cvs', Math.min(Number(payload.limit) || 200, MAX_CVS)) }];
     case 'resources':
-      return [200, { ok: true, resources: await s.get('resources', null) }];
+      return [200, { ok: true, resources: await loadResources(s) }];
     case 'setResources': {
       const r = payload.resources;
       const error = checkResources(r);

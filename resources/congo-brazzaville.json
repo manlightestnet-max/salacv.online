@@ -1,0 +1,2289 @@
+{
+ "metiers": [
+  {
+   "profession": "Comptable / Gestionnaire Comptable & Financier",
+   "domaine": "Finance, comptabilité & audit",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 58,
+   "competences": [
+    "SYSCOHADA révisé",
+    "Sage 100 Comptabilité",
+    "Fiscalité congolaise (TVA, IRPP, TSS)",
+    "Déclarations sociales CNSS",
+    "Établissement de la DSF (Déclaration Statistique et Fiscale)",
+    "Rapprochements bancaires",
+    "Excel avancé (TCD, formules financières)"
+   ],
+   "intitules_alternatifs": [
+    "Assistant comptable",
+    "Comptable unique",
+    "Chef comptable",
+    "Comptable-fiscaliste",
+    "Trésorier d'entreprise"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://www.emploi.cg",
+    "https://kanea-rh.com"
+   ]
+  },
+  {
+   "profession": "Commercial / Chargé de Clientèle",
+   "domaine": "Commerce, vente & distribution",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire",
+    "Dolisie"
+   ],
+   "frequence": 52,
+   "competences": [
+    "Prospection commerciale B2B et terrain",
+    "Négociation et conclusion de contrats de vente",
+    "Gestion et fidélisation de portefeuille client",
+    "Recouvrement de créances amiables",
+    "Reporting commercial et suivi des objectifs",
+    "Pratique orale du Lingala (Brazzaville) ou Kituba (Pointe-Noire)",
+    "Utilisation des paiements mobiles MTN MoMo et Airtel Money"
+   ],
+   "intitules_alternatifs": [
+    "Responsable commercial",
+    "Conseiller commercial",
+    "Délégué commercial",
+    "Chargé de clientèle",
+    "Superviseur des ventes"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://www.mtn.cg",
+    "https://www.airtel.cg"
+   ]
+  },
+  {
+   "profession": "Assistant(e) de Direction / Secrétaire Polyvalent(e)",
+   "domaine": "Administration, secrétariat & gestion",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 45,
+   "competences": [
+    "Rédaction irréprochable de courriers officiels et comptes-rendus",
+    "Gestion d'agendas complexes et prise de rendez-vous",
+    "Pack Microsoft Office (Word avancé, Excel, PowerPoint)",
+    "Accueil physique et standard téléphonique",
+    "Classement, archivage physique et numérisation",
+    "Discrétion et respect strict du secret professionnel"
+   ],
+   "intitules_alternatifs": [
+    "Secrétaire de direction",
+    "Attaché(e) de direction",
+    "Assistant(e) administratif(ve)",
+    "Secrétaire bureautique",
+    "Agent d'accueil"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://elikiajob.com",
+    "https://taf4all.fr"
+   ]
+  },
+  {
+   "profession": "Technicien de Maintenance Industrielle / Électromécanicien",
+   "domaine": "Maintenance, industrie & électromécanique",
+   "villes": [
+    "Pointe-Noire",
+    "Brazzaville",
+    "Pokola",
+    "Nkayi"
+   ],
+   "frequence": 41,
+   "competences": [
+    "Maintenance préventive et corrective électromécanique",
+    "Diagnostic de pannes sur moteurs électriques, pompes et compresseurs",
+    "Lecture de plans unifilaires, schémas électriques et isométriques",
+    "Habilitation électrique (normes B2V / BR / BC)",
+    "Utilisation de logiciels de GMAO (SAP PM, Maximo)",
+    "Consignation et déconsignation des équipements"
+   ],
+   "intitules_alternatifs": [
+    "Électromécanicien",
+    "Chef d'équipe maintenance",
+    "Électricien industriel",
+    "Mécanicien d'engins industriels"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://recrutement.servtec-congo.com",
+    "https://jobs.spaark.cloud",
+    "https://www.socofran.com"
+   ]
+  },
+  {
+   "profession": "Chauffeur Professionnel (VL / Poids Lourd / Transport ONG)",
+   "domaine": "Transport & logistique",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire",
+    "Ouesso",
+    "Bétou"
+   ],
+   "frequence": 39,
+   "competences": [
+    "Permis de conduire valide catégories B, C et D",
+    "Conduite défensive et franchissement 4x4 en pistes forestières",
+    "Diagnostic et entretien mécanique diesel de premier échelon",
+    "Connaissance parfaite du code de la route congolais et des axes RN1 / RN2",
+    "Tenue rigoureuse du carnet de bord et fiches carburant",
+    "Respect des protocoles de sécurité des missions diplomatiques et humanitaires"
+   ],
+   "intitules_alternatifs": [
+    "Chauffeur de direction",
+    "Chauffeur-coursier",
+    "Conducteur poids lourd",
+    "Chauffeur de mission ONG / ONU"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.unjobnet.org",
+    "https://cirrus-congo.com",
+    "https://lesopportunites.com"
+   ]
+  },
+  {
+   "profession": "Responsable des Ressources Humaines / Gestionnaire Paie",
+   "domaine": "Ressources humaines & droit social",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 36,
+   "competences": [
+    "Maîtrise du Code du Travail congolais (loi 45/75)",
+    "Élaboration du livre de paie sur Sage 100 Paie & RH",
+    "Télédéclaration des cotisations sociales CNSS et impôts sur salaires (IRPP)",
+    "Formalités réglementaires auprès de l'ACPE et de l'inspection du travail",
+    "Rédaction des contrats de travail (CDI, CDD, convention de stage)",
+    "Gestion du dialogue social et suivi disciplinaire"
+   ],
+   "intitules_alternatifs": [
+    "Assistant(e) RH",
+    "Gestionnaire du personnel",
+    "Chargé(e) de recrutement",
+    "Responsable de l'administration du personnel"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://kanea-rh.com",
+    "https://www.talentpro.biz"
+   ]
+  },
+  {
+   "profession": "Magasinier / Gestionnaire de Stocks",
+   "domaine": "Port, maritime & logistique",
+   "villes": [
+    "Pointe-Noire",
+    "Brazzaville",
+    "Pokola"
+   ],
+   "frequence": 34,
+   "competences": [
+    "Tenue d'inventaires physiques et rotatifs (méthodes FIFO / PUMP)",
+    "Saisie et suivi des mouvements de stocks sur ERP ou Excel avancé",
+    "Contrôle de conformité à la réception et préparation des expéditions",
+    "Conduite de chariots élévateurs (titres de conduite en sécurité / CACES)",
+    "Règles d'entreposage sécurisé des pièces de rechange et matériels sensibles"
+   ],
+   "intitules_alternatifs": [
+    "Gestionnaire de stock",
+    "Storekeeper",
+    "Magasinier pièces de rechange (P.R.)",
+    "Agent d'ordonnancement logistique"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://taf4all.fr",
+    "https://acareerbyagl.talent-soft.com"
+   ]
+  },
+  {
+   "profession": "Superviseur / Ingénieur HSE (Hygiène, Sécurité, Environnement)",
+   "domaine": "QHSE, sécurité industrielle & environnement",
+   "villes": [
+    "Pointe-Noire",
+    "Brazzaville",
+    "Pokola"
+   ],
+   "frequence": 33,
+   "competences": [
+    "Application des normes internationales ISO 45001 et ISO 14001",
+    "Gestion et délivrance des permis de travail (PTW - chaud, espace confiné, hauteur)",
+    "Certification de sécurité offshore BOSIET / HUET (agrément OPITO)",
+    "Animation des causeries sécurité quotidiennes (Toolbox meetings)",
+    "Évaluation des risques professionnels et analyses JSA",
+    "Enquêtes après incidents et mise en place d'arbres des causes"
+   ],
+   "intitules_alternatifs": [
+    "Coordonnateur HSE",
+    "Officier de sécurité site",
+    "Responsable QHSE",
+    "Préventeur des risques industriels"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.servtec-congo.com",
+    "https://kanea-rh.com",
+    "https://ortec-group.com"
+   ]
+  },
+  {
+   "profession": "Déclarant en Douane / Agent de Transit",
+   "domaine": "Port, maritime & logistique",
+   "villes": [
+    "Pointe-Noire",
+    "Brazzaville"
+   ],
+   "frequence": 31,
+   "competences": [
+    "Maîtrise du système automatisé douanier SYDONIA World (ASYCUDA)",
+    "Traitement des formalités sur la plateforme GUOT (Guichet Unique Transfrontalier)",
+    "Application du tarif douanier commun et du code des douanes CEMAC",
+    "Maîtrise des Incoterms 2020 et calcul des droits de douane",
+    "Établissement et validation des BESC (Bordereau Électronique de Suivi des Cargaisons)",
+    "Coordination des passages portuaires au Port Autonome de Pointe-Noire"
+   ],
+   "intitules_alternatifs": [
+    "Agent de transit maritime",
+    "Déclarant principal",
+    "Coordinateur passage portuaire",
+    "Facturier transit"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.guot.cg",
+    "https://acareerbyagl.talent-soft.com",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "profession": "Administrateur Systèmes & Réseaux / Technicien IT",
+   "domaine": "Informatique, télécoms & numérique",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 29,
+   "competences": [
+    "Administration Windows Server (Active Directory, DNS, DHCP, GPO)",
+    "Administration des environnements Linux (Debian, Ubuntu Server)",
+    "Configuration de commutateurs et routeurs Cisco (certification CCNA)",
+    "Sécurisation des accès et paramétrage de pare-feu (Fortinet FortiGate, Sophos)",
+    "Virtualisation d'infrastructures sous VMware vSphere ESXi et Hyper-V",
+    "Câblage structuré cuivre RJ45 et raccordement fibre optique par soudure",
+    "Gestion du support utilisateurs et helpdesk via GLPI"
+   ],
+   "intitules_alternatifs": [
+    "Technicien support helpdesk",
+    "Ingénieur réseaux et sécurité",
+    "Responsable informatique",
+    "Administrateur systèmes"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://www.mtn.cg",
+    "https://www.airtel.cg"
+   ]
+  },
+  {
+   "profession": "Opérateur de Production Pétrolière / Technicien d'Exploitation",
+   "domaine": "Pétrole, gaz & énergie",
+   "villes": [
+    "Pointe-Noire"
+   ],
+   "frequence": 27,
+   "competences": [
+    "Surveillance et conduite de séparateurs triphasiques pétrole/gaz/eau",
+    "Opération sur unités de déshydratation de gaz et compression haute pression",
+    "Conduite en salle de contrôle sur systèmes DCS (Yokogawa, DeltaV)",
+    "Certification de sécurité offshore BOSIET avec EBS / CA-EBS (OPITO)",
+    "Habilitations ATEX (zones à atmosphères explosives) et électrique",
+    "Prélèvements d'échantillons et analyse BS&W / densité API"
+   ],
+   "intitules_alternatifs": [
+    "Opérateur console DCS",
+    "Technicien d'exploitation offshore",
+    "Panéliste production",
+    "Opérateur de puits pétroliers"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://careers.totalenergies.com",
+    "https://www.perenco.com/join-us/job-offers",
+    "https://www.eni.com"
+   ]
+  },
+  {
+   "profession": "Opérateur de Portique / Grutier Portuaire (STS / RTG)",
+   "domaine": "Port, maritime & logistique",
+   "villes": [
+    "Pointe-Noire"
+   ],
+   "frequence": 25,
+   "competences": [
+    "Conduite de portiques de quai Ship-to-Shore (STS) et portiques de parc RTG",
+    "Aptitude certifiée à la conduite d'engins portuaires lourds (CACES grues de quai)",
+    "Manutention et arrimage de conteneurs 20 et 40 pieds sous cadences imposées",
+    "Maîtrise des systèmes de sécurité anti-balancement de charge",
+    "Aptitude au travail en hauteur (cabines à 40 m) et travail posté 24/7",
+    "Communication radio VHF normalisée avec les équipes de terre"
+   ],
+   "intitules_alternatifs": [
+    "Conducteur de portique",
+    "Grutier portuaire",
+    "Conducteur de Reach Stacker",
+    "Opérateur engins de manutention lourde"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://acareerbyagl.talent-soft.com",
+    "https://www.papn-cg.org"
+   ]
+  },
+  {
+   "profession": "Conducteur de Travaux / Ingénieur Génie Civil",
+   "domaine": "BTP, génie civil & construction",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 24,
+   "competences": [
+    "Lecture, vérification et adaptation de plans de génie civil sur AutoCAD",
+    "Gestion globale de chantier : terrassement, fondations, béton armé, VRD",
+    "Métrés, chiffrage et établissement des décomptes mensuels",
+    "Contrôle de conformité des matériaux (essais béton, armatures acier)",
+    "Planification et suivi d'avancement des travaux sur MS Project",
+    "Encadrement des équipes de chefs de chantier, maçons et ferrailleurs"
+   ],
+   "intitules_alternatifs": [
+    "Ingénieur travaux BTP",
+    "Chef de chantier bâtiment",
+    "Chargé d'affaires travaux publics",
+    "Conducteur d'opérations génie civil"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.socofran.com",
+    "https://jobs.vinci.com",
+    "https://razel-bec.jobs.fayat.com"
+   ]
+  },
+  {
+   "profession": "Chargé de Suivi-Évaluation (M&E / MEAL Officer)",
+   "domaine": "ONG, action humanitaire & développement",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire",
+    "Kinkala",
+    "Bétou"
+   ],
+   "frequence": 22,
+   "competences": [
+    "Élaboration de cadres logiques, théories du changement et plans de suivi",
+    "Paramétrage d'outils de collecte mobile sur smartphone (KoboToolbox, ODK)",
+    "Analyse de données statistiques sous Excel avancé, SPSS et Stata",
+    "Conception de tableaux de bord de performance sous Power BI",
+    "Rédaction de rapports périodiques conformes aux exigences des bailleurs",
+    "Conduite d'enquêtes de terrain auprès des communautés bénéficiaires"
+   ],
+   "intitules_alternatifs": [
+    "MEAL Officer",
+    "Spécialiste Suivi-Évaluation",
+    "Chargé de suivi de projets de développement",
+    "Monitoring and Evaluation Assistant"
+   ],
+   "sources": [
+    "https://www.undp.org/fr/congo/emplois",
+    "https://reliefweb.int/jobs",
+    "https://www.unicef.org/careers",
+    "https://www.iecd.org"
+   ]
+  },
+  {
+   "profession": "Soudeur Homologué / Tuyauteur Industriel",
+   "domaine": "Mines & métallurgie",
+   "villes": [
+    "Pointe-Noire"
+   ],
+   "frequence": 21,
+   "competences": [
+    "Soudage à l'arc (SMAW), TIG (GTAW) et semi-automatique (MIG-MAG)",
+    "Qualifications des soudeurs homologuées (normes ISO 9606, ASME Section IX, 6G/6GR)",
+    "Lecture et traçage de plans isométriques de tuyauterie industrielle",
+    "Respect des Descriptifs de Mode Opératoire de Soudage (DMOS)",
+    "Préparation aux contrôles non destructifs (ressuage, magnétoscopie, radiographie)",
+    "Assemblage et montage de tuyauteries sous pression sur chantiers industriels"
+   ],
+   "intitules_alternatifs": [
+    "Tuyauteur industriel",
+    "Chaudronnier métallique",
+    "Soudeur qualifié haute pression",
+    "Monteur de structures métalliques"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://ponticelli.com/carrieres/",
+    "https://ortec-group.com/implantations/friedlander-congo/",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "profession": "Planificateur Portuaire (Yard Planner / Vessel Planner)",
+   "domaine": "Port, maritime & logistique",
+   "villes": [
+    "Pointe-Noire"
+   ],
+   "frequence": 19,
+   "competences": [
+    "Maîtrise opérationnelle du Progiciel Portuaire Navis N4 (TOS)",
+    "Optimisation de l'allocation des conteneurs sur les terre-pleins portuaires",
+    "Planification du chargement/déchargement navires selon les règles de stabilité",
+    "Ségrégation des matières dangereuses selon le Code maritime IMDG",
+    "Traitement des messages électroniques normalisés (BAPLIE, MOVINS, COARRI)",
+    "Coordination en temps réel avec les chefs de quai et conducteurs d'engins"
+   ],
+   "intitules_alternatifs": [
+    "Planificateur de parc conteneurs",
+    "Planificateur navire",
+    "Vessel Cargo Planner",
+    "Opérateur d'exploitation terminal portuaire"
+   ],
+   "sources": [
+    "https://acareerbyagl.talent-soft.com",
+    "https://www.acpe.cg",
+    "https://www.papn-cg.org"
+   ]
+  },
+  {
+   "profession": "Développeur Web & Mobile / Chargé de Digitalisation",
+   "domaine": "Informatique, télécoms & numérique",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 18,
+   "competences": [
+    "Développement applicatif (PHP/Laravel, JavaScript/React/Node.js, Python, C#/.NET)",
+    "Conception et manipulation de bases de données relationnelles (MySQL, PostgreSQL, SQL Server)",
+    "Création et intégration d'API RESTful pour services marchands",
+    "Intégration technique des passerelles de paiement mobile (MTN MoMo, Airtel Money)",
+    "Gestion de version sous Git et méthodologies de travail Agiles",
+    "Automatisation et dématérialisation des formulaires et processus métiers"
+   ],
+   "intitules_alternatifs": [
+    "Développeur Full Stack",
+    "Ingénieur logiciel",
+    "Développeur d'applications mobiles",
+    "Chargé de digitalisation des processus"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://www.mtn.cg",
+    "https://congotelecom.cg/"
+   ]
+  },
+  {
+   "profession": "Juriste d'Affaires / Responsable Conformité (Compliance)",
+   "domaine": "Administration, secrétariat & gestion",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire"
+   ],
+   "frequence": 17,
+   "competences": [
+    "Maîtrise approfondie du Droit des Affaires OHADA (sociétés, sûretés, voies d'exécution)",
+    "Droit fiscal et douanier congolais (Code Général des Impôts)",
+    "Rédaction, relecture et négociation de contrats commerciaux et baux professionnels",
+    "Gestion et suivi des contentieux commerciaux et prud'homaux",
+    "Veille réglementaire et conformité aux standards bancaires (COBAC) et anticorruption",
+    "Conseil juridique auprès des directions opérationnelles"
+   ],
+   "intitules_alternatifs": [
+    "Juriste d'entreprise",
+    "Manager juridique et fiscal",
+    "Responsable de conformité",
+    "Juriste contentieux"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://taf4all.fr",
+    "https://kanea-rh.com"
+   ]
+  },
+  {
+   "profession": "Responsable Administratif et Financier (RAF) d'ONG / Projet",
+   "domaine": "ONG, action humanitaire & développement",
+   "villes": [
+    "Brazzaville",
+    "Pointe-Noire",
+    "Bomassa",
+    "Mbomo"
+   ],
+   "frequence": 16,
+   "competences": [
+    "Gestion financière et comptable des subventions multi-bailleurs (UE, Banque Mondiale, AFD, KFW)",
+    "Utilisation experte des logiciels comptables dédiés aux ONG (Tompro, SAGA)",
+    "Établissement des rapports financiers analytiques et justifications de dépenses",
+    "Respect des procédures de passation de marchés et directives fiduciaires",
+    "Conformité avec les obligations fiscales et sociales congolaises (IRPP, cotisations CNSS)",
+    "Préparation et gestion des audits financiers externes"
+   ],
+   "intitules_alternatifs": [
+    "Finance Officer",
+    "Administrateur financier de projet",
+    "Coordonnateur administratif et financier",
+    "Gestionnaire comptable de subventions"
+   ],
+   "sources": [
+    "https://congo.wcs.org",
+    "https://www.africanparks.org/careers",
+    "https://noe.org/nous-rejoindre",
+    "https://reliefweb.int/jobs"
+   ]
+  },
+  {
+   "profession": "Écologue / Spécialiste de la Conservation de la Biodiversité",
+   "domaine": "QHSE, sécurité industrielle & environnement",
+   "villes": [
+    "Bomassa",
+    "Mbomo",
+    "Pointe-Noire",
+    "Brazzaville"
+   ],
+   "frequence": 14,
+   "competences": [
+    "Suivi écologique de la faune tropicale (grands singes, éléphants de forêt, tortues marines)",
+    "Maîtrise du logiciel de gestion d'aires protégées SMART (Spatial Monitoring and Reporting Tool)",
+    "Cartographie et analyse spatiale sous SIG (QGIS, ArcGIS)",
+    "Déploiement et exploitation de pièges photographiques et enregistreurs bioacoustiques",
+    "Capacité de vie et de travail prolongé en milieu forestier tropical isolé",
+    "Animation de programmes de sensibilisation et relations avec les communautés riveraines"
+   ],
+   "intitules_alternatifs": [
+    "Biologiste de la conservation",
+    "Responsable de recherche écologique",
+    "Coordonnateur scientifique de parc national",
+    "Chargé de suivi faunique"
+   ],
+   "sources": [
+    "https://congo.wcs.org",
+    "https://www.africanparks.org/careers",
+    "https://noe.org/nous-rejoindre",
+    "https://renatura.org"
+   ]
+  }
+ ],
+ "domaines": [
+  {
+   "domaine": "Finance, comptabilité & audit",
+   "metiers_types": [
+    "Comptable unique",
+    "Chef comptable",
+    "Assistant comptable",
+    "Auditeur interne",
+    "Contrôleur de gestion",
+    "Trésorier d'entreprise"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.emploi.cg",
+    "https://jobs.spaark.cloud"
+   ]
+  },
+  {
+   "domaine": "Commerce, vente & distribution",
+   "metiers_types": [
+    "Responsable commercial",
+    "Conseiller commercial",
+    "Chargé de clientèle",
+    "Chargé de recouvrement",
+    "Superviseur de distribution",
+    "Technico-commercial"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://www.mtn.cg",
+    "https://www.airtel.cg"
+   ]
+  },
+  {
+   "domaine": "Administration, secrétariat & gestion",
+   "metiers_types": [
+    "Assistant(e) de direction",
+    "Secrétaire de direction",
+    "Secrétaire polyvalent(e)",
+    "Attaché(e) de direction",
+    "Agent d'accueil et d'orientation",
+    "Juriste d'entreprise"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://elikiajob.com"
+   ]
+  },
+  {
+   "domaine": "Maintenance, industrie & électromécanique",
+   "metiers_types": [
+    "Électromécanicien",
+    "Technicien de maintenance industrielle",
+    "Électricien industriel",
+    "Mécanicien d'engins lourds",
+    "Frigoriste industriel",
+    "Automaticien"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://recrutement.servtec-congo.com",
+    "https://www.socofran.com"
+   ]
+  },
+  {
+   "domaine": "Pétrole, gaz & énergie",
+   "metiers_types": [
+    "Opérateur de production pétrolière",
+    "Ingénieur forage et complétion",
+    "Technicien instrumentation et régulation",
+    "Ingénieur réservoir et gisement",
+    "Panéliste console DCS",
+    "Superviseur workover"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://careers.totalenergies.com",
+    "https://www.perenco.com/join-us/job-offers",
+    "https://www.eni.com"
+   ]
+  },
+  {
+   "domaine": "Port, maritime & logistique",
+   "metiers_types": [
+    "Déclarant en douane",
+    "Agent de transit",
+    "Magasinier gestionnaire de stock",
+    "Opérateur de portique STS/RTG",
+    "Yard Planner",
+    "Vessel Planner",
+    "Mécanicien marine",
+    "Capitaine de remorqueur"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.guot.cg",
+    "https://acareerbyagl.talent-soft.com",
+    "https://www.papn-cg.org"
+   ]
+  },
+  {
+   "domaine": "BTP, génie civil & construction",
+   "metiers_types": [
+    "Conducteur de travaux BTP",
+    "Ingénieur génie civil",
+    "Chef de chantier",
+    "Dessinateur-projeteur DAO AutoCAD",
+    "Géomètre-topographe",
+    "Maçon-finisseur",
+    "Coffreur-ferrailleur",
+    "Plombier sanitaire"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.socofran.com",
+    "https://jobs.vinci.com",
+    "https://razel-bec.jobs.fayat.com"
+   ]
+  },
+  {
+   "domaine": "Informatique, télécoms & numérique",
+   "metiers_types": [
+    "Administrateur systèmes et réseaux",
+    "Technicien support et maintenance IT",
+    "Développeur web et mobile",
+    "Technicien fibre optique et câblage",
+    "Ingénieur télécoms et transmission",
+    "Spécialiste cybersécurité",
+    "Chargé de digitalisation des processus"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://www.mtn.cg",
+    "https://congotelecom.cg/"
+   ]
+  },
+  {
+   "domaine": "Ressources humaines & droit social",
+   "metiers_types": [
+    "Responsable des ressources humaines",
+    "Gestionnaire paie et administration du personnel",
+    "Assistant(e) RH",
+    "Chargé(e) de recrutement",
+    "Responsable formation et carrières"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://jobs.spaark.cloud",
+    "https://kanea-rh.com",
+    "https://www.talentpro.biz"
+   ]
+  },
+  {
+   "domaine": "QHSE, sécurité industrielle & environnement",
+   "metiers_types": [
+    "Superviseur HSE",
+    "Ingénieur prévention des risques industriels",
+    "Coordonnateur QHSE",
+    "Inspecteur de sécurité chantier",
+    "Écologue biologiste de la conservation"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://www.servtec-congo.com",
+    "https://kanea-rh.com",
+    "https://renatura.org"
+   ]
+  },
+  {
+   "domaine": "ONG, action humanitaire & développement",
+   "metiers_types": [
+    "Chargé de suivi-évaluation (M&E)",
+    "Responsable administratif et financier (RAF)",
+    "Logisticien humanitaire",
+    "Coordonnateur de projet de développement",
+    "Épidémiologiste de santé publique",
+    "Spécialiste en passation de marchés"
+   ],
+   "sources": [
+    "https://www.undp.org/fr/congo/emplois",
+    "https://reliefweb.int/jobs",
+    "https://www.unicef.org/careers",
+    "https://www.who.int/careers"
+   ]
+  },
+  {
+   "domaine": "Agriculture, élevage & agroalimentaire",
+   "metiers_types": [
+    "Ingénieur agronome",
+    "Maraîcher qualifié",
+    "Aviculteur moderne",
+    "Pisciculteur en étangs/bassins",
+    "Technicien de transformation agroalimentaire",
+    "Responsable d'exploitation agricole"
+   ],
+   "sources": [
+    "https://metp.cg",
+    "https://ins-congo.cg",
+    "https://fonea.cg"
+   ]
+  },
+  {
+   "domaine": "Mines & métallurgie",
+   "metiers_types": [
+    "Soudeur homologué (TIG/MIG/ARC)",
+    "Tuyauteur industriel",
+    "Chaudronnier métallique",
+    "Ingénieur géologue minier",
+    "Inspecteur CND (Contrôles Non Destructifs)",
+    "Opérateur d'usine minérale"
+   ],
+   "sources": [
+    "https://www.acpe.cg",
+    "https://ponticelli.com/carrieres/",
+    "https://ortec-group.com",
+    "https://korepotash.com"
+   ]
+  },
+  {
+   "domaine": "Fonction publique, douanes & régies financières",
+   "metiers_types": [
+    "Inspecteur des douanes",
+    "Contrôleur des douanes",
+    "Inspecteur des impôts",
+    "Contrôleur du trésor",
+    "Professeur certifié d'enseignement secondaire (CAPES)",
+    "Instituteur diplômé d'État",
+    "Administrateur civil"
+   ],
+   "sources": [
+    "https://fonction-publique.gouv.cg",
+    "https://finances.gouv.cg",
+    "https://umng.cg",
+    "https://aci.cg"
+   ]
+  }
+ ],
+ "etablissements": [
+  {
+   "nom": "Université Marien Ngouabi",
+   "sigle": "UMNG",
+   "ville": "Brazzaville",
+   "type": "université",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Licence",
+    "Master",
+    "Doctorat",
+    "Diplôme d'Ingénieur",
+    "Doctorat en Médecine"
+   ],
+   "facultes_ou_filieres": [
+    "Faculté de Droit (FD)",
+    "Faculté des Lettres, Arts et Sciences Humaines (FLSH)",
+    "Faculté des Sciences Économiques (FSE)",
+    "Faculté des Sciences et Techniques (FST)",
+    "Faculté des Sciences de la Santé (FSSA)",
+    "École Nationale Supérieure Polytechnique (ENSP)",
+    "École Normale Supérieure (ENS)",
+    "École Nationale d'Administration et de Magistrature (ENAM)",
+    "École Nationale Supérieure d'Agronomie et de Foresterie (ENSAF)",
+    "Institut Supérieur de Gestion (ISG)",
+    "Institut Supérieur d'Éducation Physique et Sportive (ISEPS)"
+   ],
+   "sources": [
+    "https://umng.cg"
+   ]
+  },
+  {
+   "nom": "Université Denis Sassou Nguesso",
+   "sigle": "UDSN",
+   "ville": "Kintélé",
+   "type": "université",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Licence",
+    "Master",
+    "Diplôme d'Ingénieur",
+    "Doctorat"
+   ],
+   "facultes_ou_filieres": [
+    "Faculté des Sciences Appliquées (FSA)",
+    "Institut Supérieur d'Architecture, Urbanisme, Bâtiment et Travaux Publics (ISAUBTP)",
+    "Institut Supérieur des Sciences Géographiques, Environnementales et de l'Aménagement (ISSGEA)",
+    "École des Mines, de l'Hydraulique et de l'Énergie (EMHE)"
+   ],
+   "sources": [
+    "https://www.udsn.cg"
+   ]
+  },
+  {
+   "nom": "École Supérieure de Gestion et d'Administration des Entreprises",
+   "sigle": "ESGAE",
+   "ville": "Brazzaville",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Licence Professionnelle",
+    "Master Professionnel",
+    "CESAE",
+    "Doctorat (DSG)"
+   ],
+   "facultes_ou_filieres": [
+    "Comptabilité et Finance",
+    "Marketing et Commerce international",
+    "Gestion des Ressources Humaines",
+    "Administration des Entreprises",
+    "Informatique de gestion",
+    "Assistanat de Direction"
+   ],
+   "sources": [
+    "https://www.esgae.org"
+   ]
+  },
+  {
+   "nom": "École Africaine de Développement",
+   "sigle": "EAD",
+   "ville": "Brazzaville",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "BTS",
+    "Licence Professionnelle",
+    "Master Professionnel"
+   ],
+   "facultes_ou_filieres": [
+    "Banque et Finance",
+    "Comptabilité et Gestion",
+    "Réseaux informatiques et Télécoms",
+    "Génie Civil",
+    "Génie Minier et Pétrolier",
+    "Gestion des Ressources Humaines"
+   ],
+   "sources": [
+    "https://eadcongo.com"
+   ]
+  },
+  {
+   "nom": "École Supérieure de Technologie du Littoral",
+   "sigle": "EST-Littoral",
+   "ville": "Pointe-Noire",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Diplôme Supérieur de Technologie (DST)",
+    "Licence Professionnelle"
+   ],
+   "facultes_ou_filieres": [
+    "Génie de l'Amont Pétrolier",
+    "Génie des Systèmes Industriels (GSI)",
+    "Génie des Télécommunications et Réseaux (GTR)",
+    "Hygiène, Sécurité et Environnement (HSE)",
+    "Management des Activités Maritimes et Portuaires"
+   ],
+   "sources": [
+    "https://www.est-littoral.com"
+   ]
+  },
+  {
+   "nom": "Institut Ucac-Icam (Site de Pointe-Noire)",
+   "sigle": "Ucac-Icam",
+   "ville": "Pointe-Noire",
+   "type": "institut",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Licence Professionnelle",
+    "Diplôme d'Ingénieur"
+   ],
+   "facultes_ou_filieres": [
+    "Maintenance Industrielle",
+    "1er Cycle Ingénieur Généraliste",
+    "Génie des Procédés",
+    "Informatique industrielle"
+   ],
+   "sources": [
+    "https://www.ucac-icam.com"
+   ]
+  },
+  {
+   "nom": "École Supérieure de Commerce et d'Industrie du Congo",
+   "sigle": "ESCIC",
+   "ville": "Pointe-Noire",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Bachelor",
+    "Master Professionnel",
+    "MBA"
+   ],
+   "facultes_ou_filieres": [
+    "Management de la Chaîne Logistique (MCL)",
+    "Qualité, Hygiène, Sécurité, Environnement (QHSE)",
+    "Audit et Contrôle de Gestion",
+    "Commerce International"
+   ],
+   "sources": [
+    "https://www.escic-cg.com"
+   ]
+  },
+  {
+   "nom": "Université Libre du Congo",
+   "sigle": "ULC",
+   "ville": "Brazzaville",
+   "type": "université",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "BTS",
+    "Licence",
+    "Master",
+    "DGC/DSGC (INTEC-CNAM)"
+   ],
+   "facultes_ou_filieres": [
+    "Faculté de Droit",
+    "Comptabilité-Contrôle-Audit (CCA)",
+    "Banque et Finance",
+    "MIAGE (Informatique de Gestion)",
+    "Institut Supérieur de Technologie Agroalimentaire"
+   ],
+   "sources": [
+    "https://universitelibreducongo.com"
+   ]
+  },
+  {
+   "nom": "BEM Management School Brazzaville",
+   "sigle": "BEM Brazzaville",
+   "ville": "Brazzaville",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Bachelor",
+    "Master of Science (MSc)",
+    "BAA HEC Montréal"
+   ],
+   "facultes_ou_filieres": [
+    "International Management",
+    "Finance et Audit",
+    "Supply Chain Management",
+    "Communication",
+    "Management de la Santé"
+   ],
+   "sources": [
+    "https://bem.cg"
+   ]
+  },
+  {
+   "nom": "Institut Universitaire Henri Lopes",
+   "sigle": "IUHL",
+   "ville": "Brazzaville",
+   "type": "institut",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Licence Professionnelle",
+    "Master Professionnel"
+   ],
+   "facultes_ou_filieres": [
+    "Sciences Juridiques et Droit des Affaires",
+    "Banque et Monnaie",
+    "Comptabilité et Gestion Financière",
+    "Logistique et Transport",
+    "Génie Informatique"
+   ],
+   "sources": [
+    "https://iuhledu.com"
+   ]
+  },
+  {
+   "nom": "Université Catholique du Congo-Brazzaville (Liambou)",
+   "sigle": "UCCB",
+   "ville": "Pointe-Noire",
+   "type": "université",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Licence",
+    "Master"
+   ],
+   "facultes_ou_filieres": [
+    "Biologie et Géosciences",
+    "Chimie-Physique",
+    "Informatique Appliquée",
+    "Mathématiques"
+   ],
+   "sources": [
+    "https://uccbz.net",
+    "https://gouvernement.cg"
+   ]
+  },
+  {
+   "nom": "Haute École Léonard de Vinci",
+   "sigle": "HELDV",
+   "ville": "Pointe-Noire",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "BTS",
+    "Licence Professionnelle",
+    "Master Professionnel"
+   ],
+   "facultes_ou_filieres": [
+    "Management et Administration des Entreprises",
+    "Comptabilité et Audit",
+    "Droit des Affaires",
+    "Logistique et Transport"
+   ],
+   "sources": [
+    "https://www.heleodevinci.cg"
+   ]
+  },
+  {
+   "nom": "Groupe DGC-Formation (ESGC, ESIT, ESUP)",
+   "sigle": "DGC",
+   "ville": "Pointe-Noire",
+   "type": "école supérieure",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "BTS",
+    "Licence Professionnelle",
+    "Master Professionnel"
+   ],
+   "facultes_ou_filieres": [
+    "Gestion et Commerce (ESGC)",
+    "Informatique et Réseaux (ESIT)",
+    "Génie Civil et Technique (ESUP)"
+   ],
+   "sources": [
+    "https://www.dgc-congo.org"
+   ]
+  },
+  {
+   "nom": "Institut Management de Brazzaville",
+   "sigle": "IMB",
+   "ville": "Brazzaville",
+   "type": "institut",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "BTS",
+    "Licence Professionnelle",
+    "Mastère Européen"
+   ],
+   "facultes_ou_filieres": [
+    "Management des Organisations",
+    "Banque et Finance",
+    "Logistique et Transports",
+    "Marketing et Communication"
+   ],
+   "sources": [
+    "http://www.imb-edu.cg"
+   ]
+  },
+  {
+   "nom": "Institut Universitaire de Technologie d'Afrique Centrale",
+   "sigle": "IUT-AC",
+   "ville": "Pointe-Noire",
+   "type": "institut",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "DUT",
+    "Licence Professionnelle"
+   ],
+   "facultes_ou_filieres": [
+    "Génie Industriel Maintenance et Productique (GIMP)",
+    "Réseaux Informatiques et Télécommunications",
+    "Banque et Assurance"
+   ],
+   "sources": [
+    "https://www.iutaccongo.com"
+   ]
+  },
+  {
+   "nom": "Université Protestante de Brazzaville",
+   "sigle": "UPB",
+   "ville": "Brazzaville",
+   "type": "université",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Licence",
+    "Master"
+   ],
+   "facultes_ou_filieres": [
+    "Faculté de Théologie Protestante",
+    "Institut d'Agronomie",
+    "Institut Polytechnique (Génie Civil)"
+   ],
+   "sources": [
+    "https://uniprobrazza.com"
+   ]
+  },
+  {
+   "nom": "Lycée Technique Industriel 1er Mai",
+   "sigle": "LTI 1er Mai",
+   "ville": "Brazzaville",
+   "type": "lycée technique",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Baccalauréat Technique Industriel",
+    "BEP",
+    "BET"
+   ],
+   "facultes_ou_filieres": [
+    "Série F1 (Construction Mécanique)",
+    "Série F2 (Électronique)",
+    "Série F3 (Électrotechnique)",
+    "Série F4 (Génie Civil)",
+    "Série E (Génie Industriel)"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://metp.cg"
+   ]
+  },
+  {
+   "nom": "Lycée Technique Commercial 1er Mai",
+   "sigle": "LTC 1er Mai",
+   "ville": "Brazzaville",
+   "type": "lycée technique",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Baccalauréat Technique Commercial",
+    "BEP"
+   ],
+   "facultes_ou_filieres": [
+    "Série G1 (Secrétariat de Direction)",
+    "Série G2 (Techniques Quantitatives de Gestion / Comptabilité)",
+    "Série G3 (Techniques Commerciales)",
+    "Série H (Informatique de Gestion)"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://metp.cg"
+   ]
+  },
+  {
+   "nom": "Lycée Technique Poaty Bernard",
+   "sigle": "LTPB",
+   "ville": "Pointe-Noire",
+   "type": "lycée technique",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Baccalauréat Technique",
+    "BEP",
+    "BET"
+   ],
+   "facultes_ou_filieres": [
+    "Série F1 (Mécanique Générale)",
+    "Série F2 (Électronique)",
+    "Série F3 (Électrotechnique)",
+    "Série F4 (Génie Civil)",
+    "Série H (Maintenance et Réseaux Informatiques)"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://metp.cg"
+   ]
+  },
+  {
+   "nom": "Lycée Technique Commercial de l'OCH",
+   "sigle": "LTCOCH",
+   "ville": "Pointe-Noire",
+   "type": "lycée technique",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Baccalauréat Technique Commercial",
+    "BEP"
+   ],
+   "facultes_ou_filieres": [
+    "Série G1 (Secrétariat)",
+    "Série G2 (Comptabilité)",
+    "Série G3 (Action Commerciale)",
+    "Série H (Informatique)"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg"
+   ]
+  },
+  {
+   "nom": "Lycée d'Enseignement Professionnel Agricole Amilcar-Cabral",
+   "sigle": "LEPAAC",
+   "ville": "Brazzaville",
+   "type": "lycée technique",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Baccalauréat Technique Agricole",
+    "Brevet Agricole"
+   ],
+   "facultes_ou_filieres": [
+    "Série R1 (Production Végétale)",
+    "Série R3 (Production et Santé Animales)",
+    "Série R4 (Machinisme Agricole)",
+    "Série R6 (Génie Rural)",
+    "Série R7 (Technologie Agroalimentaire)"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://aci.cg"
+   ]
+  },
+  {
+   "nom": "CEFA des Métiers de la Maintenance Industrielle de Pointe-Noire",
+   "sigle": "CEFA-MMI",
+   "ville": "Pointe-Noire",
+   "type": "centre de formation",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "CQP",
+    "CAP",
+    "Baccalauréat Professionnel"
+   ],
+   "facultes_ou_filieres": [
+    "Maintenance Mécanique et Usinage",
+    "Chaudronnerie et Tuyauterie Industrielle",
+    "Électrotechnique et Automatisme",
+    "Froid Industriel",
+    "Maintenance Automobile"
+   ],
+   "sources": [
+    "https://unicongo.cg",
+    "https://www.afd.fr",
+    "https://metp.cg"
+   ]
+  },
+  {
+   "nom": "CEFA des Métiers du BTP, Froid et Climatisation de Brazzaville",
+   "sigle": "CEFA-BTP",
+   "ville": "Brazzaville",
+   "type": "centre de formation",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "CQP",
+    "CAP"
+   ],
+   "facultes_ou_filieres": [
+    "Maçonnerie et Béton Armé",
+    "Plomberie et Installations Sanitaires",
+    "Électricité Bâtiment",
+    "Froid et Climatisation",
+    "Menuiserie Bois et Métallique"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://www.afd.fr"
+   ]
+  },
+  {
+   "nom": "CEFA des Métiers de Services de Brazzaville",
+   "sigle": "CEFA-Services BZV",
+   "ville": "Brazzaville",
+   "type": "centre de formation",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "CQP",
+    "CAP"
+   ],
+   "facultes_ou_filieres": [
+    "Hôtellerie et Hébergement",
+    "Cuisine et Restauration",
+    "Boulangerie et Pâtisserie",
+    "Coiffure et Esthétique",
+    "Coupe et Confection Textile"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://www.afd.fr"
+   ]
+  },
+  {
+   "nom": "CEFA des Métiers de Services de Pointe-Noire",
+   "sigle": "CEFA-Services PNR",
+   "ville": "Pointe-Noire",
+   "type": "centre de formation",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "CQP",
+    "CAP"
+   ],
+   "facultes_ou_filieres": [
+    "Restauration et Métiers de Bouche",
+    "Hôtellerie",
+    "Esthétique et Coiffure",
+    "Accueil et Petite Gestion"
+   ],
+   "sources": [
+    "https://www.afd.fr",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Centres de Formation Professionnelle Don Bosco (Cité Don Bosco Brazzaville & Tié-Tié Pointe-Noire)",
+   "sigle": "CFP Don Bosco",
+   "ville": "Brazzaville",
+   "type": "centre de formation",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "CAP",
+    "CQP",
+    "Certificat d'Apprentissage"
+   ],
+   "facultes_ou_filieres": [
+    "Électricité Bâtiment et Industrielle",
+    "Soudure et Chaudronnerie",
+    "Mécanique Générale et Automobile",
+    "Froid et Climatisation",
+    "Menuiserie Bois"
+   ],
+   "sources": [
+    "https://www.enseignement-technique.gouv.cg",
+    "https://www.infoans.org"
+   ]
+  },
+  {
+   "nom": "SERVTEC Formation Congo",
+   "sigle": "SERVTEC",
+   "ville": "Pointe-Noire",
+   "type": "certification",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "OPITO BOSIET",
+    "OPITO HUET",
+    "OPITO FOET",
+    "STCW 2010",
+    "IWCF"
+   ],
+   "facultes_ou_filieres": [
+    "Sécurité Offshore Pétrolière",
+    "Survie en Mer et Évacuation Hélicoptère",
+    "Sécurité Maritime (STCW)",
+    "Contrôle de Puits (IWCF)",
+    "Travail en Hauteur et Échafaudage"
+   ],
+   "sources": [
+    "https://servtec-congo.com"
+   ]
+  },
+  {
+   "nom": "APAVE Congo (Centre de Formation et Contrôle Technique)",
+   "sigle": "APAVE",
+   "ville": "Pointe-Noire",
+   "type": "certification",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Qualification Soudeur (QS/QMOS)",
+    "Titres de Conduite en Sécurité / CACES",
+    "Habilitations Électriques"
+   ],
+   "facultes_ou_filieres": [
+    "Soudage Homologué (ISO 9606, ASME IX)",
+    "Contrôle Non Destructif (CND)",
+    "Conduite d'Engins de Levage et Chariots",
+    "Habilitations Électriques Basse et Haute Tension",
+    "Sécurité ATEX"
+   ],
+   "sources": [
+    "https://www.apave.com",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Centre des Certifications et de Professionnalisation aux Métiers (Pearson VUE / Cisco NetAcad)",
+   "sigle": "CCPM",
+   "ville": "Pointe-Noire",
+   "type": "certification",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Cisco CCNA",
+    "Microsoft MOS",
+    "Azure Fundamentals",
+    "CompTIA Security+"
+   ],
+   "facultes_ou_filieres": [
+    "Réseaux Informatiques Cisco",
+    "Bureautique Avancée Microsoft Office Specialist",
+    "Administration Cloud Microsoft Azure",
+    "Cybersécurité et Réseaux CompTIA"
+   ],
+   "sources": [
+    "https://dgc-congo.org",
+    "https://home.pearsonvue.com"
+   ]
+  },
+  {
+   "nom": "Académie Cisco FST — Université Marien Ngouabi",
+   "sigle": "Cisco NetAcad FST",
+   "ville": "Brazzaville",
+   "type": "certification",
+   "public_ou_prive": "public",
+   "diplomes_courants": [
+    "Cisco CCNA 1-3",
+    "Cisco CyberOps Associate",
+    "Python for Networking"
+   ],
+   "facultes_ou_filieres": [
+    "Routage et Commutation Réseau",
+    "Fondamentaux de la Cybersécurité",
+    "Automatisation des Réseaux et Programmabilité"
+   ],
+   "sources": [
+    "https://parcoursinfo-cg.org",
+    "https://www.netacad.com"
+   ]
+  },
+  {
+   "nom": "CIRRUS Formation Congo",
+   "sigle": "CIRRUS",
+   "ville": "Brazzaville",
+   "type": "centre de formation",
+   "public_ou_prive": "privé",
+   "diplomes_courants": [
+    "Permis C Poids Lourd",
+    "Permis E Super-Lourd",
+    "Certificat Conduite Défensive"
+   ],
+   "facultes_ou_filieres": [
+    "Conduite Professionnelle Poids Lourd",
+    "Conduite Préventive et Défensive 4x4",
+    "Transport de Matières Dangereuses (TMD)"
+   ],
+   "sources": [
+    "https://cirrus-congo.com"
+   ]
+  }
+ ],
+ "entreprises": [
+  {
+   "nom": "TotalEnergies EP Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Pétrole, gaz & énergie",
+   "metiers_recrutes": [
+    "Ingénieur réservoir",
+    "Ingénieur forage et puits",
+    "Technicien de production offshore",
+    "Superviseur maintenance instrumentation",
+    "Coordonnateur HSE"
+   ],
+   "sources": [
+    "https://totalenergies.com/fr/carrieres",
+    "https://totalenergies.cg/fr/nous-rejoindre",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Eni Congo S.A.",
+   "ville": "Pointe-Noire",
+   "secteur": "Pétrole, gaz & énergie",
+   "metiers_recrutes": [
+    "Ingénieur procédés gaz / cryogénie GNL",
+    "Technicien d'exploitation FLNG",
+    "Opérateur salle de contrôle DCS",
+    "Technicien électrotechnique et régulation",
+    "Ingénieur sécurité industrielle"
+   ],
+   "sources": [
+    "https://www.eni.com/en-IT/careers/job-opportunities.html",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "Perenco Congo / CONGOREP",
+   "ville": "Pointe-Noire",
+   "secteur": "Pétrole, gaz & énergie",
+   "metiers_recrutes": [
+    "Ingénieur production pétrolière",
+    "Superviseur workover et forage",
+    "Technicien maintenance turbines et compresseurs",
+    "Tuyauteur et soudeur haute pression",
+    "Préventeur HSE offshore"
+   ],
+   "sources": [
+    "https://www.perenco.com/careers",
+    "https://perenco-careers.talent-soft.com",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "Chevron Overseas (Congo) Limited",
+   "ville": "Pointe-Noire",
+   "secteur": "Pétrole, gaz & énergie",
+   "metiers_recrutes": [
+    "Ingénieur gisement et réservoir",
+    "Analyste financier joint-venture pétrolière",
+    "Spécialiste contrats et conformité",
+    "Coordinateur HSE"
+   ],
+   "sources": [
+    "https://www.chevron.com/careers",
+    "https://www.chevron.com/worldwide/congo"
+   ]
+  },
+  {
+   "nom": "Trident Energy Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Pétrole, gaz & énergie",
+   "metiers_recrutes": [
+    "Ingénieur intégrité des installations",
+    "Superviseur maintenance mécanique",
+    "Opérateur traitement brut offshore",
+    "Acheteur technique pétrolier"
+   ],
+   "sources": [
+    "https://www.trident-energy.com/fr/personnes-et-carrieres/",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "SLB Congo (ex-Schlumberger)",
+   "ville": "Pointe-Noire",
+   "secteur": "Services parapétroliers",
+   "metiers_recrutes": [
+    "Field Engineer forage et diagraphie",
+    "Field Specialist diagraphie électrique wireline",
+    "Technicien maintenance électronique outils de fond",
+    "Opérateur d'unités de pompage haute pression"
+   ],
+   "sources": [
+    "https://careers.slb.com/",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Halliburton Worldwide Limited (Congo)",
+   "ville": "Pointe-Noire",
+   "secteur": "Services parapétroliers",
+   "metiers_recrutes": [
+    "Ingénieur cimentation de puits",
+    "Technicien de laboratoire fluides de forage (mud engineer)",
+    "Mécanicien d'engins lourds de chantier pétrolier",
+    "Opérateur d'outils de complétion"
+   ],
+   "sources": [
+    "https://jobs.halliburton.com/",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "Baker Hughes Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Services parapétroliers",
+   "metiers_recrutes": [
+    "Field Service Engineer turbomachines et compresseurs",
+    "Technicien têtes de puits et systèmes sous-marins",
+    "Opérateur mesures en cours de forage MWD/LWD",
+    "Spécialiste contrôle qualité (QC)"
+   ],
+   "sources": [
+    "https://bakerhughes.com/careers",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Subsea 7 Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Ingénierie & infrastructures sous-marines",
+   "metiers_recrutes": [
+    "Ingénieur installation subsea",
+    "Pilote et technicien ROV (robots sous-marins)",
+    "Coordinateur d'opérations de pont",
+    "Inspecteur soudage sous-marin"
+   ],
+   "sources": [
+    "https://www.subsea7.com/en/careers.html"
+   ]
+  },
+  {
+   "nom": "Bourbon Offshore Surf Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Services maritimes offshore",
+   "metiers_recrutes": [
+    "Capitaine de navire de ravitaillement (PSV/AHTS)",
+    "Officier mécanicien marine marchande",
+    "Technicien de maintenance navale moteurs marins",
+    "Matelot breveté STCW"
+   ],
+   "sources": [
+    "https://bourbon-career.talent-soft.com/",
+    "https://www.bourbonoffshore.com/fr"
+   ]
+  },
+  {
+   "nom": "SPIE Global Services Energy Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Maintenance industrielle pétrolière",
+   "metiers_recrutes": [
+    "Technicien d'instrumentation et régulation",
+    "Électrotechnicien haute et basse tension",
+    "Superviseur de maintenance mécanique",
+    "Préparateur de travaux GMAO/SAP"
+   ],
+   "sources": [
+    "https://join.spiegse.com/",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "Ponticelli Frères Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Métallurgie, tuyauterie & chaudronnerie",
+   "metiers_recrutes": [
+    "Tuyauteur industriel qualifié",
+    "Soudeur homologué (TIG, ARC, 6G/6GR)",
+    "Chaudronnier métallique",
+    "Grutier levage lourd",
+    "Contrôleur ressuage et radiographie"
+   ],
+   "sources": [
+    "https://ponticelli.com/carrieres/",
+    "https://acpe.cg",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Friedlander Industrie Congo (Groupe Ortec)",
+   "ville": "Pointe-Noire",
+   "secteur": "Métallurgie, tuyauterie & maintenance",
+   "metiers_recrutes": [
+    "Ingénieur chargé d'affaires tuyauterie",
+    "Tuyauteur-traceur",
+    "Soudeur qualifié haute pression",
+    "Peintre industriel et sableur anticorrosion",
+    "Animateur sécurité chantier HSE"
+   ],
+   "sources": [
+    "https://ortec-group.com/implantations/friedlander-congo/",
+    "https://recrutement.ortec-group.com/",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "TechnipFMC Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Systèmes sous-marins pétroliers",
+   "metiers_recrutes": [
+    "Field Service Technician têtes de puits sous-marines",
+    "Ingénieur support outillage sous-marin",
+    "Technicien hydraulique haute pression",
+    "Contrôleur qualité mécanique QA/QC"
+   ],
+   "sources": [
+    "https://technipfmc.com/careers"
+   ]
+  },
+  {
+   "nom": "Port Autonome de Pointe-Noire (PAPN)",
+   "ville": "Pointe-Noire",
+   "secteur": "Port, maritime & logistique",
+   "metiers_recrutes": [
+    "Capitaine de remorqueur",
+    "Officier de capitainerie",
+    "Pilote maritime et lamaneur",
+    "Ingénieur génie civil maritime",
+    "Officier de sûreté portuaire (Code ISPS)"
+   ],
+   "sources": [
+    "https://www.papn-cg.org/",
+    "https://acpe.cg",
+    "https://cciampnr.com/"
+   ]
+  },
+  {
+   "nom": "Congo Terminal (Groupe AGL)",
+   "ville": "Pointe-Noire",
+   "secteur": "Port, maritime & logistique",
+   "metiers_recrutes": [
+    "Conducteur de portique de quai (STS)",
+    "Conducteur de portique de parc (RTG)",
+    "Conducteur de Reach Stacker",
+    "Yard Planner (gestionnaire de parc conteneurs Navis N4)",
+    "Électromécanicien d'engins portuaires",
+    "Agent d'accès portuaire Gate"
+   ],
+   "sources": [
+    "https://acareerbyagl.talent-soft.com/",
+    "https://acpe.cg",
+    "https://www.aglgroup.com/implantations/congo/"
+   ]
+  },
+  {
+   "nom": "Africa Global Logistics Congo (AGL Congo - ex-Bolloré)",
+   "ville": "Pointe-Noire",
+   "secteur": "Port, maritime & logistique",
+   "metiers_recrutes": [
+    "Déclarant en douane agréé",
+    "Agent de transit maritime et aérien",
+    "Coordinateur logistique projets pétroliers",
+    "Gestionnaire d'entrepôt",
+    "Commercial fret"
+   ],
+   "sources": [
+    "https://acareerbyagl.talent-soft.com/",
+    "https://www.aglgroup.com/",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "CMA CGM Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Port, maritime & logistique",
+   "metiers_recrutes": [
+    "Agent de consignation navire",
+    "Gestionnaire de parc conteneurs (Equipment Controller)",
+    "Commercial lignes régulières",
+    "Agent de documentation maritime (Bill of Lading)"
+   ],
+   "sources": [
+    "https://jobs.cmacgm-group.com/",
+    "https://www.cma-cgm.com/local/republique-du-congo"
+   ]
+  },
+  {
+   "nom": "Maersk Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "Port, maritime & logistique",
+   "metiers_recrutes": [
+    "Key Account Manager grands comptes",
+    "Spécialiste service client maritime",
+    "Coordinateur logistique terrestre et intermodale",
+    "Technicien conteneurs frigorifiques reefers"
+   ],
+   "sources": [
+    "https://www.maersk.com/careers"
+   ]
+  },
+  {
+   "nom": "BGFIBank Congo",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Chargé d'affaires entreprises",
+    "Gestionnaire de comptes particuliers/PME",
+    "Analyste risques et conformité (AML/KYC)",
+    "Auditeur interne",
+    "Caissier principal",
+    "Ingénieur sécurité informatique bancaire"
+   ],
+   "sources": [
+    "https://groupebgfibank.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "BCI (Banque Commerciale Internationale)",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Responsable d'agence",
+    "Conseiller de clientèle commerciale",
+    "Gestionnaire trésorerie",
+    "Contrôleur permanent",
+    "Technicien support réseau agence"
+   ],
+   "sources": [
+    "https://www.bcicongo.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Banque Postale du Congo (BPC)",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Gestionnaire de guichet et caissier",
+    "Chef de bureau d'agence postale",
+    "Comptable bancaire",
+    "Développeur monétique et services digitaux"
+   ],
+   "sources": [
+    "https://banquepostale.cg/",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "LCB Bank (La Congolaise de Banque)",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Chargé de clientèle PME/PMI",
+    "Analyste crédit",
+    "Juriste d'affaires",
+    "Inspecteur d'audit",
+    "Agent back-office compensation"
+   ],
+   "sources": [
+    "https://lcbbank.cg",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Ecobank Congo",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Relationship Manager grandes entreprises",
+    "Spécialiste Cash Management",
+    "Expert conformité réglementaire COBAC",
+    "Assistant commercial agence",
+    "Chef de projet digitalisation bancaire"
+   ],
+   "sources": [
+    "https://ecobank.com/careers",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Crédit du Congo (Attijariwafa bank)",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Chargé de recouvrement",
+    "Chargé du suivi des comptes",
+    "Chargé de digitalisation des processus",
+    "Conseiller clientèle particuliers",
+    "Analyste risques de contrepartie"
+   ],
+   "sources": [
+    "https://www.creditducongo.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "MUCODEC (Mutuelles Congolaises d'Épargne et de Crédit)",
+   "ville": "Brazzaville",
+   "secteur": "Finance, comptabilité & audit",
+   "metiers_recrutes": [
+    "Gérant de caisse locale mutualiste",
+    "Agent de crédit et conseiller micro-entreprises",
+    "Contrôleur itinérant de gestion",
+    "Caissier d'agence",
+    "Technicien informatique réseau d'agences"
+   ],
+   "sources": [
+    "https://mucodec.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "MTN Congo",
+   "ville": "Brazzaville",
+   "secteur": "Informatique, télécoms & numérique",
+   "metiers_recrutes": [
+    "Ingénieur télécoms (Radio & Core Network)",
+    "Spécialiste Fintech Mobile Money (MoMo)",
+    "Développeur API et backend",
+    "Data Analyst",
+    "Conseiller commercial boutique",
+    "Chef de produit marketing digital"
+   ],
+   "sources": [
+    "https://mtn.cg",
+    "https://www.mtn.com/careers",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Airtel Congo",
+   "ville": "Brazzaville",
+   "secteur": "Informatique, télécoms & numérique",
+   "metiers_recrutes": [
+    "Ingénieur transmission et optimisation réseau",
+    "Agent service client call center",
+    "Responsable distribution partenariats Airtel Money",
+    "Juriste télécoms et réglementation",
+    "Chef de zone commerciale"
+   ],
+   "sources": [
+    "https://www.airtel.cg",
+    "https://airtel.africa/careers",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Congo Telecom",
+   "ville": "Brazzaville",
+   "secteur": "Informatique, télécoms & numérique",
+   "metiers_recrutes": [
+    "Technicien câbleur fibre optique",
+    "Ingénieur réseaux IP/MPLS",
+    "Administrateur systèmes et sécurité",
+    "Chargé d'accueil agence commerciale",
+    "Auditeur technique réseau"
+   ],
+   "sources": [
+    "https://congotelecom.cg/",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Burotop Iris",
+   "ville": "Brazzaville",
+   "secteur": "Informatique, télécoms & numérique",
+   "metiers_recrutes": [
+    "Technicien de maintenance informatique et bureautique",
+    "Ingénieur systèmes et réseaux",
+    "Technico-commercial B2B solutions IT",
+    "Gestionnaire de stock matériels informatiques"
+   ],
+   "sources": [
+    "http://www.burotopiris.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Brasseries du Congo (BRASCO)",
+   "ville": "Brazzaville",
+   "secteur": "Agriculture, élevage & agroalimentaire",
+   "metiers_recrutes": [
+    "Électromécanicien de ligne d'embouteillage",
+    "Technicien laboratoire contrôle qualité alimentaire",
+    "Chef de secteur vente CHR et grossistes",
+    "Superviseur logistique et entrepôt",
+    "Coordinateur sécurité agroalimentaire (HACCP/HSE)"
+   ],
+   "sources": [
+    "https://careers.theheinekencompany.com",
+    "https://www.acpe.cg",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "SARIS Congo (SOMDIA)",
+   "ville": "Brazzaville",
+   "secteur": "Agriculture, élevage & agroalimentaire",
+   "metiers_recrutes": [
+    "Responsable commercial grands comptes",
+    "Coordinateur chaîne logistique rail/route",
+    "Ingénieur agronome culture de la canne",
+    "Mécanicien industriel sucrerie",
+    "Comptable fournisseurs"
+   ],
+   "sources": [
+    "https://groupe-somdia.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "SGE-C Congo (Sogea-Satom / VINCI Construction)",
+   "ville": "Brazzaville",
+   "secteur": "BTP, génie civil & construction",
+   "metiers_recrutes": [
+    "Ingénieur travaux BTP",
+    "Conducteur de travaux terrassement et VRD",
+    "Métreur-chiffreur",
+    "Topographe",
+    "Mécanicien engins lourds",
+    "Animateur QHSE chantier"
+   ],
+   "sources": [
+    "https://jobs.vinci.com",
+    "https://www.sogea-satom.com",
+    "https://unicongo.cg"
+   ]
+  },
+  {
+   "nom": "Razel-Bec Congo (Groupe Fayat)",
+   "ville": "Brazzaville",
+   "secteur": "BTP, génie civil & construction",
+   "metiers_recrutes": [
+    "Ingénieur études de prix BTP",
+    "Conducteur de travaux génie civil et hydraulique",
+    "Géomètre-topographe",
+    "Conducteur d'engins de terrassement",
+    "Responsable matériel de parc BTP"
+   ],
+   "sources": [
+    "https://razel-bec.jobs.fayat.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Socofran CDE",
+   "ville": "Brazzaville",
+   "secteur": "BTP, génie civil & construction",
+   "metiers_recrutes": [
+    "Chef d'équipe terrassement et enrobés",
+    "Conducteur d'engins lourds (niveleuse, compacteur)",
+    "Ingénieur qualité laboratoire des sols",
+    "Mécanicien engins de chantier",
+    "Magasinier pièces détachées engins"
+   ],
+   "sources": [
+    "https://www.socofran.com",
+    "https://unicongo.cg",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Dangote Cement Congo",
+   "ville": "Pointe-Noire",
+   "secteur": "BTP, génie civil & construction",
+   "metiers_recrutes": [
+    "Responsable commercial régional ciment",
+    "Coordinateur de distribution et transport vrac/sacs",
+    "Technicien de maintenance électromécanique",
+    "Opérateur d'ensachage",
+    "Comptable de vente"
+   ],
+   "sources": [
+    "https://dangote.com/our-businesses/cement/",
+    "https://acpe.cg"
+   ]
+  },
+  {
+   "nom": "CFAO Mobility Congo",
+   "ville": "Brazzaville",
+   "secteur": "Commerce, vente & distribution",
+   "metiers_recrutes": [
+    "Conseiller commercial véhicules neufs et flottes",
+    "Chef d'atelier mécanique automobile",
+    "Technicien diagnosticien électronique auto",
+    "Gestionnaire de stock pièces de rechange",
+    "Contrôleur de gestion opérationnel"
+   ],
+   "sources": [
+    "https://cfaocareers.talent-soft.com/",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Tractafric Equipment Congo",
+   "ville": "Brazzaville",
+   "secteur": "Maintenance, industrie & électromécanique",
+   "metiers_recrutes": [
+    "Technicien de maintenance d'engins Caterpillar",
+    "Électromécanicien systèmes hydrauliques",
+    "Technico-commercial équipements BTP et miniers",
+    "Magasinier pièces de rechange industrielles"
+   ],
+   "sources": [
+    "https://tractafric-equipment.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "NSIA Assurances Congo",
+   "ville": "Brazzaville",
+   "secteur": "Commerce, vente & distribution",
+   "metiers_recrutes": [
+    "Conseiller commercial assurance vie et prévoyance",
+    "Rédacteur sinistres automobile et IARD",
+    "Souscripteur risques d'entreprises",
+    "Contrôleur interne conformité code CIMA"
+   ],
+   "sources": [
+    "https://www.nsiacongo.com",
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Assurances et Réassurances du Congo (ARC)",
+   "ville": "Brazzaville",
+   "secteur": "Commerce, vente & distribution",
+   "metiers_recrutes": [
+    "Agent général mandataire d'assurance",
+    "Gestionnaire production de contrats",
+    "Expert régleur de sinistres",
+    "Juriste contentieux assurances"
+   ],
+   "sources": [
+    "https://www.acpe.cg"
+   ]
+  },
+  {
+   "nom": "Direction Générale des Impôts et des Domaines (DGI)",
+   "ville": "Brazzaville",
+   "secteur": "Fonction publique, douanes & régies financières",
+   "metiers_recrutes": [
+    "Inspecteur des impôts",
+    "Contrôleur des impôts",
+    "Agent d'assiette et de recouvrement",
+    "Informaticien administrateur E-Tax"
+   ],
+   "sources": [
+    "https://finances.gouv.cg",
+    "https://fonction-publique.gouv.cg"
+   ]
+  },
+  {
+   "nom": "Direction Générale des Douanes et des Droits Indirects",
+   "ville": "Brazzaville",
+   "secteur": "Fonction publique, douanes & régies financières",
+   "metiers_recrutes": [
+    "Inspecteur des douanes",
+    "Contrôleur des douanes",
+    "Officier des brigades de surveillance douanière",
+    "Technicien scanner et vérification de conteneurs"
+   ],
+   "sources": [
+    "https://finances.gouv.cg",
+    "https://fonction-publique.gouv.cg",
+    "https://cemac-eied.net"
+   ]
+  },
+  {
+   "nom": "Centre Hospitalier et Universitaire de Brazzaville (CHU-B)",
+   "ville": "Brazzaville",
+   "secteur": "Fonction publique, douanes & régies financières",
+   "metiers_recrutes": [
+    "Médecin spécialiste et généraliste",
+    "Infirmier diplômé d'État",
+    "Sage-femme diplômée d'État",
+    "Technicien de laboratoire biomédical",
+    "Technicien biomédical de maintenance des équipements"
+   ],
+   "sources": [
+    "https://sante.gouv.cg",
+    "https://fonction-publique.gouv.cg"
+   ]
+  }
+ ],
+ "structure_cv": {
+  "ordre_sections": [
+   "État civil / Identité",
+   "Profil professionnel",
+   "Formation académique",
+   "Expériences professionnelles et stages",
+   "Compétences clés",
+   "Compétences informatiques & logiciels",
+   "Langues",
+   "Centres d'intérêt",
+   "Personnes de référence"
+  ],
+  "intitules_frequents": {
+   "formation": [
+    "Formation académique",
+    "Cursus scolaire et universitaire",
+    "Diplômes et formations",
+    "Formation"
+   ],
+   "experience": [
+    "Expériences professionnelles",
+    "Stages et emplois",
+    "Parcours professionnel",
+    "Expériences professionnelles et stages"
+   ],
+   "competences": [
+    "Compétences clés",
+    "Domaines de compétences",
+    "Aptitudes professionnelles",
+    "Savoir-faire"
+   ],
+   "informatique": [
+    "Connaissances informatiques",
+    "Outils informatiques",
+    "Compétences digitales & logiciels"
+   ],
+   "langues": [
+    "Langues",
+    "Connaissances linguistiques",
+    "Langues vivantes"
+   ],
+   "references": [
+    "Personnes de référence",
+    "Références professionnelles",
+    "Références"
+   ]
+  },
+  "formulations_niveaux_langue": [
+   "Lu, écrit, parlé (Très bien)",
+   "Lu, écrit, parlé (Courant)",
+   "Lu, écrit, parlé (Moyen)",
+   "Parlé couramment",
+   "Notions de base",
+   "Langue maternelle",
+   "Professionnel / Opérationnel"
+  ],
+  "langues_courantes": [
+   "Français",
+   "Lingala",
+   "Kituba (Munukutuba)",
+   "Anglais"
+  ],
+  "exemples_formulations": [
+   "Stage académique de 3 mois au service de la Comptabilité — Direction Générale des Impôts et des Domaines (DGID), Brazzaville",
+   "Stage professionnel de 6 mois comme Assistant Ressources Humaines — BGFIBank Congo, Siège de Brazzaville",
+   "Technicien stagiaire en maintenance électromécanique — Brasseries du Congo (BRASCO), Usine de Brazzaville",
+   "Superviseur Hygiène, Sécurité et Environnement (HSE) — Sous-traitant pétrolier, Base industrielle de Pointe-Noire",
+   "Agent d'exploitation et logistique portuaire — Congo Terminal, Port Autonome de Pointe-Noire (PAPN)",
+   "Licence Professionnelle en Comptabilité, Contrôle et Audit — École Supérieure de Gestion et d'Administration des Entreprises (ESGAE), Brazzaville",
+   "Diplôme d'Ingénieur de Conception en Génie Électrique — École Nationale Supérieure Polytechnique (ENSP), Université Marien Ngouabi, Brazzaville",
+   "Diplôme Universitaire de Technologie (DUT) en Génie Industriel et Maintenance — Institut Universitaire de Technologie d'Afrique Centrale (IUT-AC), Pointe-Noire",
+   "Baccalauréat Technique Série G2 (Comptabilité et Gestion) — Lycée Technique Commercial 1er Mai, Brazzaville",
+   "Baccalauréat Technique Série F3 (Électrotechnique) — Lycée Technique Poaty Bernard, Pointe-Noire",
+   "Certification BOSIET avec EBS certifiée OPITO — Centre d'entraînement SERVTEC Congo, Pointe-Noire",
+   "Titulaire de l'attestation de demandeur d'emploi (Récépissé ACPE valide) — Agence Congolaise Pour l'Emploi, Brazzaville"
+  ],
+  "sources": [
+   "https://www.acpe.cg",
+   "https://www.emploi.cg",
+   "https://brazzaboost.org",
+   "https://simoon-cv.com",
+   "https://taf4all.fr",
+   "https://jobs.spaark.cloud",
+   "https://www.esgae.org",
+   "https://umng.cg"
+  ]
+ },
+ "notes": "Base de données constituée à partir d'investigations vérifiées sur le marché de l'emploi en République du Congo (Congo-Brazzaville, indicatif +242). Conformément aux règles strictes, toute entité de RDC (Kinshasa, Lubumbashi, mediacongo, etc.) a été exclue. Le marché formel est marqué par une bipolarisation nette : Brazzaville concentre les institutions publiques, sièges bancaires, agences onusiennes (siège OMS AFRO) et fonctions administratives, tandis que Pointe-Noire concentre l'activité industrielle, pétrolière offshore (TotalEnergies, Eni, Perenco), parapétrolière (SLB, Baker Hughes, Halliburton) et portuaire (PAPN, Congo Terminal). L'inscription à l'Agence Congolaise Pour l'Emploi (ACPE) et la détention d'un récépissé demandeur d'emploi constituent une obligation légale fréquemment exigée des postulants. Aucune donnée à caractère personnel nominative n'a été collectée."
+}

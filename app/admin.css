@@ -140,3 +140,8 @@ body.admin {
 .ad-badge { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
 .ad-link[aria-current='true'] .ad-badge { background: rgb(var(--canvas)); color: rgb(var(--gray-900)); }
 .stat-cell .v.accent { color: rgb(var(--gray-900)); }
+.res-add { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.res-add .row { grid-column: 1 / -1; }
+.row-item .danger-text { flex: none; }
+.row-del { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: none; color: rgb(var(--gray-500)); font-size: 12px; cursor: pointer; }
+.row-del:hover { color: rgb(var(--red-500)); border-color: rgb(var(--red-500) / 0.5); }
