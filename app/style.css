@@ -1004,3 +1004,33 @@ html[data-theme] {
 }
 @media (min-width: 960px) { .zoombar { max-width: calc(100vw - var(--side-space) - 32px); } }
 .topbar:has(.ghost-note[hidden]) { display: none; }
+
+/* --- Règle : une carte n'a jamais le fond de sa barre ---------------------------------
+   Sur le panneau (fond --surface), cartes, pastilles et boutons secondaires sont posés sur
+   un fond légèrement relevé, pour se détacher comme des objets. */
+:root { --raised: var(--gray-100); --raised-hover: var(--gray-200); }
+.tpl-card,
+.step-pill:not(.active),
+.sheet .btn-ghost,
+.pill-option:not([aria-pressed='true']),
+.acc-card,
+.items-chips .item,
+.check,
+.format-card,
+.lang-option,
+.slot-pill,
+.period-cell:not([aria-selected='true']),
+.dialog .btn-ghost {
+  background-color: rgb(var(--raised));
+}
+.tpl-card:hover,
+.step-pill:not(.active):hover,
+.sheet .btn-ghost:hover,
+.pill-option:not([aria-pressed='true']):hover,
+.format-card:hover,
+.lang-option:not(:disabled):hover,
+.period-cell:not([aria-selected='true']):not(:disabled):hover,
+.dialog .btn-ghost:hover {
+  background-color: rgb(var(--raised-hover));
+}
+.tpl-card[aria-pressed='true'] { background-color: rgb(var(--raised-hover)); }
