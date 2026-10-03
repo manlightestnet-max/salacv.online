@@ -1539,3 +1539,29 @@ button.logo-mark { border: 0; cursor: pointer; }
 /* Bouton du modèle à droite du conteneur (jamais sur le nom du CV) ; la carte juste dessous. */
 .ws-group-tpl { right: auto; bottom: auto; left: calc(100% + 12px / var(--wsz, 1)); top: 0; transform-origin: left top; }
 .ws-tpl-card { margin-left: calc(12px / var(--wsz, 1)); margin-top: calc(46px / var(--wsz, 1)); }
+
+/* Carte des modèles : en-tête avec « Agrandir ». */
+.ws-tpl-card-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 4px; }
+.ws-tpl-card-head strong { font-size: 13px; }
+.ws-tpl-expand { height: 30px; padding: 0 10px; font-size: 12.5px; }
+
+/* Les modèles en grand : dialogue interne au panneau de droite, fond quadrillé de l'atelier. */
+.tpl-studio {
+  position: fixed; z-index: 30; top: 12px; right: 12px; bottom: 12px; left: calc(var(--side-space) + 12px);
+  display: flex; flex-direction: column; border: 1px solid rgb(var(--gray-200)); border-radius: 18px; overflow: hidden;
+  background-color: rgb(var(--canvas));
+  background-image: linear-gradient(rgb(var(--gray-900) / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--gray-900) / 0.05) 1px, transparent 1px);
+  background-size: 40px 40px; box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.6); animation: fade-up 0.2s var(--ease-out);
+}
+.tpl-studio-head { display: flex; align-items: center; gap: 16px; padding: 12px 14px 12px 18px; background: rgb(var(--bar)); border-bottom: 1px solid rgb(var(--gray-200)); }
+.tpl-studio-head > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.tpl-studio-head strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpl-studio-size { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgb(var(--gray-500)); }
+.tpl-studio-size input { width: 140px; accent-color: rgb(var(--gray-900)); }
+.tpl-studio-grid { flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tw, 200px), 1fr)); gap: 28px 22px; padding: 26px; align-content: start; justify-items: center; }
+.tpl-studio-item { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: rgb(var(--gray-700)); font: 500 13px var(--font-sans); cursor: pointer; }
+.tpl-studio-item canvas { display: block; background: #fff; border-radius: 4px; box-shadow: 0 1px 0 rgb(0 0 0 / 0.04), 0 18px 40px -22px rgb(0 0 0 / 0.6); outline: 2px solid transparent; outline-offset: 4px; transition: outline-color 0.15s, transform 0.15s; }
+.tpl-studio-item:hover canvas { outline-color: rgb(var(--gray-400)); transform: translateY(-2px); }
+.tpl-studio-item.on canvas { outline-color: rgb(var(--gray-900)); }
+.tpl-studio-item.on { color: rgb(var(--gray-900)); font-weight: 600; }
+.tpl-studio-item em { font-style: normal; color: rgb(var(--gray-500)); font-weight: 400; }

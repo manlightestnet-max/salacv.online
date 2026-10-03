@@ -1001,6 +1001,48 @@ function pickTemplate(id, tpl) {
   workspace.focusActive();
   toast(`Modèle « ${TEMPLATES.find((t) => t.id === tpl)?.name} » appliqué.`);
 }
+// Les modèles en grand, dans un dialogue interne au panneau de droite (l'aperçu) : chaque
+// modèle montre ce CV, une glissière règle la taille, un clic applique.
+let tplStudio = null;
+function closeTplStudio() {
+  tplStudio?.remove();
+  tplStudio = null;
+}
+function openTplStudio(id) {
+  closeTplStudio();
+  const items = pickerDocs(id);
+  const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
+  let size = 200;
+  const grid = h('div', { class: 'tpl-studio-grid' });
+  const draw = () => {
+    grid.style.setProperty('--tw', `${size}px`);
+    grid.replaceChildren(
+      ...items.map((t) => {
+        const c = h('canvas');
+        if (t.doc) requestAnimationFrame(() => drawDoc(engine, c, t.doc, size));
+        return h('button', { type: 'button', class: `tpl-studio-item${t.selected ? ' on' : ''}`, onClick: () => (closeTplStudio(), pickTemplate(id, t.id)) }, c, h('span', {}, t.name, t.selected && h('em', {}, ' · actuel')));
+      }),
+    );
+  };
+  const range = h('input', { type: 'range', min: 140, max: 420, step: 20, value: size, 'aria-label': 'Taille des aperçus' });
+  range.addEventListener('change', () => ((size = Number(range.value)), draw()));
+  tplStudio = h(
+    'section',
+    { class: 'tpl-studio', role: 'dialog', 'aria-label': 'Modèles' },
+    h(
+      'header',
+      { class: 'tpl-studio-head' },
+      h('div', {}, h('span', { class: 'ws-picker-kicker' }, 'Modèles'), h('strong', {}, docLabel(doc))),
+      h('label', { class: 'tpl-studio-size' }, 'Taille', range),
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Fermer', onClick: closeTplStudio }, '✕'),
+    ),
+    grid,
+  );
+  document.body.append(tplStudio);
+  draw();
+}
+document.addEventListener('keydown', (e) => e.key === 'Escape' && tplStudio && closeTplStudio());
+
 function pickerDocs(id) {
   const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
   const base = toResume(normalizeState(id === activeDoc ? state : doc.state), { mockup: example });
@@ -1074,6 +1116,7 @@ function setWorkspace(enabled) {
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
     onTemplate: (id) => openTplPicker(id),
     onPickTemplate: pickTemplate,
+    onExpandTemplates: openTplStudio,
     onSwitch(key) {
       const [id, lang] = key.split(':');
       switchDoc(id, lang);

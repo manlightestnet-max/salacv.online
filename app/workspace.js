@@ -10,7 +10,7 @@ const GAP = { x: 120, y: 190 };
 const CAM_KEY = 'salacv:ws-cam';
 const Z = { min: 0.08, max: 3 };
 
-export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, onTemplate, onPickTemplate }) {
+export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, onTemplate, onPickTemplate, onExpandTemplates }) {
   const world = h('div', { class: 'ws-world' });
   let frames = []; // { key, label, el, host, x, y, w, h, active }
   let cam = readCam() ?? { x: 80, y: 80, z: 0.35 };
@@ -81,6 +81,7 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
         const card = h(
           'div',
           { class: 'ws-tpl-card', style: `left:${x - GAP.x + PAD}px;top:${y - (rowH + PAD * 2 + 40 + GAP.y)}px` },
+          h('div', { class: 'ws-tpl-card-head' }, h('strong', {}, 'Modèles'), h('button', { type: 'button', class: 'btn-ghost ws-tpl-expand', title: 'Voir les modèles en grand', onClick: (e) => (e.stopPropagation(), onExpandTemplates?.(row.id)) }, '⤢ Agrandir')),
           row.picker.map((t) => {
             const c = h('canvas', { class: 'tpl-thumb' });
             if (t.doc) requestAnimationFrame(() => drawDoc(engine, c, t.doc, 50));
