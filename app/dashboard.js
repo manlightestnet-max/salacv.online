@@ -5,7 +5,8 @@ import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { deleteProject, duplicateProject, inviteLink, listProjects, relativeDate, wallet } from './lib/store.js';
+import { deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
+import { openDialog } from './dialog.js';
 import { TEMPLATES, toResume } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -249,7 +250,66 @@ async function creditsView() {
 }
 
 // --- Navigation --------------------------------------------------------------------
-const VIEWS = { projets: projectsView, explorer: explorerView, credits: creditsView };
+// --- Personnalités --------------------------------------------------------------------
+// Tes informations de base, gardées une fois : un nouveau CV part d'elles et tu changes
+// seulement la profession (technicien ici, médecin là).
+function personasView() {
+  const personas = listPersonas();
+  const projects = listProjects();
+  const count = (st) => {
+    const n = (list) => list.filter((i) => (i.title ?? i.name ?? i).toString().trim()).length;
+    return [`${n(st.education)} formation${n(st.education) > 1 ? 's' : ''}`, `${n(st.experiences)} expérience${n(st.experiences) > 1 ? 's' : ''}`, `${st.skills.length} compétences`, `${n(st.languages)} langues`].join(' · ');
+  };
+  const rename = (p) => {
+    const input = h('input', { class: 'search-input dlg-input', value: p.name, maxlength: 60, 'aria-label': 'Nom' });
+    const d = openDialog({
+      title: 'Renommer la personnalité',
+      content: input,
+      footer: [h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler'), h('button', { type: 'button', class: 'btn-primary', onClick: () => (savePersona({ ...p, name: input.value }), d.close(), render()) }, 'Enregistrer')],
+    });
+  };
+  const fromCv = () => {
+    const d = openDialog({
+      title: 'Créer depuis un CV',
+      content: [
+        h('p', { class: 'dlg-text' }, 'Choisis le CV dont tu veux garder les informations.'),
+        h('div', { class: 'dlg-list' }, projects.map((p) => h('button', { type: 'button', class: 'dlg-item', onClick: () => (savePersona({ name: p.state.profile.name, state: p.state }), d.close(), render()) }, h('strong', {}, projectName(p)), h('small', {}, count(p.state))))),
+      ],
+      footer: [h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler')],
+    });
+  };
+  const cards = personas.map((p) =>
+    h(
+      'article',
+      { class: 'panel persona' },
+      h('div', { class: 'persona-head' }, h('span', { class: 'persona-mark', 'aria-hidden': 'true' }, (p.name[0] ?? '?').toUpperCase()), h('div', {}, h('strong', {}, p.name), h('small', {}, count(p.state)))),
+      h('p', {}, `Mise à jour ${relativeDate(p.updatedAt)}. Un nouveau CV reprend tout ; tu choisis seulement la profession.`),
+      h(
+        'div',
+        { class: 'row' },
+        h('a', { class: 'btn-primary', href: `/studio/?new&persona=${p.id}` }, 'Nouveau CV'),
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => rename(p) }, 'Renommer'),
+        h('button', { type: 'button', class: 'btn-ghost danger', onClick: () => (deletePersona(p.id), render()) }, 'Supprimer'),
+      ),
+    ),
+  );
+  return h(
+    'section',
+    {},
+    header('Personnalités', 'Tes informations, gardées une fois. Technicien dans un CV, médecin dans un autre : tu ne retapes rien.', projects.length > 0 && h('button', { type: 'button', class: 'btn-primary', onClick: fromCv }, 'Créer depuis un CV')),
+    personas.length
+      ? h('div', { class: 'personas' }, cards)
+      : h(
+          'div',
+          { class: 'panel persona-empty' },
+          h('strong', {}, 'Aucune personnalité pour l’instant'),
+          h('p', {}, projects.length ? 'Garde les informations d’un de tes CV : identité, formation, expériences, langues… Ensuite, chaque nouveau CV part de là.' : 'Fais d’abord un CV, puis garde ses informations ici.'),
+          projects.length ? h('button', { type: 'button', class: 'btn-primary', onClick: fromCv }, 'Créer depuis un CV') : h('a', { class: 'btn-primary', href: '/studio/?new' }, 'Faire mon premier CV'),
+        ),
+  );
+}
+
+const VIEWS = { projets: projectsView, personnalites: personasView, explorer: explorerView, credits: creditsView };
 
 async function render() {
   const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'projets';

@@ -10,6 +10,7 @@ const WALLET_KEY = 'salacv:wallet:v1';
 const REF_KEY = 'salacv:ref';
 const REFERRED_KEY = 'salacv:referred-by';
 const RATING_KEY = 'salacv:rating';
+const PERSONAS_KEY = 'salacv:personas:v1';
 
 export const WEEKLY_CREDITS = 5;
 export const PDF_COST = 1;
@@ -71,7 +72,8 @@ export function getProject(id) {
 }
 
 export function createProject(patch = {}) {
-  const state = emptyState();
+  const persona = patch.persona ? getPersona(patch.persona) : null;
+  const state = persona ? fromPersona(persona) : emptyState();
   if (patch.name) state.profile.name = patch.name;
   if (patch.template) state.template = patch.template;
   const project = { id: newId(), state, createdAt: Date.now(), updatedAt: Date.now() };
@@ -97,6 +99,47 @@ export function duplicateProject(id) {
   const copy = { id: newId(), state: structuredClone(p.state), createdAt: Date.now(), updatedAt: Date.now() };
   saveProject(copy);
   return copy;
+}
+
+// Nom affiché du CV : celui donné par l'étudiant, sinon « Nom — Profession ».
+export function projectName(project) {
+  const p = project.state.profile;
+  return project.name?.trim() || [p.name.trim(), p.title.trim()].filter(Boolean).join(' — ') || 'CV sans titre';
+}
+
+// --- Personnalités ------------------------------------------------------------------
+// Une personnalité = tes informations de base (identité, contacts, photo, formation,
+// expériences, compétences, langues, loisirs). Un nouveau CV part d'elle : tu changes
+// seulement la profession et le profil (technicien ici, médecin là).
+
+export function listPersonas() {
+  return Object.values(json(PERSONAS_KEY, {})).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function getPersona(id) {
+  return json(PERSONAS_KEY, {})[id] ?? null;
+}
+
+export function savePersona({ id, name, state }) {
+  const all = json(PERSONAS_KEY, {});
+  const persona = { id: id ?? newId(), name: name?.trim() || state.profile.name.trim() || 'Ma personnalité', state: normalizeState(structuredClone(state)), createdAt: all[id]?.createdAt ?? Date.now(), updatedAt: Date.now() };
+  all[persona.id] = persona;
+  write(PERSONAS_KEY, JSON.stringify(all));
+  return persona;
+}
+
+export function deletePersona(id) {
+  const all = json(PERSONAS_KEY, {});
+  delete all[id];
+  write(PERSONAS_KEY, JSON.stringify(all));
+}
+
+// Nouveau CV depuis une personnalité : tout est repris, sauf la profession et le profil.
+export function fromPersona(persona) {
+  const s = normalizeState(structuredClone(persona.state));
+  s.profile.title = '';
+  s.profile.summary = '';
+  return s;
 }
 
 // --- Crédits -------------------------------------------------------------------

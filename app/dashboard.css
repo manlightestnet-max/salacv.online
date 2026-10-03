@@ -177,3 +177,22 @@ a { color: inherit; }
 .card[hidden] { display: none; }
 .no-result { padding: 2rem 0; text-align: center; font-size: 0.9rem; color: rgb(var(--gray-500)); }
 .no-result[hidden] { display: none; }
+
+/* Personnalités */
+.personas { display: grid; gap: 0.75rem; }
+@media (min-width: 720px) { .personas { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); } }
+.persona-head { display: flex; align-items: center; gap: 0.75rem; }
+.persona-head div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.persona-head strong { font-size: 1rem; font-weight: 600; }
+.persona-head small { font-size: 0.78rem; color: rgb(var(--gray-500)); }
+.persona-mark { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: rgb(var(--gray-900)); color: rgb(var(--canvas)); font-weight: 600; }
+.persona .danger { color: rgb(var(--red-500)); }
+.persona-empty { align-items: flex-start; }
+.dlg-text { font-size: 0.86rem; color: rgb(var(--gray-500)); }
+.dlg-input { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(var(--gray-100)); }
+.dlg-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.dlg-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0.65rem 0.8rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(var(--gray-100)); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.dlg-item:hover { border-color: rgb(var(--gray-400)); }
+.dlg-item strong { font-size: 0.9rem; }
+.dlg-item small { font-size: 0.76rem; color: rgb(var(--gray-500)); }
+.bottom-tabs { grid-template-columns: 1fr auto 1fr 1fr 1fr; }

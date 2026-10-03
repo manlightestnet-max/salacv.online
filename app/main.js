@@ -5,10 +5,11 @@
 import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import { loadEngine } from './lib/engine.js';
-import { createProject, getProject, listProjects, read, saveProject, write as store } from './lib/store.js';
+import { createProject, getProject, listProjects, projectName, read, saveProject, write as store } from './lib/store.js';
 import { openExport } from './export.js';
 import { initQuickEdit } from './quickedit.js';
 import { createLangBar } from './langs.js';
+import { openSwitcher } from './switcher.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
@@ -107,7 +108,10 @@ initPreviewGestures();
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   const key = e.key.toLowerCase();
-  if (mod && key === 'b' && desktop.matches) {
+  if (mod && e.shiftKey && key === 'b' && desktop.matches) {
+    e.preventDefault();
+    setPreviewHidden(!root.classList.contains('preview-hidden'));
+  } else if (mod && key === 'b' && desktop.matches) {
     e.preventDefault();
     setSideHidden(!root.classList.contains('side-hidden'));
   } else if (mod && key === 's') {
@@ -327,7 +331,7 @@ function openAgent() {
   $('agent-view').hidden = false;
   $('assistant').setAttribute('aria-pressed', 'true');
   $('step-title').textContent = 'Assistant';
-  $('progress').textContent = 'Il remplit ton CV pour toi';
+  $('progress').textContent = 'il remplit ton CV';
   setSheet('expanded');
   agentPanel.focus();
 }
@@ -375,7 +379,8 @@ function renderStep() {
   ctx.onAdd = null;
   stepEl.replaceChildren(h('div', { class: 'fade' }, step.render(ctx)));
   $('step-title').textContent = step.label;
-  $('progress').textContent = `Étape ${stepIndex + 1} sur ${STEPS.length}`;
+  $('progress').textContent = `${stepIndex + 1}/${STEPS.length}`;
+  renderTitle();
   $('prev').style.visibility = stepIndex === 0 ? 'hidden' : 'visible';
   $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
 }
@@ -610,7 +615,62 @@ function saveCurrent() {
   if (activeLang === project.state.lang) project.state = state;
   else project.variants[activeLang] = state;
   saveProject(project);
+  flashSaved();
+  renderTitle();
 }
+
+// Sauvegarde automatique (à chaque modification) : on la montre, discrètement.
+let savedTimer;
+function flashSaved() {
+  const el = $('saved');
+  el.textContent = ' · Enregistrement…';
+  el.classList.remove('done');
+  clearTimeout(savedTimer);
+  savedTimer = setTimeout(() => {
+    el.textContent = ' · Enregistré ✓';
+    el.classList.add('done');
+  }, 450);
+}
+
+// Titre du CV en haut à gauche : un clic pour le renommer.
+function renderTitle() {
+  const btn = $('cv-title');
+  if (btn.querySelector('input')) return;
+  btn.textContent = projectName(project);
+}
+$('cv-title').addEventListener('click', () => {
+  const btn = $('cv-title');
+  if (btn.querySelector('input')) return;
+  const input = h('input', { class: 'cv-title-input', value: project.name ?? '', placeholder: projectName({ ...project, name: '' }), maxlength: 60, 'aria-label': 'Nom du CV' });
+  let finished = false;
+  const done = (keep) => {
+    if (finished) return; // Entrée puis perte du focus : une seule fois
+    finished = true;
+    if (keep) project.name = input.value.trim();
+    input.remove();
+    saveCurrent();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') (e.preventDefault(), done(true));
+    if (e.key === 'Escape') (e.stopPropagation(), done(false));
+  });
+  input.addEventListener('blur', () => input.isConnected && done(true));
+  btn.replaceChildren(input);
+  input.focus();
+  input.select();
+});
+$('switch').addEventListener('click', () => openSwitcher({ engine, project, state }));
+
+// PC : l'aperçu se masque aussi, pour travailler le formulaire en grand.
+function setPreviewHidden(hidden) {
+  root.classList.toggle('preview-hidden', hidden);
+  $('show-preview').hidden = !hidden;
+  store('salacv:preview-hidden', hidden ? '1' : '0');
+  if (!hidden && engine) repaint();
+}
+$('hide-preview').addEventListener('click', () => setPreviewHidden(true));
+$('show-preview').addEventListener('click', () => setPreviewHidden(false));
+setPreviewHidden(read('salacv:preview-hidden') === '1' && desktop.matches);
 
 const langBar = createLangBar({
   project,
@@ -648,7 +708,7 @@ function toast(text) {
 function openProject() {
   const q = new URLSearchParams(location.search);
   let p = q.has('new') ? null : getProject(q.get('p')) ?? (q.get('p') ? null : listProjects()[0]);
-  p ??= createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: q.get('template') ?? undefined });
+  p ??= createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: q.get('template') ?? undefined, persona: q.get('persona') ?? undefined });
   history.replaceState(null, '', `${location.pathname}?p=${p.id}`);
   return p;
 }

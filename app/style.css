@@ -1148,3 +1148,59 @@ body:has(.dialog-backdrop:not(:has(.quick-edit))) .qe-outline { display: none; }
 .qe-ai-go { flex: none; }
 .qe-ai-go:disabled { opacity: 0.6; }
 .trial-note { font-size: 11.5px; line-height: 1.45; color: rgb(var(--gray-500)); }
+
+/* --- Titre du CV (renommable) et sauvegarde automatique ------------------------------ */
+button.logo-mark { border: 0; cursor: pointer; }
+.cv-title {
+  display: block; max-width: 100%; padding: 0; border: 0; background: none; text-align: left;
+  font: 600 14.5px var(--font-sans); letter-spacing: -0.011em; color: rgb(var(--gray-900));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text;
+}
+.cv-title:hover { text-decoration: underline dotted rgb(var(--gray-400)); text-underline-offset: 3px; }
+.cv-title-input { width: 100%; padding: 2px 6px; margin-left: -6px; border: 1px solid rgb(var(--gray-300)); border-radius: 6px; background: rgb(var(--surface)); color: rgb(var(--gray-900)); font: 600 14.5px var(--font-sans); outline: none; }
+.cv-sub { display: block; font-size: 12px; color: rgb(var(--gray-500)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saved { color: rgb(var(--gray-400)); transition: color 0.3s; }
+.saved.done { color: rgb(var(--gray-500)); }
+.sheet-title { min-width: 0; flex: 1; }
+
+/* --- PC : aperçu masqué, le formulaire prend la place --------------------------------- */
+@media (min-width: 960px) {
+  .preview-hidden .preview, .preview-hidden .zoombar, .preview-hidden .topbar, .preview-hidden .splitter { display: none !important; }
+  .preview-hidden .sheet, .preview-hidden .sheet[data-state='collapsed'] { width: min(880px, calc(100vw - 24px)); left: max(12px, calc(50vw - 440px)); }
+  .preview-hidden.side-hidden .sheet { transform: none; opacity: 1; pointer-events: auto; }
+  .preview-hidden #show-side { display: none; }
+}
+.show-preview { left: auto; right: 16px; }
+
+/* --- Mes CV : carrousel des 5 récents ------------------------------------------------ */
+.switcher-dialog { width: min(100%, 640px); }
+.sw-hint { font-size: 12.5px; color: rgb(var(--gray-500)); }
+.sw-track {
+  display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 10px calc(50% - 85px) 6px;
+  margin: 0 -1rem; scrollbar-width: none;
+}
+.sw-card {
+  flex: none; width: 170px; scroll-snap-align: center; display: flex; flex-direction: column; gap: 4px;
+  text-decoration: none; color: inherit; transition: transform 0.25s var(--ease-out), opacity 0.25s;
+}
+.sw-frame { position: relative; display: grid; place-items: center; padding: 10px; border-radius: 12px; border: 1px solid rgb(var(--gray-200)); background: rgb(var(--raised)); }
+.sw-card.current .sw-frame { border-color: rgb(var(--gray-900)); box-shadow: 0 0 0 1px rgb(var(--gray-900)), 0 10px 24px -12px rgb(0 0 0 / 0.5); }
+.sw-paper { display: block; width: 150px !important; height: auto !important; aspect-ratio: 595 / 842; border-radius: 3px; background: #fff; }
+.sw-badge { position: absolute; top: 8px; right: 8px; padding: 1px 6px; border-radius: 4px; background: rgb(var(--gray-900)); color: rgb(var(--surface)); font: 600 10px var(--font-sans); }
+.sw-card strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sw-card small { font-size: 11.5px; color: rgb(var(--gray-500)); }
+.sw-card:hover .sw-frame { border-color: rgb(var(--gray-400)); }
+.sw-dots { display: flex; justify-content: center; gap: 6px; }
+.sw-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--gray-300)); transition: width 0.2s, background 0.2s; }
+.sw-dots span.on { width: 16px; border-radius: 3px; background: rgb(var(--gray-900)); }
+.sw-label { font-size: 12px; font-weight: 600; color: rgb(var(--gray-600)); margin-bottom: 6px; }
+.sw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw-chips a { text-decoration: none; }
+.sw-note { font-size: 12.5px; color: rgb(var(--gray-600)); min-height: 1em; }
+.switcher-dialog .dialog-foot { flex-wrap: wrap; }
+.switcher-dialog .dialog-foot a { text-decoration: none; display: inline-flex; align-items: center; }
+/* Pied du panneau : tout sur une ligne, Générer et Suivant à droite. */
+.step-nav { flex-wrap: nowrap; }
+.step-nav .generate-btn { flex: none; width: auto; margin-left: auto; }
+.step-nav #next { flex: none; }
+.step-nav { display: flex; align-items: center; gap: 0.5rem; } .step-nav .shortcut-hint { margin: 0 auto; }
