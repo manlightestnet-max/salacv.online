@@ -1,0 +1,90 @@
+// Les deux routes de l'API, identiques sur Vercel (api/*.js) et sur le VPS (server/index.js).
+//
+//   POST /api/login  { username, password }        → { ok, token, username }
+//   POST /api/agent  { state, message, history? }  → { ok, reply, state, changes }   (Authorization: Bearer <jeton>)
+//   POST /api/translate { state, to }               → { ok, state }                    (Authorization: Bearer <jeton>)
+//
+// Chaque route renvoie [statut HTTP, corps JSON].
+import { checkCredentials, issue, verify } from './auth.js';
+import { settings } from './config.js';
+import { handle } from './run.js';
+import { translate as translateCv } from './translate.js';
+import { collect, isBlocked, recordLogin } from '../admin.js';
+
+export const MAX_BODY = 64 * 1024;
+
+// Fenêtre glissante d'une minute par clé (mémoire du process).
+export class RateLimiter {
+  constructor(perMinute) {
+    this.perMinute = perMinute;
+    this.hits = new Map();
+  }
+
+  allow(who, now = Date.now()) {
+    const recent = (this.hits.get(who) ?? []).filter((t) => now - t < 60_000);
+    if (recent.length >= this.perMinute) {
+      this.hits.set(who, recent);
+      return false;
+    }
+    recent.push(now);
+    this.hits.set(who, recent);
+    return true;
+  }
+}
+
+export const loginLimiter = new RateLimiter(10);
+export const agentLimiter = new RateLimiter(settings.ratePerMinute);
+let running = 0;
+
+export async function login(payload, client, env = process.env) {
+  if (!loginLimiter.allow(client)) return [429, { ok: false, error: 'Trop de tentatives. Attends une minute.' }];
+  const username = String(payload?.username ?? '').trim();
+  const error = checkCredentials(username, payload?.password, env);
+  if (error) return [400, { ok: false, error }];
+  const token = issue(username, env);
+  if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
+  if ((await recordLogin(username).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
+  return [200, { ok: true, token, username }];
+}
+
+export const bearer = (authorization) => String(authorization ?? '').replace(/^Bearer\s+/i, '').trim();
+
+export async function agent(payload, token, { env = process.env, callModel } = {}) {
+  const username = verify(token, env);
+  if (!username) return [401, { ok: false, error: "Connecte-toi pour utiliser l'assistant." }];
+  if (await isBlocked(username).catch(() => false)) return [403, { ok: false, error: 'Ce compte est suspendu.' }];
+  if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
+  // Plafond de requêtes simultanées : protège le quota et la mémoire, 503 au-delà.
+  if (running >= settings.concurrency) return [503, { ok: false, error: "L'assistant est très demandé. Réessaie dans un instant." }];
+  running++;
+  try {
+    const { status, ...result } = await handle(payload ?? {}, { env, callModel });
+    return [status ?? (result.ok ? 200 : 502), result];
+  } finally {
+    running--;
+  }
+}
+
+// Même garde-fous que l'agent : connexion, limite par minute, plafond de requêtes simultanées.
+export async function translate(payload, token, { env = process.env, callModel } = {}) {
+  const username = verify(token, env);
+  if (!username) return [401, { ok: false, error: 'Connecte-toi pour traduire ton CV.' }];
+  if (await isBlocked(username).catch(() => false)) return [403, { ok: false, error: 'Ce compte est suspendu.' }];
+  if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
+  if (running >= settings.concurrency) return [503, { ok: false, error: 'Le service est très demandé. Réessaie dans un instant.' }];
+  running++;
+  try {
+    const { status, ...result } = await translateCv(payload ?? {}, { env, callModel });
+    return [status ?? (result.ok ? 200 : 502), result];
+  } finally {
+    running--;
+  }
+}
+
+// CV généré pendant la phase d'essai : conservé sans photo (annoncé avant la génération).
+export const collectLimiter = new RateLimiter(20);
+export async function collectCv(payload, token, client, env = process.env) {
+  if (!collectLimiter.allow(client)) return [429, { ok: false }];
+  await collect(payload?.resume, verify(token, env));
+  return [200, { ok: true }];
+}

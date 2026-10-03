@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "template": "minimal",
+  "profile": {
+    "name": "Grâce Mbuyi Kalala",
+    "title": "Technicienne en réseaux et télécommunications",
+    "email": "grace.mbuyi@gmail.com",
+    "phones": ["+243 81 234 5678", "+243 99 765 4321"],
+    "address": "12, av. Kasa-Vubu, Q/Matonge, C/Kalamu, Kinshasa",
+    "summary": "Technicienne en réseaux et télécommunications formée à l'ISTA Kinshasa, avec une expérience pratique en installation de réseaux, configuration d'équipements Cisco et maintenance de sites télécoms.\nRigoureuse et autonome, je cherche un stage ou un premier emploi dans un opérateur ou une entreprise d'intégration réseau."
+  },
+  "sections": [
+    {
+      "type": "timeline",
+      "title": "Formation & certifications",
+      "items": [
+        {
+          "title": "Licence en réseaux et télécommunications",
+          "org": "ISTA Kinshasa",
+          "period": "2023 — 2026",
+          "bullets": [
+            "Routage et commutation, adressage IP, VLAN, sécurité des réseaux",
+            "Transmission radio, fibre optique, systèmes GSM et 4G"
+          ]
+        },
+        {
+          "title": "Certification Cisco CCNA (Introduction to Networks)",
+          "org": "Cisco Networking Academy",
+          "period": "2024",
+          "bullets": ["Configuration de routeurs et commutateurs, dépannage réseau"]
+        },
+        {
+          "title": "Diplôme d'État, option Électronique",
+          "org": "Institut Technique Salama",
+          "period": "2022 — 2023"
+        }
+      ]
+    },
+    {
+      "type": "timeline",
+      "title": "Expérience professionnelle",
+      "items": [
+        {
+          "title": "Stagiaire technicienne réseaux",
+          "org": "Vodacom Congo",
+          "period": "Juin — Sept. 2025",
+          "bullets": [
+            "Installation et câblage de baies réseau sur sites clients",
+            "Configuration de routeurs et commutateurs Cisco",
+            "Tests de liaisons fibre optique et rédaction des rapports d'intervention",
+            "Support aux équipes de maintenance des sites BTS"
+          ]
+        },
+        {
+          "title": "Technicienne bénévole",
+          "org": "Club informatique ISTA",
+          "period": "2023 — 2024",
+          "bullets": ["Mise en place du réseau Wi-Fi de la salle informatique", "Ateliers d'initiation aux réseaux pour 60 étudiants"]
+        }
+      ]
+    },
+    {
+      "type": "bullets",
+      "title": "Compétences & certifications",
+      "items": [
+        "Réseaux LAN / WAN",
+        "Routage et commutation Cisco",
+        "Fibre optique (soudure, tests OTDR)",
+        "Câblage structuré",
+        "Maintenance de sites télécoms",
+        "Microsoft Office (Word, Excel, PowerPoint)",
+        "Anglais technique",
+        "Travail en équipe et sous pression"
+      ]
+    },
+    {
+      "type": "list",
+      "title": "Langues",
+      "items": [
+        { "name": "Français", "level": "Courant" },
+        { "name": "Lingala", "level": "Natif" },
+        { "name": "Anglais", "level": "Intermédiaire" },
+        { "name": "Swahili", "level": "Notions" }
+      ]
+    },
+    {
+      "type": "bullets",
+      "title": "Loisirs",
+      "items": ["Football", "Lecture", "Musique", "Bénévolat associatif"]
+    }
+  ]
+}

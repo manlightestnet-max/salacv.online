@@ -1,0 +1,75 @@
+/* Dialogue commun à toutes les pages (studio, landing, dashboard) : même geste partout. */
+/* --- Dialogue -------------------------------------------------------------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.45);
+  animation: fade-in 0.18s ease-out both;
+}
+.dialog-backdrop.closing { animation: fade-out 0.18s ease-in both; }
+
+.dialog {
+  width: min(100%, 460px);
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgb(var(--surface));
+  color: rgb(var(--gray-900));
+  border: 1px solid rgb(var(--gray-200));
+  border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  animation: sheet-up 0.26s var(--ease-out) both;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.dialog-grip { display: grid; place-items: center; height: 16px; }
+.dialog-grip span { width: 36px; height: 4px; border-radius: 9999px; background: rgb(var(--gray-300)); }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 0 0.75rem 0.4rem 1rem; }
+.dialog-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.011em; }
+.dialog-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding: 0.25rem 1rem 1rem; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.7rem 1rem; border-top: 1px solid rgb(var(--gray-200)); }
+.dialog-foot .btn-text:first-child { margin-right: auto; }
+
+@media (min-width: 960px) {
+  .dialog-backdrop { align-items: center; }
+  .dialog { border-radius: var(--radius-xl); border-bottom: 1px solid rgb(var(--gray-200)); animation: fade-up 0.22s var(--ease-out) both; }
+  .dialog-grip { display: none; }
+  .dialog-head { padding-top: 0.9rem; }
+}
+
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.dialog .icon-btn {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 6px;
+  background: none; color: rgb(var(--gray-500)); cursor: pointer; font-size: 14px;
+}
+.dialog .icon-btn:hover { background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); }
+
+/* Choix du thème. */
+.theme-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.theme-option { background-color: rgb(var(--gray-100)) !important;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.6rem 0.4rem 0.7rem;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 10px; background: none; cursor: pointer;
+  font: 500 0.82rem var(--font-sans, inherit); color: rgb(var(--gray-700)); transition: border-color 0.15s;
+}
+.theme-option[aria-pressed='true'] { border-color: rgb(var(--primary-600)); color: rgb(var(--gray-900)); box-shadow: 0 0 0 1px rgb(var(--primary-600)); }
+.theme-swatch { width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; border: 1px solid rgb(0 0 0 / 0.08); overflow: hidden; display: grid; grid-template-columns: 1fr 2fr; }
+.theme-swatch i { display: block; }
+.sw-dark i:first-child { background: #18181b; } .sw-dark i:last-child { background: #0b0b0c; }
+.sw-light i:first-child { background: #ffffff; } .sw-light i:last-child { background: #f4f4f6; }
+.sw-system { grid-template-columns: 1fr 1fr; }
+.sw-system i:first-child { background: #f4f4f6; } .sw-system i:last-child { background: #0b0b0c; }
+.dialog .btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 0.9rem;
+  border: 1px solid transparent; border-radius: 6px; background: rgb(var(--accent)); color: rgb(var(--on-accent));
+  font: 500 0.84rem var(--font-sans, inherit); cursor: pointer;
+}

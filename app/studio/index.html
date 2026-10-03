@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="theme-color" content="#0b0b0c">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>salacv — crée ton CV</title>
+  <script>
+    // Thème appliqué avant le premier rendu pour éviter un flash clair.
+    try { var t = localStorage.getItem('salacv:theme') || 'dark'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch {}
+  </script>
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../dialog.css">
+</head>
+<body>
+  <!-- Aperçu plein écran : la page du CV, rien d'autre. -->
+  <div id="preview" class="preview">
+    <div id="canvases"><div class="page-skeleton skeleton"></div></div>
+  </div>
+  <!-- En haut : l'aide et les messages. -->
+  <div class="topbar">
+    <span id="ghost-note" class="ghost-note" hidden>Touche le CV pour modifier · en gris : exemple</span>
+  </div>
+  <div class="zoombar" role="toolbar" aria-label="Zoom">
+    <button id="zoom-out" class="zoom-btn" type="button" aria-label="Dézoomer" title="Dézoomer (Ctrl −)">−</button>
+    <button id="zoom-label" class="zoom-btn zoom-value" type="button" title="Taille réelle (100 %)">100 %</button>
+    <button id="zoom-in" class="zoom-btn" type="button" aria-label="Zoomer" title="Zoomer (Ctrl +)">+</button>
+    <button id="zoom-fit" class="zoom-btn zoom-fit" type="button" title="Ajuster à la largeur (Ctrl 0)">Ajuster</button>
+    <span class="zoom-sep" aria-hidden="true"></span>
+    <button id="final-view" class="zoom-btn final-btn" type="button" aria-pressed="false" title="Voir ton CV tel qu'il sera, sans le texte d'exemple en gris">Rendu final</button>
+    <button id="ws-toggle" class="zoom-btn ws-btn" type="button" aria-pressed="false" title="Lite, Pro ou God mode">Lite <span class="pro-tag">MODE</span></button>
+    <span class="zoom-sep" aria-hidden="true"></span>
+    <!-- Versions du CV par langue, comme les feuilles d'Excel. -->
+    <div id="lang-tabs" class="lang-tabs" role="tablist" aria-label="Versions du CV"></div>
+    <button id="lang-add" class="zoom-btn lang-add" type="button" aria-label="Ajouter une langue" title="Ajouter une langue">+</button>
+  </div>
+
+  <!-- PC : panneau masqué, ce bouton le fait revenir. -->
+  <button id="show-side" class="show-side" type="button" aria-label="Afficher le panneau" title="Afficher le panneau (Ctrl B)" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></svg><span>Modifier</span></button>
+
+  <!-- PC : le panneau de droite (aperçu) se règle par ce bouton, en haut à droite. -->
+  <button id="hide-preview" class="hide-preview" type="button" aria-label="Masquer l'aperçu" title="Masquer l'aperçu (Ctrl Maj B)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/></svg></button>
+  <!-- Modèles du CV : rangés ici, ouverts depuis le titre du CV. -->
+  <div hidden><div id="templates" class="templates" role="group" aria-label="Modèle du CV"></div></div>
+
+  <!-- PC, aperçu masqué : la marque reste là, sur le même fond quadrillé. -->
+  <div class="brand-stage" aria-hidden="true">
+    <strong>salacv</strong>
+    <span>Ton CV, de l’école au premier emploi · pour étudiants et pros</span>
+    <small>Fait à Kinshasa · smlab • manlightstudio</small>
+  </div>
+
+  <!-- PC : aperçu masqué, ce bouton le fait revenir. -->
+  <button id="show-preview" class="show-side show-preview" type="button" aria-label="Afficher l'aperçu" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/></svg><span>Aperçu</span></button>
+
+  <!-- Mode Pro : le CV sélectionné dans le projet (sélecteur) et les étapes en bouton flottant. -->
+  <div id="ws-picker" class="ws-picker" hidden></div>
+  <div id="step-fab" class="step-fab" hidden></div>
+
+  <!-- PC : séparation entre la barre de gauche et l'aperçu. -->
+  <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Largeur du formulaire" aria-valuemin="320" aria-valuemax="760" tabindex="0"></div>
+
+  <!-- Mobile : bottom sheet replié (en-tête + étapes) ou déplié (formulaire).
+       PC : barre de gauche toujours ouverte. -->
+  <!-- Mobile : derrière la sheet dépliée, l'aperçu s'assombrit et se floute. -->
+  <div id="sheet-scrim" class="sheet-scrim" aria-hidden="true"></div>
+  <section id="sheet" class="sheet" data-state="collapsed" aria-label="Modifier ton CV">
+    <div id="grip" class="sheet-grip" aria-hidden="true"><span></span></div>
+    <header id="sheet-head" class="sheet-head">
+      <button id="switch" class="logo-mark" type="button" aria-label="Mes CV : changer de CV" title="Mes CV (5 récents)">S</button>
+      <div class="sheet-title">
+        <button id="cv-title" class="cv-title" type="button" title="Nom et modèle du CV"></button>
+        <span class="cv-sub"><span id="step-title"></span> · <span id="progress"></span><span id="saved" class="saved" aria-live="polite"></span></span>
+      </div>
+      <button id="assistant" class="btn-ghost assistant-btn" type="button" aria-pressed="false"><span aria-hidden="true">✦</span> Assistant</button>
+      <button id="hide-side" class="btn-ghost icon side-btn" type="button" aria-label="Masquer le panneau" title="Masquer le panneau (Ctrl B)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></svg></button>
+      <button id="theme" class="btn-ghost icon theme-btn" type="button" aria-label="Thème" title="Thème">◐</button>
+      <button id="toggle" class="btn-primary" type="button"></button>
+    </header>
+    <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
+    <div id="agent-view" class="agent-view" hidden></div>
+    <div id="sheet-body" class="sheet-body">
+      <div id="step" class="step-scroll"></div>
+      <footer class="step-nav">
+        <button id="prev" class="btn-text" type="button">Précédent</button>
+        <span class="shortcut-hint">Alt ← / → : étapes</span>
+        <button id="peek" class="btn-ghost peek-btn" type="button">Aperçu</button>
+        <button id="generate" class="btn-ghost generate-btn" type="button" title="Préparer le PDF (et le Word), à tout moment">Générer</button>
+        <button id="next" class="btn-primary" type="button">Suivant</button>
+      </footer>
+    </div>
+  </section>
+  <script type="module" src="../main.js"></script>
+</body>
+</html>

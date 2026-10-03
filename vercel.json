@@ -1,0 +1,13 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/agent.js": {
+      "maxDuration": 60
+    },
+    "api/translate.js": {
+      "maxDuration": 60
+    }
+  }
+}
