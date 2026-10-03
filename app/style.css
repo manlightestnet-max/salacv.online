@@ -1204,3 +1204,29 @@ button.logo-mark { border: 0; cursor: pointer; }
 .step-nav .generate-btn { flex: none; width: auto; margin-left: auto; }
 .step-nav #next { flex: none; }
 .step-nav { display: flex; align-items: center; gap: 0.5rem; } .step-nav .shortcut-hint { margin: 0 auto; }
+
+/* --- Espace infini (Pro) --------------------------------------------------------------- */
+.preview.ws { overflow: hidden; touch-action: none; cursor: default; }
+.preview.ws #canvases { display: block; width: 100%; height: 100%; padding: 0; min-width: 0; }
+.preview.ws-grabbing, .preview.ws-space { cursor: grabbing; }
+.preview.ws-space canvas.page { cursor: grab; }
+.ws-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.ws-frame { position: absolute; }
+.ws-label {
+  position: absolute; left: 0; bottom: calc(100% + 10px); white-space: nowrap;
+  font: 500 15px var(--font-sans); color: rgb(var(--gray-500));
+}
+.ws-frame.active .ws-label { color: rgb(var(--gray-900)); }
+.ws-pages { display: flex; flex-direction: column; gap: 24px; }
+.ws-pages canvas { display: block; background: #fff; box-shadow: 0 1px 0 rgb(0 0 0 / 0.04), 0 20px 50px -24px rgb(0 0 0 / 0.55); }
+.ws-frame:not(.active) .ws-pages { cursor: pointer; transition: opacity 0.15s; }
+.ws-frame:not(.active):hover .ws-pages canvas { outline: 3px solid rgb(var(--gray-400)); }
+.ws-frame.active .ws-pages canvas { outline: 3px solid rgb(var(--gray-900)); outline-offset: 0; }
+.ws-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12.5px; }
+.ws-btn[aria-pressed='true'] { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
+.pro-tag { padding: 0 4px; border-radius: 3px; border: 1px solid currentColor; font: 600 9px var(--font-mono); letter-spacing: 0.05em; opacity: 0.8; }
+.pro-pitch { display: flex; flex-direction: column; gap: 0.6rem; font-size: 14px; line-height: 1.5; color: rgb(var(--gray-700)); }
+@media (max-width: 959px) { .ws-btn { display: none; } }
+.ws-label { font-size: calc(12px / var(--wsz, 1)); bottom: calc(100% + 8px / var(--wsz, 1)); }
+.ws-frame.active .ws-pages canvas { outline-width: calc(2px / var(--wsz, 1)); }
+.ws-frame:not(.active):hover .ws-pages canvas { outline-width: calc(2px / var(--wsz, 1)); }

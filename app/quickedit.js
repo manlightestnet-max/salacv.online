@@ -274,10 +274,10 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
   let editing = null;
 
   function locate(e) {
-    const canvas = e.target.closest?.('canvas');
+    const canvas = e.target.closest?.('canvas.page');
     const doc = getDoc();
     if (!canvas || !doc || !canvases.contains(canvas)) return null;
-    const page = [...canvases.querySelectorAll('canvas')].indexOf(canvas);
+    const page = [...canvases.querySelectorAll('canvas.page')].indexOf(canvas);
     const r = canvas.getBoundingClientRect();
     const k = r.width / doc.width;
     const hit = hitTest(doc.pages[page] ?? [], kit, (e.clientX - r.left) / k, (e.clientY - r.top) / k);

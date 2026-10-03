@@ -107,6 +107,11 @@ export function projectName(project) {
   return project.name?.trim() || [p.name.trim(), p.title.trim()].filter(Boolean).join(' — ') || 'CV sans titre';
 }
 
+// --- Offre Pro (cybers, secrétariats, recruteurs) ------------------------------------
+// Local pendant la phase d'essai ; le wallet décidera quand il sera branché.
+export const isPro = () => read('salacv:plan') === 'pro';
+export const setPro = (on) => write('salacv:plan', on ? 'pro' : 'free');
+
 // --- Personnalités ------------------------------------------------------------------
 // Une personnalité = tes informations de base (identité, contacts, photo, formation,
 // expériences, compétences, langues, loisirs). Un nouveau CV part d'elle : tu changes

@@ -5,11 +5,13 @@
 import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import { loadEngine } from './lib/engine.js';
-import { createProject, getProject, listProjects, projectName, read, saveProject, write as store } from './lib/store.js';
+import { createProject, getProject, isPro, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
+import { openDialog } from './dialog.js';
 import { openExport } from './export.js';
 import { initQuickEdit } from './quickedit.js';
 import { createLangBar } from './langs.js';
 import { openSwitcher } from './switcher.js';
+import { createWorkspace } from './workspace.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
@@ -31,6 +33,7 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 // Plafond de résolution des canvas : au-delà, le zoom agrandit sans ajouter de pixels.
 const MAX_BACKING_SCALE = 4;
 
+const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
 const project = openProject();
 project.variants ??= {};
 let state = project.state;
@@ -86,7 +89,7 @@ initHorizontalScroll($('templates'));
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
 $('zoom-fit').addEventListener('click', zoomFit);
-$('zoom-label').addEventListener('click', () => setZoom(1));
+$('zoom-label').addEventListener('click', () => (workspace?.on ? workspace.setZoom(1) : setZoom(1)));
 $('final-view').addEventListener('click', () => {
   finalView = !finalView;
   $('final-view').setAttribute('aria-pressed', String(finalView));
@@ -176,6 +179,14 @@ async function initEngine() {
   }
   update();
   if (STEPS[stepIndex].id === 'verification') renderStep();
+  // Langue demandée par l'espace infini (?lang=), puis l'espace lui-même s'il était ouvert.
+  const askedLang = ASKED_LANG;
+  if (askedLang && askedLang !== activeLang && (project.variants?.[askedLang] || askedLang === project.state.lang)) langBar.open(askedLang);
+  let wsOn = false;
+  try {
+    wsOn = sessionStorage.getItem(WS_KEY) === '1';
+  } catch {}
+  if (wsOn && isPro()) setWorkspace(true);
 }
 
 // --- Bottom sheet (mobile) / barre de gauche (PC) ------------------------------
@@ -487,9 +498,12 @@ function fitZoom(doc) {
 
 function paint(doc) {
   const { CK, skia } = engine;
-  const z = zoom.fit ? fitZoom(doc) : zoom.value;
+  // Espace infini : les pages vont dans le cadre actif, à taille réelle ; la caméra zoome.
+  const inWs = workspace?.on && workspace.activeHost();
+  const host = inWs ? workspace.activeHost() : canvases;
+  const z = inWs ? 1 : zoom.fit ? fitZoom(doc) : zoom.value;
   const dpr = window.devicePixelRatio || 1;
-  const scale = Math.min(z * dpr, MAX_BACKING_SCALE);
+  const scale = Math.min((inWs ? workspace.zoom : z) * dpr, MAX_BACKING_SCALE);
   const w = Math.round(doc.width * z);
   const hgt = Math.round(doc.height * z);
   const bw = Math.round(doc.width * scale);
@@ -502,9 +516,10 @@ function paint(doc) {
   }
   while (pages.length < doc.pages.length) {
     const el = document.createElement('canvas');
-    canvases.append(el);
+    el.className = 'page';
     pages.push({ el, surface: null });
   }
+  for (const p of pages) if (p.el.parentNode !== host) host.append(p.el);
   canvases.querySelector('.page-skeleton')?.remove();
 
   doc.pages.forEach((_, i) => {
@@ -522,6 +537,7 @@ function paint(doc) {
     p.surface.flush();
   });
 
+  if (inWs) return;
   $('zoom-label').textContent = `${Math.round(z * 100)} %`;
   $('zoom-fit').classList.toggle('active', zoom.fit);
 }
@@ -542,10 +558,12 @@ function currentZoom() {
 }
 
 function zoomBy(factor) {
+  if (workspace?.on) return workspace.zoomBy(factor);
   setZoom(currentZoom() * factor);
 }
 
 function zoomFit() {
+  if (workspace?.on) return workspace.fit();
   setZoom(1, true);
 }
 
@@ -554,7 +572,7 @@ function initPreviewGestures() {
   preview.addEventListener(
     'wheel',
     (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
+      if (workspace?.on || (!e.ctrlKey && !e.metaKey)) return;
       e.preventDefault();
       // Un cran de molette (~100) ≈ ×0,82 ; le pincement du pavé tactile envoie de petits pas.
       const delta = Math.max(-50, Math.min(50, e.deltaY));
@@ -566,7 +584,7 @@ function initPreviewGestures() {
   const touches = new Map();
   let pinch = null;
   preview.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch') return;
+    if (workspace?.on || e.pointerType !== 'touch') return;
     touches.set(e.pointerId, e);
     if (touches.size === 2) pinch = { dist: distance(), zoom: currentZoom() };
   });
@@ -682,6 +700,7 @@ const langBar = createLangBar({
     state = next;
     renderStep();
     schedule();
+    if (workspace?.on) setTimeout(wsRefresh, 120);
   },
   save: saveCurrent,
   askLogin: () => openAgent(),
@@ -701,6 +720,96 @@ function toast(text) {
     update();
   }, 4200);
 }
+
+// --- Espace infini (mode Pro) ----------------------------------------------------------
+// Tous les CV et leurs langues côte à côte ; le cadre actif est le CV en cours d'édition.
+let workspace = null;
+const WS_KEY = 'salacv:ws-on';
+
+function wsRows() {
+  const all = listProjects()
+    .filter((p) => p.id !== project.id)
+    .concat([project])
+    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+    .slice(-12);
+  const docOf = (st) => {
+    const r = layoutResume(toResume(normalizeState(st), { mockup: example }), engine.fonts);
+    return r.ok ? r.doc : null;
+  };
+  return all.map((p) => {
+    const mine = p.id === project.id;
+    const base = mine ? project : p;
+    const versions = [[base.state.lang, base.state], ...Object.entries(base.variants ?? {}).filter(([l]) => l !== base.state.lang)];
+    return versions.map(([lang, st]) => {
+      const active = mine && lang === activeLang;
+      return {
+        key: `${p.id}:${lang}`,
+        label: `${projectName(base)} · ${String(lang).toUpperCase()}`,
+        active,
+        pages: active ? current?.doc.pages.length ?? 1 : 1,
+        doc: active ? null : docOf(st),
+      };
+    });
+  });
+}
+
+function wsRefresh() {
+  if (!workspace?.on) return;
+  workspace.render(wsRows());
+  if (current) paint(current.doc);
+}
+
+function setWorkspace(enabled) {
+  if (!engine) return;
+  workspace ??= createWorkspace({
+    preview,
+    canvases,
+    engine,
+    onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
+    onSwitch(key) {
+      const [id, lang] = key.split(':');
+      if (id === project.id) {
+        langBar.open(lang);
+        wsRefresh();
+        workspace.focusActive();
+      } else {
+        saveCurrent();
+        location.href = `/studio/?p=${id}&lang=${lang}`;
+      }
+    },
+  });
+  if (enabled) {
+    workspace.enable();
+    wsRefresh();
+  } else {
+    workspace.disable();
+    canvases.replaceChildren();
+    if (current) paint(current.doc);
+  }
+  $('ws-toggle').setAttribute('aria-pressed', String(enabled));
+  try {
+    sessionStorage.setItem(WS_KEY, enabled ? '1' : '0');
+  } catch {}
+}
+
+$('ws-toggle').addEventListener('click', () => {
+  if (workspace?.on) return setWorkspace(false);
+  if (isPro()) return setWorkspace(true);
+  // Réservé aux pros (cybers, secrétariats, recruteurs) : le paiement viendra du wallet.
+  const d = openDialog({
+    title: 'Espace infini · Pro',
+    content: h(
+      'div',
+      { class: 'pro-pitch' },
+      h('p', {}, 'Tous tes CV et toutes leurs langues dans un même espace : tu te déplaces de l’un à l’autre, tu compares, tu modifies sans changer de page.'),
+      h('p', { class: 'hint' }, 'Pour les pros : cybers, secrétariats, recruteurs. Pendant la phase d’essai, tu peux l’activer gratuitement.'),
+    ),
+    footer: [
+      h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Plus tard'),
+      h('button', { type: 'button', class: 'btn-primary', onClick: () => (setPro(true), d.close(), setWorkspace(true)) }, 'Activer l’essai Pro'),
+    ],
+  });
+});
 
 // --- Projet et export -----------------------------------------------------------
 

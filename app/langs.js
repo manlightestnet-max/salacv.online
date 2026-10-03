@@ -171,5 +171,5 @@ export function createLangBar(ctx) {
 
   document.getElementById('lang-add').addEventListener('click', add);
   render();
-  return { render };
+  return { render, open, versions };
 }
