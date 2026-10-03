@@ -13,6 +13,7 @@ export default defineConfig({
         landing: resolve(import.meta.dirname, 'app/index.html'),
         studio: resolve(import.meta.dirname, 'app/studio/index.html'),
         dashboard: resolve(import.meta.dirname, 'app/dashboard/index.html'),
+        admin: resolve(import.meta.dirname, 'app/admin/index.html'),
       },
     },
   },

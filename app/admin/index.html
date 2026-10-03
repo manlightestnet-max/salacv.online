@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>salacv — admin</title>
+  <meta name="theme-color" content="#0b0b0c">
+  <script>
+    try { var t = localStorage.getItem('salacv:theme') || 'dark'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch {}
+  </script>
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="../dashboard.css">
+  <link rel="stylesheet" href="../dialog.css">
+  <link rel="stylesheet" href="../admin.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/admin/" aria-label="Admin salacv"><span class="brand-mark">S</span>salacv <span class="admin-tag">admin</span></a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#utilisateurs" data-tab="utilisateurs">Utilisateurs</a>
+      <a href="#cv" data-tab="cv">CV d'essai</a>
+      <a href="#ressources" data-tab="ressources">Ressources</a>
+      <a href="#skills" data-tab="skills">Skills de l'agent</a>
+    </nav>
+    <span class="spacer"></span>
+    <button id="theme" class="icon-btn" type="button" aria-label="Thème">◐</button>
+    <button id="logout" class="icon-btn" type="button" aria-label="Se déconnecter" title="Se déconnecter" hidden>⎋</button>
+  </header>
+
+  <main id="view" class="view" tabindex="-1"></main>
+
+  <nav class="bottom-tabs admin-tabs" aria-label="Sections" hidden>
+    <a href="#utilisateurs" data-tab="utilisateurs"><span class="ti ti-coin" aria-hidden="true"></span>Users</a>
+    <a href="#cv" data-tab="cv"><span class="ti ti-files" aria-hidden="true"></span>CV</a>
+    <a href="#ressources" data-tab="ressources"><span class="ti ti-grid" aria-hidden="true"></span>Ressources</a>
+    <a href="#skills" data-tab="skills"><span class="ti ti-files" aria-hidden="true"></span>Skills</a>
+  </nav>
+
+  <script type="module" src="../admin.js"></script>
+</body>
+</html>

@@ -1147,3 +1147,4 @@ body:has(.dialog-backdrop:not(:has(.quick-edit))) .qe-outline { display: none; }
 .qe-ai-status { flex: 1; font-size: 12.5px; color: rgb(var(--gray-500)); }
 .qe-ai-go { flex: none; }
 .qe-ai-go:disabled { opacity: 0.6; }
+.trial-note { font-size: 11.5px; line-height: 1.45; color: rgb(var(--gray-500)); }

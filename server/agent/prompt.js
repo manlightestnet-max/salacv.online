@@ -1,13 +1,13 @@
 // Messages envoyés au modèle : identité + skills (système), puis le CV actuel et la demande.
 import { IDENTITY } from './identity.js';
-import { SKILLS } from './skills/index.js';
+import { allSkills } from './skills/index.js';
 import { view } from './state.js';
 
 const MAX_HISTORY = 6;
 const MAX_MESSAGE = 4000;
 
 export function system() {
-  const catalog = SKILLS.map((s) => `- ${s.slug} : ${s.title} — ${s.description}`).join('\n');
+  const catalog = allSkills().map((s) => `- ${s.slug} : ${s.title} — ${s.description}`).join('\n');
   return `${IDENTITY}\n\n# Skills disponibles (load_skill)\n${catalog}\n\nDate du jour : ${new Date().toISOString().slice(0, 10)}.`;
 }
 

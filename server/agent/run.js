@@ -7,6 +7,8 @@ import { runLoop } from './loop.js';
 import { redact } from './secrets.js';
 import { compact, normalize } from './state.js';
 import { byName, specs } from './tools/index.js';
+import { setExtraSkills } from './skills/index.js';
+import { customSkills } from '../admin.js';
 
 // payload = { state, message, history? }. callModel est injectable (tests sans réseau).
 export async function handle(payload, { callModel, env = process.env } = {}) {
@@ -14,6 +16,7 @@ export async function handle(payload, { callModel, env = process.env } = {}) {
   if (!message) return { ok: false, status: 400, error: 'Message vide.' };
 
   const run = { state: normalize(payload.state), changes: new Set(), flags: {} };
+  setExtraSkills(await customSkills()); // skills ajoutées depuis l'admin
   const messages = build(run.state, message, payload.history);
   const secrets = allKeys(env);
   callModel ??= (msgs, sp) => callLLM(msgs, sp, { temperature: settings.temperature, timeoutMs: settings.llmTimeoutMs, env });

@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { translate, parseTranslations } from '../server/agent/translate.js';
 import { csvToLabels } from '../scripts/i18n.js';
+import { memoryStore } from '../server/store.js';
+
+memoryStore();
 import { label } from '../src/i18n/index.js';
 
 const state = {

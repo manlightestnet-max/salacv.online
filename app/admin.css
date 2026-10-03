@@ -1,0 +1,52 @@
+/* Admin : même design que le tableau de bord (dashboard.css), quelques éléments en plus. */
+.admin-tag { margin-left: 0.15rem; padding: 0.05rem 0.4rem; border-radius: 4px; border: 1px solid var(--line); font: 0.62rem var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--gray-500)); }
+.spacer { flex: 1; }
+.tabs[hidden], .admin-tabs[hidden] { display: none !important; }
+.bottom-tabs.admin-tabs { grid-template-columns: repeat(4, 1fr); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.admin-center { display: grid; place-items: center; min-height: 60svh; }
+.admin-login { width: min(100%, 380px); gap: 0.75rem; }
+.admin-login strong { font-size: 1.1rem; }
+
+.admin-input {
+  width: 100%; padding: 0.65rem 0.8rem; border: 1px solid var(--line); border-radius: 10px;
+  background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); font: 0.92rem var(--font-sans); outline: none;
+}
+.admin-input:focus { border-color: rgb(var(--gray-400)); }
+textarea.admin-input { resize: vertical; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.5; }
+.view > section > .admin-input[type='search'] { margin-bottom: 0.75rem; }
+.admin-label { font-size: 0.8rem; font-weight: 500; color: rgb(var(--gray-600)); margin-top: 0.25rem; }
+.admin-error { min-height: 1em; font-size: 0.82rem; color: rgb(var(--red-500)); }
+.admin-notice { margin-bottom: 0.9rem; padding: 0.65rem 0.8rem; border-radius: 10px; background: rgb(var(--gray-100)); font-size: 0.84rem; line-height: 1.45; color: rgb(var(--gray-600)); }
+.admin-notice.warn { background: rgb(var(--amber-500) / 0.12); color: rgb(var(--amber-600)); }
+.admin-notice.error { background: rgb(var(--red-500) / 0.12); color: rgb(var(--red-500)); }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+.stat { display: flex; flex-direction: column; gap: 2px; padding: 0.8rem 0.9rem; border: 1px solid var(--line); border-radius: 12px; background: rgb(var(--surface)); }
+.stat strong { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.stat span { font-size: 0.74rem; color: rgb(var(--gray-500)); }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+.admin-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: rgb(var(--surface)); overflow: hidden; }
+.admin-list > .empty { padding: 1.5rem; text-align: center; }
+.admin-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 0.85rem; border-top: 1px solid var(--line); }
+.admin-row:first-child { border-top: 0; }
+.admin-row.blocked { background: rgb(var(--red-500) / 0.06); }
+.avatar { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgb(var(--gray-100)); font-size: 0.82rem; font-weight: 600; color: rgb(var(--gray-700)); }
+.row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-text strong { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-text small { font-size: 0.76rem; color: rgb(var(--gray-500)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-link { flex: none; font-size: 0.78rem; color: rgb(var(--gray-500)); }
+.tag.danger { border-color: rgb(var(--red-500)); color: rgb(var(--red-500)); }
+.danger-btn { color: rgb(var(--red-500)); }
+.dialog .btn-primary.danger-fill { background: rgb(var(--red-600)); color: #fff; }
+.dialog-text { font-size: 0.88rem; line-height: 1.5; color: rgb(var(--gray-600)); }
+.dialog .admin-input { background: rgb(var(--gray-100)); }
+
+.admin-import { margin-bottom: 1rem; }
+.admin-preview { display: grid; place-items: center; padding: 0.5rem 0; }
+.admin-preview .paper { max-width: 100%; }
+.admin-preview-dialog { width: min(100%, 600px); }
+.admin-skill-dialog { width: min(100%, 640px); }
+.admin-skill-dialog .dialog-body { gap: 0.35rem; }

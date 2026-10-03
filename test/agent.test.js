@@ -11,6 +11,9 @@ import { issue, verify, TTL } from '../server/agent/auth.js';
 import * as web from '../server/agent/web.js';
 import { redact } from '../server/agent/secrets.js';
 import { createApp } from '../server/index.js';
+import { memoryStore } from '../server/store.js';
+
+memoryStore(); // pas d'écriture disque pendant les tests
 
 const ENV = { OLLAMA_API_KEY: 'cle-de-test-abcdef123456' };
 
@@ -117,7 +120,7 @@ test('rotation : clé en 429 marquée épuisée, clé suivante utilisée ; clé 
 });
 
 test('connexion fictive : jeton signé, refus si absent, modifié ou expiré', async () => {
-  const [status, body] = web.login({ username: 'grace.mbuyi', password: 'secret123' }, '1.2.3.4', ENV);
+  const [status, body] = await web.login({ username: 'grace.mbuyi', password: 'secret123' }, '1.2.3.4', ENV);
   assert.equal(status, 200);
   assert.ok(!body.token.includes(ENV.OLLAMA_API_KEY));
   assert.equal(verify(body.token, ENV), 'grace.mbuyi');
@@ -128,12 +131,12 @@ test('connexion fictive : jeton signé, refus si absent, modifié ou expiré', a
     assert.equal(code, 401, bad);
   }
   assert.equal(verify(issue('grace', ENV), ENV, Date.now() + (TTL + 1) * 1000), null);
-  assert.equal(web.login({ username: 'a b', password: 'secret123' }, 'ip', ENV)[0], 400);
-  assert.equal(web.login({ username: 'grace', password: '123' }, 'ip', ENV)[0], 400);
-  assert.equal(web.login({ username: 'grace', password: 'secret123' }, 'ip', {})[0], 503);
+  assert.equal((await web.login({ username: 'a b', password: 'secret123' }, 'ip', ENV))[0], 400);
+  assert.equal((await web.login({ username: 'grace', password: '123' }, 'ip', ENV))[0], 400);
+  assert.equal((await web.login({ username: 'grace', password: 'secret123' }, 'ip', {}))[0], 503);
   const demo = { ...ENV, SALACV_DEMO_PASSWORD: 'testeurs-2026' };
-  assert.equal(web.login({ username: 'grace', password: 'autre-mdp' }, 'ip', demo)[0], 400);
-  assert.equal(web.login({ username: 'grace', password: 'testeurs-2026' }, 'ip', demo)[0], 200);
+  assert.equal((await web.login({ username: 'grace', password: 'autre-mdp' }, 'ip', demo))[0], 400);
+  assert.equal((await web.login({ username: 'grace', password: 'testeurs-2026' }, 'ip', demo))[0], 200);
 });
 
 test('limite de débit par utilisateur', async () => {

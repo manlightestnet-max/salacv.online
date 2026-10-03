@@ -77,6 +77,7 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
         h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits'),
       ),
     );
+    body.append(h('p', { class: 'trial-note' }, 'Phase d’essai : les CV générés sont conservés (sans photo) et utilisés pour améliorer salacv.'));
     foot.replaceChildren(
       h('button', { type: 'button', class: 'btn-ghost', onClick: () => dialog.close() }, 'Annuler'),
       h('button', { type: 'button', class: 'btn-primary', disabled: !enough, 'data-autofocus': true, onClick: prepare }, 'Préparer mon PDF'),
@@ -135,6 +136,8 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
         });
       }
       await advance(async () => {
+        // Phase d'essai : le CV (sans photo) est conservé pour améliorer salacv (annoncé plus haut).
+        shareForTrial(resume);
         const spent = await wallet.spend(PDF_COST, { reason: `CV ${name}`, key });
         if (!spent.ok) throw new Error('Plus de crédit disponible.');
         onSpent?.(spent.credits);
@@ -230,4 +233,18 @@ function feedback() {
   if (previous) invite(previous.stars);
   else box.replaceChildren(h('strong', {}, 'Tu notes salacv combien ?'), h('p', { class: 'hint' }, 'Ton avis compte beaucoup pour nous.'), stars());
   return box;
+}
+
+function shareForTrial(resume) {
+  let token = null;
+  try {
+    token = JSON.parse(localStorage.getItem('salacv:session') || 'null')?.token ?? null;
+  } catch {}
+  const { photo, ...profile } = resume.profile;
+  fetch('/api/collect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ resume: { ...resume, profile } }),
+    keepalive: true,
+  }).catch(() => {}); // hors ligne : la génération ne dépend jamais de cet envoi
 }
