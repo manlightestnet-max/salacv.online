@@ -10,6 +10,7 @@ import { h, field } from './dom.js';
 import { openDialog } from './dialog.js';
 import { itemsInput, choicePills, photoInput } from './components.js';
 import { periodField } from './period.js';
+import { askAgent } from './ai.js';
 import { emptyItem, emptyLanguage, fromResume, LEVELS, sectionTitle } from './state.js';
 import { label } from '../src/i18n/index.js';
 
@@ -219,7 +220,7 @@ function editor(target, state, changed, close, photoShape) {
 }
 
 // canvases : conteneur des pages ; getDoc() : layout affiché ; getState() : formulaire.
-export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, photoShape = () => null, enabled = () => true }) {
+export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, photoShape = () => null, enabled = () => true, replaceState, askLogin }) {
   const kit = createKit(fonts);
   const mockupState = fromResume(mockup);
   const outline = h('div', { class: 'qe-outline', hidden: true });
@@ -359,7 +360,46 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
   document.addEventListener('keydown', (e) => e.key === 'Escape' && !editing && deselect());
   preview.addEventListener('scroll', () => selected && !editing && deselect(), { passive: true });
 
+  // Onglet IA : la question du champ en haut (on reste dans le contexte), l'étudiant écrit
+  // comme il parle, l'assistant met en forme ce seul élément.
+  function aiPane(target, state) {
+    const question = aiQuestion(target, state);
+    const text = h('textarea', { class: 'input', rows: 5, placeholder: 'Écris comme tu parles, même en vrac…' });
+    const status = h('p', { class: 'qe-ai-status', 'aria-live': 'polite' });
+    const go = h('button', { type: 'button', class: 'btn-primary qe-ai-go' }, '✦ Donner vie');
+    go.addEventListener('click', async () => {
+      const said = text.value.trim();
+      if (!said) return text.focus();
+      go.disabled = true;
+      status.textContent = 'L’IA écrit…';
+      const r = await askAgent(getState(), aiMessage(target, getState(), said));
+      go.disabled = false;
+      if (!r.ok) {
+        status.textContent = r.error ?? 'L’IA n’a pas pu répondre. Réessaie.';
+        if (r.login && askLogin) status.append(' ', h('button', { type: 'button', class: 'btn-text', onClick: () => (editing?.close(), askLogin()) }, 'Me connecter'));
+        return;
+      }
+      replaceState(r.state);
+      const box = selected?.box ?? lastBox;
+      editing?.close();
+      // On rouvre le formulaire de l'élément, rempli par l'IA : l'étudiant relit et corrige.
+      setTimeout(() => open({ ...target, fresh: false }, box), 200);
+    });
+    return {
+      el: h(
+        'div',
+        { class: 'qe-pane qe-ai' },
+        h('p', { class: 'qe-ai-question' }, question),
+        h('p', { class: 'qe-ai-hint' }, 'L’IA met en forme sans rien inventer. Tu relis ensuite.'),
+        text,
+        h('div', { class: 'qe-ai-row' }, status, go),
+      ),
+    };
+  }
+
+  let lastBox = null;
   function open(target, box) {
+    lastBox = box;
     bar.hidden = true;
     const state = getState();
     const isItem = target.kind === 'item';
@@ -367,10 +407,26 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     const title = target.fresh ? `Nouvelle ${base === 'Expérience' ? 'expérience' : base === 'Formation' ? 'formation' : 'langue'}` : base;
     let dialog;
     const close = () => dialog.close();
+    const form = h('div', { class: 'qe-pane' }, editor(target, state, changed, close, photoShape));
+    const ai = AI_KINDS.has(target.kind) && replaceState ? aiPane(target, state) : null;
+    let content = form;
+    if (ai) {
+      const tabs = ['Formulaire', '✦ IA'].map((label, i) =>
+        h('button', { type: 'button', role: 'tab', class: 'qe-tab', 'aria-selected': String(i === 0), onClick: () => pick(i) }, label),
+      );
+      const pick = (i) => {
+        tabs.forEach((t, k) => t.setAttribute('aria-selected', String(k === i)));
+        form.hidden = i !== 0;
+        ai.el.hidden = i !== 1;
+        (i === 1 ? ai.el.querySelector('textarea') : form.querySelector('.input'))?.focus();
+      };
+      ai.el.hidden = true;
+      content = [h('div', { class: 'qe-tabs', role: 'tablist' }, tabs), form, ai.el];
+    }
     dialog = openDialog({
       title,
       className: 'quick-edit',
-      content: editor(target, state, changed, close, photoShape),
+      content,
       footer: [h('button', { type: 'button', class: 'btn-primary', onClick: close }, 'Terminé')],
       onClose: () => {
         editing = null;
@@ -440,4 +496,40 @@ function icon(markup) {
   const el = h('span', { class: 'qe-ico', 'aria-hidden': 'true' });
   el.innerHTML = markup; // SVG constant du code, jamais du contenu saisi
   return el;
+}
+
+// --- IA par champ -------------------------------------------------------------------
+const AI_KINDS = new Set(['identity', 'summary', 'item', 'skills', 'hobbies', 'language']);
+
+function aiQuestion(target, state) {
+  if (target.kind === 'item') {
+    const it = state[target.list][target.index] ?? {};
+    if (target.list === 'experiences') return it.org?.trim() ? `Qu’as-tu fait chez ${it.org.trim()} ?` : 'Raconte cette expérience : où, quand, et ce que tu faisais.';
+    return it.title?.trim() ? `Qu’as-tu appris en ${it.title.trim()} ?` : 'Raconte cette formation : le diplôme, l’école, les années.';
+  }
+  return {
+    identity: 'Comment t’appelles-tu, et quel métier vises-tu ?',
+    summary: 'Qui es-tu, que sais-tu faire, et que cherches-tu ?',
+    skills: 'Qu’est-ce que tu sais faire ? Écris en vrac.',
+    hobbies: 'Que fais-tu de ton temps libre ?',
+    language: 'Quelles langues parles-tu, et à quel niveau ?',
+  }[target.kind];
+}
+
+function aiMessage(target, state, said) {
+  const only = 'Ne modifie rien d’autre dans le CV. N’invente rien : utilise seulement ce que l’étudiant dit.';
+  if (target.kind === 'item') {
+    const it = state[target.list][target.index] ?? {};
+    const where = target.list === 'experiences' ? 'Expérience professionnelle' : 'Formation & certifications';
+    const which = it.title?.trim() ? `l’élément « ${it.title.trim()}${it.org ? ` — ${it.org}` : ''} »` : 'un nouvel élément';
+    return `Section ${where}, ${which}. L’étudiant raconte : « ${said} ». Remplis ou réécris uniquement cet élément : intitulé, organisation, période si elle est donnée, et ${target.list === 'experiences' ? 'tâches en lignes courtes avec des verbes d’action' : 'ce qui a été appris, en lignes courtes'}. ${only}`;
+  }
+  const what = {
+    identity: 'le nom complet et la profession (titre du CV)',
+    summary: 'le profil professionnel (2 à 3 phrases)',
+    skills: 'la liste des compétences (ajoute-les, formulées proprement, sans doublon)',
+    hobbies: 'la liste des loisirs (ajoute-les, formulés proprement)',
+    language: 'les langues et leur niveau (Natif, Courant, Professionnel, Intermédiaire ou Notions)',
+  }[target.kind];
+  return `L’étudiant dit : « ${said} ». Mets à jour uniquement ${what}. ${only}`;
 }

@@ -1078,3 +1078,72 @@ html[data-theme] {
 .quick-edit .dialog-foot { background: rgb(var(--bar)); border-top-color: transparent; border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
 .qe-bar { max-width: calc(100vw - 16px); }
 @media (max-width: 959px) { .qe-bar-label { display: none; } }
+
+/* --- Thème clair inversé : jamais de fond blanc --------------------------------------
+   Le panneau et les fenêtres sont gris ; les champs et les cartes, plus clairs, s'y posent. */
+[data-theme='light'] {
+  --surface: 236 236 239;
+  --raised: 247 247 248;
+  --raised-hover: 252 252 253;
+  --bar: 214 214 219;
+}
+[data-theme='light'] .input { background: rgb(var(--raised)); }
+[data-theme='light'] .input:focus { background: rgb(var(--raised-hover)); }
+
+/* --- Axe z : une fenêtre ouverte passe toujours au-dessus de la sélection du CV ------- */
+.qe-outline, .qe-outline.strong { z-index: 30; }
+.qe-bar { z-index: 35; }
+body:has(.dialog-backdrop) .qe-bar { display: none; }
+body:has(.dialog-backdrop:not(:has(.quick-edit))) .qe-outline { display: none; }
+
+/* Générer : toujours là, en bas du panneau. */
+.generate-btn { font-weight: 600; }
+
+/* Conseils avant de générer (sans bloquer). */
+.export-advice { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.7rem 0.8rem; border-radius: var(--radius-md); background: rgb(var(--raised)); font-size: 0.84rem; color: rgb(var(--gray-600)); }
+.export-advice strong { color: rgb(var(--gray-900)); font-weight: 600; }
+.export-advice ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 2px; }
+.export-advice .btn-text { align-self: flex-start; padding-left: 0; }
+.stepper, .templates { cursor: grab; }
+
+/* --- Vérification : stepper vertical façon Android ----------------------------------- */
+.vstepper { list-style: none; display: flex; flex-direction: column; margin: 0.25rem 0 0; padding: 0; }
+.vstep { position: relative; }
+/* Ligne qui relie les ronds. */
+.vstep:not(:last-child)::before {
+  content: ''; position: absolute; left: 21px; top: 40px; bottom: -6px; width: 2px; border-radius: 2px; background: rgb(var(--gray-200));
+}
+.vstep.ok:not(:last-child)::before { background: rgb(var(--gray-900)); }
+.vstep-btn {
+  display: flex; align-items: flex-start; gap: 0.85rem; width: 100%; padding: 0.55rem 0.5rem 0.9rem; border: 0; border-radius: 10px;
+  background: none; color: inherit; font: inherit; text-align: left;
+}
+.vstep-btn:hover { background: rgb(var(--raised)); }
+.vstep-dot {
+  position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid rgb(var(--gray-300)); background: rgb(var(--surface)); font: 600 12px var(--font-sans); color: rgb(var(--gray-500));
+}
+.vstep.ok .vstep-dot { border-color: transparent; background: rgb(var(--gray-900)); color: rgb(var(--surface)); }
+.vstep.todo .vstep-dot { border-color: rgb(var(--red-500)); color: rgb(var(--red-500)); }
+.vstep.warn .vstep-dot { border-color: rgb(var(--amber-500)); color: rgb(var(--amber-600)); }
+.vstep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-top: 3px; }
+.vstep-body strong { font-size: 14.5px; font-weight: 600; }
+.vstep-body small { font-size: 12.5px; line-height: 1.45; color: rgb(var(--gray-500)); }
+.vstep.todo .vstep-body small { color: rgb(var(--red-500)); }
+.vstep-go { align-self: center; color: rgb(var(--gray-400)); font-size: 18px; }
+.vstep.final { display: flex; gap: 0.85rem; padding: 0.55rem 0.5rem; }
+.vstep.final .vstep-dot { border-color: rgb(var(--gray-900)); color: rgb(var(--gray-900)); }
+.vstep.final .btn-primary { align-self: flex-start; margin-top: 0.6rem; }
+
+/* --- Fenêtre d'édition : onglets Formulaire / IA ---------------------------------- */
+.qe-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: rgb(var(--raised)); }
+.qe-tab { flex: 1; height: 32px; border: 0; border-radius: 8px; background: none; color: rgb(var(--gray-500)); font: 500 13px var(--font-sans); }
+.qe-tab[aria-selected='true'] { background: rgb(var(--gray-900)); color: rgb(var(--surface)); }
+.qe-pane { display: flex; flex-direction: column; gap: 0.75rem; }
+.qe-pane[hidden] { display: none; }
+.qe-ai-question { font-size: 17px; font-weight: 600; line-height: 1.35; letter-spacing: -0.01em; color: rgb(var(--gray-900)); }
+.qe-ai-hint { margin-top: -0.4rem; font-size: 12.5px; color: rgb(var(--gray-500)); }
+.qe-ai-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.qe-ai-status { flex: 1; font-size: 12.5px; color: rgb(var(--gray-500)); }
+.qe-ai-go { flex: none; }
+.qe-ai-go:disabled { opacity: 0.6; }

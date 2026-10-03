@@ -24,7 +24,7 @@ function untilSunday(date) {
   return days <= 1 ? 'demain' : `dans ${days} jours`;
 }
 
-export async function openExport({ state, engine, onSpent }) {
+export async function openExport({ state, engine, onSpent, missing = [], onReview }) {
   const resume = toResume(state);
   const key = fingerprint(JSON.stringify(resume));
   const name = resume.profile.name || 'CV';
@@ -46,7 +46,18 @@ export async function openExport({ state, engine, onSpent }) {
       h('span', { class: 'format-text' }, h('strong', {}, 'Aussi en Word'), h('small', {}, 'Une version modifiable, une colonne')),
       h('span', { class: 'format-check', 'aria-hidden': 'true' }),
     );
+    // La vérification conseille sans bloquer : on rappelle ce qui manque, on laisse générer.
+    const advice =
+      missing.length > 0 &&
+      h(
+        'div',
+        { class: 'export-advice' },
+        h('strong', {}, `${missing.length} point${missing.length > 1 ? 's' : ''} à revoir (conseillé)`),
+        h('ul', {}, missing.map((m) => h('li', {}, m.text))),
+        onReview && h('button', { type: 'button', class: 'btn-text', onClick: () => (dialog.close(), onReview()) }, 'Vérifier d’abord'),
+      );
     body.replaceChildren(
+      advice || '',
       h(
         'div',
         { class: 'format-card static', 'aria-pressed': 'true' },

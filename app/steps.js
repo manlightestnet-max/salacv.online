@@ -152,31 +152,58 @@ function languages(ctx) {
   );
 }
 
+// Vérification en stepper vertical (façon Android) : chaque étape du formulaire, son état
+// et ce qu'il reste à faire ; toucher une étape y retourne. Générer reste toujours possible.
 function review(ctx) {
   const items = checklist(ctx.state, ctx.doc());
-  const blocking = items.some((i) => i.level === 'todo');
+  const st = ctx.state;
+  const extra = {
+    competences: st.skills.length ? [] : [{ level: 'warn', text: 'Ajoute quelques compétences (conseillé)' }],
+    langues: st.languages.some((l) => l.name.trim()) ? [] : [{ level: 'warn', text: 'Indique au moins une langue (conseillé)' }],
+  };
+  const steps = STEPS.filter((s) => s.id !== 'verification').map((s, i) => {
+    const issues = [...items.filter((c) => c.step === s.id && c.level !== 'ok'), ...(extra[s.id] ?? [])];
+    const level = issues.some((c) => c.level === 'todo') ? 'todo' : issues.length ? 'warn' : 'ok';
+    return { ...s, n: i + 1, level, issues };
+  });
+  const done = steps.filter((s) => s.level === 'ok').length;
   return h(
     'div',
     { class: 'step' },
-    head('Vérification', 'Un dernier coup d’œil avant de préparer ton CV.'),
+    head('Vérification', `${done} étape${done > 1 ? 's' : ''} sur ${steps.length} complète${done > 1 ? 's' : ''}. Tu peux générer quand tu veux.`),
     h(
-      'ul',
-      { class: 'checks' },
-      items.map((i) =>
+      'ol',
+      { class: 'vstepper' },
+      steps.map((s) =>
         h(
           'li',
-          {},
+          { class: `vstep ${s.level}` },
           h(
             'button',
-            { class: `check ${i.level}`, type: 'button', onClick: () => ctx.goToStep(i.step) },
-            h('span', { class: 'check-icon' }, i.level === 'ok' ? '✓' : '!'),
-            h('span', { class: 'check-text' }, i.text),
-            h('span', { class: 'check-go', 'aria-hidden': 'true' }, '›'),
+            { type: 'button', class: 'vstep-btn', onClick: () => ctx.goToStep(s.id) },
+            h('span', { class: 'vstep-dot', 'aria-hidden': 'true' }, s.level === 'ok' ? '✓' : s.level === 'todo' ? '!' : String(s.n)),
+            h(
+              'span',
+              { class: 'vstep-body' },
+              h('strong', {}, s.label),
+              h('small', {}, s.issues.length ? s.issues.map((c) => c.text).join(' · ') : 'Complet'),
+            ),
+            h('span', { class: 'vstep-go', 'aria-hidden': 'true' }, '›'),
           ),
         ),
       ),
+      h(
+        'li',
+        { class: 'vstep final' },
+        h('span', { class: 'vstep-dot', 'aria-hidden': 'true' }, '↓'),
+        h(
+          'span',
+          { class: 'vstep-body' },
+          h('strong', {}, 'Générer ton CV'),
+          h('small', {}, 'PDF haute qualité, et Word si tu veux.'),
+          h('button', { class: 'btn-primary btn-lg', type: 'button', onClick: ctx.download }, 'Générer mon CV'),
+        ),
+      ),
     ),
-    h('button', { class: 'btn-primary btn-lg', type: 'button', disabled: blocking, onClick: ctx.download }, 'Préparer mon CV'),
-    blocking && h('p', { class: 'hint' }, 'Complète les points marqués ! pour pouvoir préparer ton CV.'),
   );
 }

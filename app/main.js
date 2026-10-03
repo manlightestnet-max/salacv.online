@@ -79,6 +79,9 @@ $('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'ex
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
 $('peek').addEventListener('click', () => setSheet('collapsed'));
 $('next').addEventListener('click', () => goTo(stepIndex + 1));
+$('generate').addEventListener('click', download);
+initHorizontalScroll($('stepper'));
+initHorizontalScroll($('templates'));
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
 $('zoom-fit').addEventListener('click', zoomFit);
@@ -148,6 +151,16 @@ async function initEngine() {
       // Le formulaire reflète ce qui vient d'être modifié sur le CV.
       onClose: () => !agentOpen && renderStep(),
       photoShape,
+      // L'IA d'une fenêtre d'édition renvoie un CV : on garde photo, modèle et langue.
+      replaceState(next) {
+        const { photo } = state.profile;
+        const { template, lang } = state;
+        state = normalizeState(next);
+        Object.assign(state, { template, lang });
+        state.profile.photo = photo;
+        schedule();
+      },
+      askLogin: () => openAgent(),
     });
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
@@ -641,7 +654,43 @@ function openProject() {
 }
 
 // Jamais de téléchargement direct : la préparation (progression, crédit) puis le fichier.
+// Disponible à tout moment : la vérification conseille, elle ne bloque pas. Seul le nom
+// est indispensable (le CV n'existe pas sans).
 function download() {
-  if (!engine || checklist(state, current?.doc).some((c) => c.level === 'todo')) return;
-  openExport({ state, engine });
+  if (!engine) return;
+  if (!state.profile.name.trim()) {
+    toast('Écris d’abord ton nom : il est obligatoire sur le CV.');
+    ctx.goToStep('identite');
+    setSheet('expanded');
+    return;
+  }
+  const missing = checklist(state, current?.doc).filter((c) => c.level !== 'ok');
+  openExport({ state, engine, missing, onReview: () => (goTo(STEPS.length - 1), setSheet('expanded')) });
+}
+
+// PC : la molette fait défiler les bandes horizontales (étapes, modèles) ; on peut aussi les glisser.
+function initHorizontalScroll(el) {
+  el.addEventListener(
+    'wheel',
+    (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    },
+    { passive: false },
+  );
+  let drag = null;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    drag = { x: e.clientX, left: el.scrollLeft, moved: false };
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 4) drag.moved = true;
+    if (drag.moved) el.scrollLeft = drag.left - dx;
+  });
+  // Un glisser n'est pas un clic sur une étape.
+  el.addEventListener('click', (e) => drag?.moved && (e.stopPropagation(), e.preventDefault()), true);
+  window.addEventListener('pointerup', () => setTimeout(() => (drag = null)));
 }
