@@ -1519,3 +1519,11 @@ button.logo-mark { border: 0; cursor: pointer; }
 .tpl-pop-item[aria-selected='true'] { border-color: rgb(var(--gray-900)); color: rgb(var(--gray-900)); }
 .tpl-pop-item .tpl-thumb { width: 42px; height: auto; }
 .tpl-card[hidden] { display: none; }
+
+/* Modèles posés dans l'espace (sous le conteneur du CV). */
+.ws-tpl-area { position: absolute; border-radius: calc(18px / var(--wsz, 1)); border: calc(1px / var(--wsz, 1)) dashed rgb(var(--gray-300)); background: rgb(var(--gray-900) / 0.02); }
+.ws-tpl-tile { position: absolute; cursor: pointer; }
+.ws-tpl-tile canvas { display: block; background: #fff; box-shadow: 0 1px 0 rgb(0 0 0 / 0.04), 0 20px 50px -24px rgb(0 0 0 / 0.55); outline: calc(1px / var(--wsz, 1)) solid transparent; transition: outline-color 0.15s; }
+.ws-tpl-tile:hover canvas { outline: calc(2px / var(--wsz, 1)) solid rgb(var(--gray-500)); }
+.ws-tpl-tile.on canvas { outline: calc(3px / var(--wsz, 1)) solid rgb(var(--gray-900)); }
+.ws-tpl-tile.on .ws-label { color: rgb(var(--gray-900)); font-weight: 600; }

@@ -962,6 +962,7 @@ function wsRows() {
       id,
       label: docLabel(d),
       template: { id: tpl.id, name: tpl.name, doc: docOf(id === activeDoc ? state : d.state) },
+      picker: tplPickFor === id ? pickerDocs(id) : null,
       frames: versions.map(([lang, st]) => {
         const active = id === activeDoc && lang === activeLang;
         return { key: `${id}:${lang}`, label: String(lang).toUpperCase(), active, pages: active ? current?.doc.pages.length ?? 1 : 1, doc: active ? null : docOf(st) };
@@ -978,55 +979,37 @@ function wsRefresh() {
   renderStepFab();
 }
 
-// Choix du modèle d'un CV de l'espace : une carte posée sous le bouton (pas un dialogue).
-// On choisit, elle se referme.
-let tplCard = null;
-function closeTplCard() {
-  tplCard?.remove();
-  tplCard = null;
+// Choix du modèle d'un CV de l'espace : les modèles s'ouvrent DANS l'espace, sous le
+// conteneur, chacun montrant ce CV dans ce modèle ; on zoome, on compare, on touche.
+let tplPickFor = null;
+function openTplPicker(id) {
+  tplPickFor = tplPickFor === id ? null : id;
+  wsRefresh();
+  if (tplPickFor) workspace.focusPicker();
 }
-function openTplCard(id, anchor) {
-  if (tplCard) return closeTplCard();
+document.addEventListener('keydown', (e) => e.key === 'Escape' && tplPickFor && ((tplPickFor = null), wsRefresh(), workspace.focusActive()));
+function pickTemplate(id, tpl) {
   const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
   if (!doc) return;
+  // Toutes les langues de ce CV prennent le modèle.
+  for (const v of [doc.state, ...Object.values(doc.variants ?? {})]) v.template = tpl;
+  if (id === activeDoc) state.template = tpl;
+  saveProject(project);
+  tplPickFor = null;
+  if (id === activeDoc) update();
+  wsRefresh();
+  workspace.focusActive();
+  toast(`Modèle « ${TEMPLATES.find((t) => t.id === tpl)?.name} » appliqué.`);
+}
+function pickerDocs(id) {
+  const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
   const base = toResume(normalizeState(id === activeDoc ? state : doc.state), { mockup: example });
   const current = id === activeDoc ? state.template : doc.state.template;
-  tplCard = h(
-    'div',
-    { class: 'tpl-card-pop', role: 'listbox', 'aria-label': 'Modèle' },
-    TEMPLATES.filter((t) => templateVisible(t.id, current)).map((t) => {
-      const c = h('canvas', { class: 'tpl-thumb' });
-      const r = layoutResume({ ...base, template: t.id }, engine.fonts);
-      if (r.ok) requestAnimationFrame(() => drawDoc(engine, c, r.doc, 42));
-      return h(
-        'button',
-        {
-          type: 'button',
-          class: 'tpl-pop-item',
-          'aria-selected': String(t.id === current),
-          onClick: () => {
-            // Toutes les langues de ce CV prennent le modèle.
-            for (const v of [doc.state, ...Object.values(doc.variants ?? {})]) v.template = t.id;
-            if (id === activeDoc) state.template = t.id;
-            saveProject(project);
-            closeTplCard();
-            if (id === activeDoc) update();
-            wsLayouts.clear();
-            wsRefresh();
-          },
-        },
-        c,
-        h('span', {}, t.name),
-      );
-    }),
-  );
-  document.body.append(tplCard);
-  const r = anchor.getBoundingClientRect();
-  const w = tplCard.offsetWidth;
-  Object.assign(tplCard.style, { top: `${Math.min(r.bottom + 8, window.innerHeight - tplCard.offsetHeight - 12)}px`, left: `${Math.max(12, Math.min(r.right - w, window.innerWidth - w - 12))}px` });
-  setTimeout(() => document.addEventListener('pointerdown', (e) => !tplCard?.contains(e.target) && closeTplCard(), { once: true }));
+  return TEMPLATES.filter((t) => templateVisible(t.id, current)).map((t) => {
+    const r = layoutResume({ ...base, template: t.id }, engine.fonts);
+    return { id: t.id, name: t.name, selected: t.id === current, doc: r.ok ? r.doc : null };
+  });
 }
-preview.addEventListener('ws-camera', closeTplCard);
 
 // Sélecteur du CV actif dans le projet (en haut à gauche de l'espace).
 let pickerOpen = false;
@@ -1089,7 +1072,8 @@ function setWorkspace(enabled) {
     canvases,
     engine,
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
-    onTemplate: openTplCard,
+    onTemplate: (id) => openTplPicker(id),
+    onPickTemplate: pickTemplate,
     onSwitch(key) {
       const [id, lang] = key.split(':');
       switchDoc(id, lang);

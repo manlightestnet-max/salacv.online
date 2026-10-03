@@ -10,7 +10,7 @@ const GAP = { x: 120, y: 190 };
 const CAM_KEY = 'salacv:ws-cam';
 const Z = { min: 0.08, max: 3 };
 
-export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, onTemplate }) {
+export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, onTemplate, onPickTemplate }) {
   const world = h('div', { class: 'ws-world' });
   let frames = []; // { key, label, el, host, x, y, w, h, active }
   let cam = readCam() ?? { x: 80, y: 80, z: 0.35 };
@@ -40,8 +40,10 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
   // --- Cadres -------------------------------------------------------------------------
   // rows : [{ id, label, frames: [{ key, label, active, doc, pages }] }]
   // Un conteneur par CV (sa famille de langues), un cadre par langue à l'intérieur.
+  let pickerArea = null;
   function render(rows) {
     frames = [];
+    pickerArea = null;
     world.replaceChildren();
     const PAD = 56;
     let y = 0;
@@ -73,6 +75,31 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
       }
       Object.assign(box.style, { left: '0px', top: `${y}px`, width: `${x - GAP.x + PAD}px`, height: `${rowH + PAD * 2 + 40}px` });
       y += rowH + PAD * 2 + 40 + GAP.y;
+
+      // Choix du modèle, posé dans l'espace sous le conteneur : chaque modèle est un CV
+      // (le sien, dans ce modèle), qu'on zoome et qu'on parcourt comme le reste.
+      if (row.picker) {
+        const TW = PAGE.w * 0.5;
+        const TH = PAGE.h * 0.5;
+        const perRow = 6;
+        const area = h('div', { class: 'ws-tpl-area' }, h('span', { class: 'ws-group-label' }, 'Modèles · touche celui que tu veux'));
+        world.append(area);
+        row.picker.forEach((t, i) => {
+          const tx = PAD + (i % perRow) * (TW + 50);
+          const ty = y + PAD + 30 + Math.floor(i / perRow) * (TH + 80);
+          const tile = h('div', { class: `ws-tpl-tile${t.selected ? ' on' : ''}`, 'data-row': row.id, 'data-tpl': t.id, style: `left:${tx}px;top:${ty}px;width:${TW}px` }, h('span', { class: 'ws-label' }, t.name));
+          world.append(tile);
+          let th = thumbs.get(`tpl:${row.id}:${t.id}`);
+          if (!th) thumbs.set(`tpl:${row.id}:${t.id}`, (th = { canvas: h('canvas', { class: 'ws-thumb' }), doc: null, width: 0 }));
+          tile.append(th.canvas);
+          frames.push({ key: `tpl:${t.id}`, el: tile, x: tx, y: ty, thumb: th, doc: t.doc, w: TW, h: TH });
+        });
+        const rowsN = Math.ceil(row.picker.length / perRow);
+        const areaH = rowsN * (TH + 80) + PAD + 30;
+        Object.assign(area.style, { left: '0px', top: `${y}px`, width: `${PAD * 2 + perRow * (TW + 50) - 50}px`, height: `${areaH}px` });
+        pickerArea = { x: 0, y, w: PAD * 2 + perRow * (TW + 50) - 50, h: areaH };
+        y += areaH + GAP.y;
+      }
     }
     sharpen();
   }
@@ -86,14 +113,16 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
     sharpenTimer = setTimeout(sharpen, 180);
   }
   function sharpen() {
-    const width = PAGE.w * Math.min(2, Math.max(0.25, cam.z * (window.devicePixelRatio || 1)));
+    const k = Math.min(2, Math.max(0.25, cam.z * (window.devicePixelRatio || 1)));
     for (const f of frames) {
       const t = f.thumb;
+      const fw = f.w ?? PAGE.w;
+      const width = fw * k;
       if (!t || !f.doc || (t.doc === f.doc && t.width === width)) continue;
       drawDoc(engine, t.canvas, f.doc, width);
       Object.assign(t, { doc: f.doc, width });
-      t.canvas.style.width = `${PAGE.w}px`;
-      t.canvas.style.height = `${PAGE.h}px`;
+      t.canvas.style.width = `${fw}px`;
+      t.canvas.style.height = `${f.h ?? PAGE.h}px`;
     }
   }
 
@@ -131,6 +160,16 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
     apply();
   }
   const focusActive = () => fit(frames.find((f) => f.active));
+  // Cadre la zone des modèles (ouverte depuis le bouton du conteneur).
+  function focusPicker() {
+    if (!pickerArea) return;
+    const r = preview.getBoundingClientRect();
+    const a = pickerArea;
+    cam.z = Math.max(Z.min, Math.min(1, (r.width - 120) / a.w, (r.height - 120) / a.h));
+    cam.x = (r.width - a.w * cam.z) / 2 - a.x * cam.z;
+    cam.y = (r.height - a.h * cam.z) / 2 - a.y * cam.z;
+    apply();
+  }
 
   // --- Gestes ---------------------------------------------------------------------------
   // Glisser le fond (ou n'importe où avec la molette enfoncée / Espace) : se déplacer.
@@ -172,7 +211,7 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
       const onPage = e.target.closest?.('canvas.page');
       // Sur le cadre actif, le clic sert à l'édition ; ailleurs, on peut se déplacer.
       if (onPage && e.button === 0 && !space) return;
-      drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false, frame: e.target.closest?.('.ws-frame:not(.active)') };
+      drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false, frame: e.target.closest?.('.ws-frame:not(.active)'), tile: e.target.closest?.('.ws-tpl-tile') };
       preview.setPointerCapture?.(e.pointerId);
       preview.classList.add('ws-grabbing');
     },
@@ -202,7 +241,8 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
     if (touches.size < 2) pinch = null;
     if (!drag) return;
     preview.classList.remove('ws-grabbing');
-    if (!drag.moved && drag.frame) onSwitch?.(drag.frame.dataset.key);
+    if (!drag.moved && drag.tile) onPickTemplate?.(drag.tile.dataset.row, drag.tile.dataset.tpl);
+    else if (!drag.moved && drag.frame) onSwitch?.(drag.frame.dataset.key);
     drag = null;
   };
   preview.addEventListener('pointerup', end);
@@ -234,5 +274,6 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
     setZoom,
     fit,
     focusActive,
+    focusPicker,
   };
 }
