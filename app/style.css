@@ -1040,3 +1040,11 @@ html[data-theme] {
 .sheet-head, .step-nav { background-color: rgb(var(--canvas)); }
 .sheet-head .btn-ghost, .step-nav .btn-ghost, .step-nav .btn-text { background-color: rgb(var(--surface)); }
 .sheet-head .btn-ghost:hover, .step-nav .btn-ghost:hover { background-color: rgb(var(--raised)); }
+
+/* Barres façon Android : plus foncées, avec élévation, pour montrer le scaffold. */
+:root { --bar: 228 228 231; }
+[data-theme='dark'] { --bar: 4 4 5; }
+.sheet-head, .step-nav { position: relative; z-index: 2; background-color: rgb(var(--bar)); border-color: transparent; }
+.sheet-head { box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.18), 0 4px 10px -2px rgb(0 0 0 / 0.14); }
+.step-nav { box-shadow: 0 -2px 4px -1px rgb(0 0 0 / 0.18), 0 -4px 10px -2px rgb(0 0 0 / 0.14); }
+@media (min-width: 960px) { .sheet-head { border-bottom-color: transparent; } }
