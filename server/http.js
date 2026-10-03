@@ -1,7 +1,7 @@
 // Adaptateur HTTP commun : le même code sert les fonctions Vercel (api/*.js) et le serveur
 // Node du VPS (server/index.js). Vercel = VPS : aucune différence de comportement.
 import * as web from './agent/web.js';
-import { admin } from './admin.js';
+import { admin, templateSettings } from './admin.js';
 
 function send(res, status, body) {
   const data = JSON.stringify(body);
@@ -32,6 +32,8 @@ export const ROUTES = {
   translate: (payload, req) => web.translate(payload, web.bearer(req.headers.authorization)),
   collect: (payload, req) => web.collectCv(payload, web.bearer(req.headers.authorization), clientIp(req)),
   admin: (payload, req) => admin(payload, web.bearer(req.headers.authorization)),
+  // Public : réglages des modèles (disponibles, pour qui), lus par le studio.
+  templates: () => templateSettings(),
 };
 
 // Taille maximale du corps par route (les ressources de l'admin sont plus lourdes).

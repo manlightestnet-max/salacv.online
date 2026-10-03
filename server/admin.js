@@ -123,6 +123,18 @@ export async function admin(payload, token, env = process.env) {
     }
     case 'cvs':
       return [200, { ok: true, cvs: await s.range('cvs', Math.min(Number(payload.limit) || 200, MAX_CVS)) }];
+    case 'templates':
+      return [200, { ok: true, templates: await s.get('templates', {}) }];
+    case 'setTemplate': {
+      const id = String(payload.id ?? '');
+      if (!/^[a-z0-9-]{1,40}$/.test(id)) return [400, { ok: false, error: 'Modèle inconnu.' }];
+      const audience = AUDIENCES.includes(payload.audience) ? payload.audience : 'all';
+      const all = await s.get('templates', {});
+      all[id] = { enabled: payload.enabled !== false, audience };
+      await s.set('templates', all);
+      log(`Modèle ${id}`, `${all[id].enabled ? 'disponible' : 'indisponible'} · ${audience}`);
+      return [200, { ok: true, templates: all }];
+    }
     case 'resources':
       return [200, { ok: true, resources: await loadResources(s) }];
     case 'setResources': {
@@ -154,6 +166,12 @@ export async function admin(payload, token, env = process.env) {
     default:
       return [400, { ok: false, error: 'Action inconnue.' }];
   }
+}
+
+// Modèles de CV : disponible ou non, et pour qui (tous, Lite, Pro).
+const AUDIENCES = ['all', 'lite', 'pro'];
+export async function templateSettings() {
+  return [200, { ok: true, templates: await store().get('templates', {}) }];
 }
 
 const LISTS = ['metiers', 'domaines', 'etablissements', 'entreprises'];

@@ -6,6 +6,8 @@ import { openDialog } from './dialog.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
 import { openThemePicker } from './lib/theme.js';
 import { relativeDate } from './lib/store.js';
+import { TEMPLATES, normalizeState, toResume } from './state.js';
+import example from '../examples/etudiant.json';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -336,6 +338,42 @@ async function resourcesView() {
   );
 }
 
+// --- Modèles de CV -----------------------------------------------------------------------
+// Chaque modèle : disponible ou non, et pour qui (tous, Lite, Pro). Le studio suit ces réglages.
+async function templatesView() {
+  const r = await api('templates');
+  if (!r.ok) return page('Modèles', null, null, notice(r.error, 'error'));
+  const settings = r.templates ?? {};
+  const save = async (id, patch) => {
+    const cur = { enabled: true, audience: 'all', ...settings[id], ...patch };
+    const out = await api('setTemplate', { id, ...cur });
+    if (!out.ok) return alert(out.error);
+    settings[id] = cur;
+  };
+  engine ??= await loadEngine();
+  const base = toResume(normalizeState({}), { mockup: example });
+  const rows = TEMPLATES.map((t) => {
+    const s = { enabled: true, audience: 'all', ...settings[t.id] };
+    const thumb = h('canvas', { class: 'tpl-admin-thumb' });
+    const lay = layoutResume({ ...base, template: t.id }, engine.fonts);
+    if (lay.ok) requestAnimationFrame(() => drawDoc(engine, thumb, lay.doc, 44));
+    const avail = h('input', { type: 'checkbox', checked: s.enabled || null });
+    avail.addEventListener('change', () => save(t.id, { enabled: avail.checked }).then(() => row.classList.toggle('blocked', !avail.checked)));
+    const aud = h('select', { class: 'admin-input tpl-aud' }, [['all', 'Tous'], ['lite', 'Lite'], ['pro', 'Pro']].map(([v, l]) => h('option', { value: v, selected: s.audience === v || null }, l)));
+    aud.addEventListener('change', () => save(t.id, { audience: aud.value }));
+    const row = h(
+      'div',
+      { class: `row-item${s.enabled ? '' : ' blocked'}` },
+      thumb,
+      h('div', { class: 'row-main' }, h('strong', {}, t.name), h('small', {}, t.id)),
+      aud,
+      h('label', { class: 'tpl-avail' }, avail, 'Disponible'),
+    );
+    return row;
+  });
+  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, card(`${TEMPLATES.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')));
+}
+
 // --- Skills de l'agent ----------------------------------------------------------------------
 async function skillsView() {
   const r = await api('skills');
@@ -448,7 +486,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Navigation ----------------------------------------------------------------------------
-const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, skills: skillsView, journal: journalView };
+const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);

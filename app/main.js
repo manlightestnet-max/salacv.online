@@ -556,6 +556,7 @@ const thumbs = TEMPLATES.map((t) => {
       onClick: () => {
         state.template = t.id;
         thumbs.forEach((x) => x.card.setAttribute('aria-pressed', String(x.id === t.id)));
+        applyTplSettings();
         schedule();
         // La vignette photo de l'étape Identité prend la forme du nouveau modèle.
         if (STEPS[stepIndex].id === 'identite' && !agentOpen) renderStep();
@@ -567,6 +568,24 @@ const thumbs = TEMPLATES.map((t) => {
   return { id: t.id, canvas, card, surface: null };
 });
 $('templates').replaceChildren(...thumbs.map((t) => t.card));
+
+// Modèles gérés par l'admin : disponible ou non, et pour qui (tous, Lite, Pro). Le modèle
+// déjà choisi pour un CV reste visible, même retiré, pour ne rien casser.
+let tplSettings = {};
+function templateVisible(id, current) {
+  const s = tplSettings[id];
+  if (id === current) return true;
+  if (s && s.enabled === false) return false;
+  const aud = s?.audience ?? 'all';
+  return aud === 'all' || aud === (isPro() ? 'pro' : 'lite');
+}
+function applyTplSettings() {
+  thumbs.forEach((t) => (t.card.hidden = !templateVisible(t.id, state.template)));
+}
+fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+  .then((r) => r.json())
+  .then((r) => r.ok && ((tplSettings = r.templates ?? {}), applyTplSettings()))
+  .catch(() => {});
 
 let thumbTimer;
 function paintThumbs() {
@@ -975,7 +994,7 @@ function openTplCard(id, anchor) {
   tplCard = h(
     'div',
     { class: 'tpl-card-pop', role: 'listbox', 'aria-label': 'Modèle' },
-    TEMPLATES.map((t) => {
+    TEMPLATES.filter((t) => templateVisible(t.id, current)).map((t) => {
       const c = h('canvas', { class: 'tpl-thumb' });
       const r = layoutResume({ ...base, template: t.id }, engine.fonts);
       if (r.ok) requestAnimationFrame(() => drawDoc(engine, c, r.doc, 42));
@@ -1122,6 +1141,7 @@ function openPlans() {
                 setPlan(p.id);
                 d.close();
                 setWorkspace(p.id !== 'lite');
+                applyTplSettings();
                 toast(p.id === 'lite' ? 'Mode Lite : un CV, l’aperçu d’abord.' : 'Mode Pro activé.');
               },
             },

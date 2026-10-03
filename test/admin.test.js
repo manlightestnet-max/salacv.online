@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memoryStore } from '../server/store.js';
-import { admin, checkResources, collect } from '../server/admin.js';
+import { admin, checkResources, collect, templateSettings } from '../server/admin.js';
 import * as web from '../server/agent/web.js';
 import { findSkill, setExtraSkills } from '../server/agent/skills/index.js';
 
@@ -50,4 +50,13 @@ test('admin : CV d\'essai conservés sans photo, ressources validées, skills aj
   const [, skills] = await admin({ action: 'skills' }, token, ENV);
   setExtraSkills(skills.custom);
   assert.equal(findSkill('petrole').title, 'Pétrole');
+});
+
+test('modèles : disponibilité et public gérés par l’admin, lus par le studio', async () => {
+  const token = await login();
+  const [st, r] = await admin({ action: 'setTemplate', id: 'marine', enabled: false, audience: 'pro' }, token, ENV);
+  assert.equal(st, 200);
+  assert.deepEqual(r.templates.marine, { enabled: false, audience: 'pro' });
+  const [, pub] = await templateSettings();
+  assert.equal(pub.templates.marine.enabled, false);
 });
