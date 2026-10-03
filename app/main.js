@@ -2,10 +2,10 @@
 // sheet. PC : formulaire dans une barre de gauche redimensionnable. Aperçu
 // zoomable partout ; tant que l'étudiant n'a rien saisi, l'exemple s'affiche
 // en grisé pour montrer le format.
-import { openThemePicker } from './lib/theme.js';
+import { syncBrowserBar, toggleTheme } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import { loadEngine } from './lib/engine.js';
-import { createProject, getProject, isPro, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
+import { createProject, getPlan, getProject, isPro, setPlan, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
 import { openDialog } from './dialog.js';
 import { openExport } from './export.js';
 import { initQuickEdit } from './quickedit.js';
@@ -77,7 +77,15 @@ setSheet('collapsed');
 renderStep();
 initEngine();
 
-$('theme').addEventListener('click', () => openThemePicker());
+// Lune / soleil, à côté du bouton du panneau : un clic, le thème bascule.
+function renderThemeBtn() {
+  const lightOn = root.dataset.theme === 'light';
+  $('theme').textContent = lightOn ? '☾' : '☀';
+  $('theme').title = lightOn ? 'Passer en sombre' : 'Passer en clair';
+}
+$('theme').addEventListener('click', () => (toggleTheme(), renderThemeBtn()));
+renderThemeBtn();
+syncBrowserBar();
 $('assistant').addEventListener('click', () => (agentOpen ? closeAgent() : openAgent()));
 $('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded'));
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
@@ -85,7 +93,6 @@ $('peek').addEventListener('click', () => setSheet('collapsed'));
 $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('generate').addEventListener('click', download);
 initHorizontalScroll($('stepper'));
-initHorizontalScroll($('templates'));
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
 $('zoom-fit').addEventListener('click', zoomFit);
@@ -297,6 +304,7 @@ function initKeyboard() {
     const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
     root.style.setProperty('--kb', `${open ? kb : 0}px`);
     root.style.setProperty('--vvh', `${vv.height}px`);
+    root.style.setProperty('--vvt', `${vv.offsetTop}px`);
     root.classList.toggle('kb-open', open);
   }
   vv.addEventListener('resize', sync);
@@ -552,14 +560,19 @@ function paint(doc) {
 }
 
 // Zoom en gardant le même point au centre de l'aperçu.
-function setZoom(value, fit = false) {
+// anchor : le point de l'aperçu (coordonnées écran) qui ne bouge pas pendant le zoom —
+// le centre par défaut, le milieu des deux doigts au pincement.
+function setZoom(value, fit = false, anchor = null) {
   if (!current) return;
-  const cx = (preview.scrollLeft + preview.clientWidth / 2) / preview.scrollWidth;
-  const cy = (preview.scrollTop + preview.clientHeight / 2) / preview.scrollHeight;
+  const r = preview.getBoundingClientRect();
+  const ax = anchor ? anchor.x - r.left : preview.clientWidth / 2;
+  const ay = anchor ? anchor.y - r.top : preview.clientHeight / 2;
+  const cx = (preview.scrollLeft + ax) / preview.scrollWidth;
+  const cy = (preview.scrollTop + ay) / preview.scrollHeight;
   zoom = { fit, value: Math.max(ZOOM.min, Math.min(ZOOM.max, value)) };
   paint(current.doc);
-  preview.scrollLeft = cx * preview.scrollWidth - preview.clientWidth / 2;
-  preview.scrollTop = cy * preview.scrollHeight - preview.clientHeight / 2;
+  preview.scrollLeft = cx * preview.scrollWidth - ax;
+  preview.scrollTop = cy * preview.scrollHeight - ay;
 }
 
 function currentZoom() {
@@ -590,29 +603,54 @@ function initPreviewGestures() {
     { passive: false },
   );
 
-  const touches = new Map();
+  // Mobile : pincement à deux doigts. Pendant le geste, simple mise à l'échelle CSS (fluide,
+  // pas de rendu à chaque image) autour du milieu des doigts ; au relâcher, un seul vrai
+  // rendu au bon zoom, et la page reste là où on l'a amenée (jamais renvoyée en haut).
+  // Événements touch (pas pointer) : le navigateur annule les pointeurs dès qu'il défile.
   let pinch = null;
-  preview.addEventListener('pointerdown', (e) => {
-    if (workspace?.on || e.pointerType !== 'touch') return;
-    touches.set(e.pointerId, e);
-    if (touches.size === 2) pinch = { dist: distance(), zoom: currentZoom() };
-  });
-  preview.addEventListener('pointermove', (e) => {
-    if (!touches.has(e.pointerId)) return;
-    touches.set(e.pointerId, e);
-    if (pinch && touches.size === 2) setZoom(pinch.zoom * (distance() / pinch.dist));
-  });
-  const end = (e) => {
-    touches.delete(e.pointerId);
-    if (touches.size < 2) pinch = null;
+  const mid = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+  const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
+  preview.addEventListener(
+    'touchstart',
+    (e) => {
+      if (workspace?.on || e.touches.length !== 2 || !current) return;
+      const m = mid(e.touches);
+      const r = canvases.getBoundingClientRect();
+      pinch = { d: dist(e.touches), zoom: currentZoom(), m, f: 1, ox: m.x - r.left, oy: m.y - r.top };
+      canvases.style.transformOrigin = `${pinch.ox}px ${pinch.oy}px`;
+    },
+    { passive: true },
+  );
+  preview.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const z = Math.max(ZOOM.min, Math.min(ZOOM.max, pinch.zoom * (dist(e.touches) / pinch.d)));
+      pinch.f = z / pinch.zoom;
+      const m = mid(e.touches);
+      canvases.style.transform = `translate(${m.x - pinch.m.x}px, ${m.y - pinch.m.y}px) scale(${pinch.f})`;
+      pinch.last = m;
+    },
+    { passive: false },
+  );
+  const endPinch = () => {
+    if (!pinch) return;
+    const p = pinch;
+    pinch = null;
+    const m = p.last ?? p.m;
+    // Le point du CV qui était sous les doigts au départ finit sous les doigts à l'arrivée.
+    const r0 = preview.getBoundingClientRect();
+    const px = preview.scrollLeft + p.m.x - r0.left;
+    const py = preview.scrollTop + p.m.y - r0.top;
+    canvases.style.transform = '';
+    zoom = { fit: false, value: p.zoom * p.f };
+    paint(current.doc);
+    preview.scrollLeft = px * p.f - (m.x - r0.left);
+    preview.scrollTop = py * p.f - (m.y - r0.top);
   };
-  preview.addEventListener('pointerup', end);
-  preview.addEventListener('pointercancel', end);
-
-  function distance() {
-    const [a, b] = [...touches.values()];
-    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
-  }
+  preview.addEventListener('touchend', (e) => e.touches.length < 2 && endPinch());
+  preview.addEventListener('touchcancel', endPinch);
 }
 
 // --- Panneau (PC) -----------------------------------------------------------------
@@ -657,10 +695,13 @@ function switchDoc(id, lang, { focus = false } = {}) {
   state = normalizeState(activeLang === d.state.lang ? d.state : d.variants[activeLang]);
   langBar.render();
   renderStep();
-  // Tout de suite (pas de délai) : le cadre actif et la caméra suivent le bon CV.
+  // Tout de suite (pas de délai), et dans cet ordre : d'abord les cadres (le nouvel actif
+  // reçoit les pages), puis le rendu — jamais l'ancien cadre repeint avec le nouveau CV.
+  if (workspace?.on) workspace.render(wsRows());
   update();
   if (workspace?.on) {
-    wsRefresh();
+    renderPicker();
+    renderStepFab();
     if (focus) workspace.focusActive();
   }
 }
@@ -704,26 +745,28 @@ function renderTitle() {
   if (btn.querySelector('input')) return;
   btn.textContent = projectName(project);
 }
+// Un clic sur le titre du CV : son nom et son modèle, au même endroit.
 $('cv-title').addEventListener('click', () => {
-  const btn = $('cv-title');
-  if (btn.querySelector('input')) return;
-  const input = h('input', { class: 'cv-title-input', value: project.name ?? '', placeholder: projectName({ ...project, name: '' }), maxlength: 60, 'aria-label': 'Nom du CV' });
-  let finished = false;
-  const done = (keep) => {
-    if (finished) return; // Entrée puis perte du focus : une seule fois
-    finished = true;
-    if (keep) project.name = input.value.trim();
-    input.remove();
+  const tpl = $('templates');
+  const parking = tpl.parentNode;
+  const input = h('input', { class: 'cv-name-input', value: project.name ?? '', placeholder: projectName({ ...project, name: '' }), maxlength: 60, 'aria-label': 'Nom du CV' });
+  input.addEventListener('input', () => {
+    project.name = input.value.trim();
     saveCurrent();
-  };
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') (e.preventDefault(), done(true));
-    if (e.key === 'Escape') (e.stopPropagation(), done(false));
   });
-  input.addEventListener('blur', () => input.isConnected && done(true));
-  btn.replaceChildren(input);
-  input.focus();
-  input.select();
+  input.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), d.close()));
+  tpl.classList.add('in-dialog');
+  const d = openDialog({
+    title: 'Ce CV',
+    className: 'cv-dialog',
+    content: [h('label', { class: 'cv-dialog-label' }, 'Nom', input), h('p', { class: 'cv-dialog-label' }, 'Modèle'), tpl],
+    footer: [h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => d.close() }, 'Terminé')],
+    onClose: () => {
+      tpl.classList.remove('in-dialog');
+      parking.append(tpl);
+    },
+  });
+  if (engine) paintThumbs();
 });
 $('switch').addEventListener('click', () => openSwitcher({ engine, project, state }));
 
@@ -777,12 +820,27 @@ function toast(text) {
 let workspace = null;
 const WS_KEY = 'salacv:ws-on';
 
+// Mises en page des cadres inactifs, gardées tant que le CV ne change pas.
+const wsLayouts = new Map();
 function wsRows() {
   const docOf = (st) => {
-    const r = layoutResume(toResume(normalizeState(st), { mockup: example }), engine.fonts);
-    return r.ok ? r.doc : null;
+    const key = JSON.stringify(st);
+    if (!wsLayouts.has(key)) {
+      if (wsLayouts.size > 40) wsLayouts.clear();
+      const r = layoutResume(toResume(normalizeState(st), { mockup: example }), engine.fonts);
+      wsLayouts.set(key, r.ok ? r.doc : null);
+    }
+    return wsLayouts.get(key);
   };
   // Une ligne = un CV du projet (sa famille de langues), une colonne = une langue.
+  // God mode : les autres projets suivent, ouverts d'un clic.
+  const others =
+    getPlan() === 'max'
+      ? listProjects()
+          .filter((p) => p.id !== project.id)
+          .slice(0, 12)
+          .map((p) => ({ id: `@${p.id}`, label: `${projectName(p)} · autre projet`, frames: [{ key: `@${p.id}:${p.state.lang ?? 'fr'}`, label: String(p.state.lang ?? 'fr').toUpperCase(), active: false, pages: 1, doc: docOf(p.state) }] }))
+      : [];
   return [project, ...project.docs].map((d) => {
     const id = d === project ? 'main' : d.id;
     const versions = [[d.state.lang, d.state], ...Object.entries(d.variants ?? {}).filter(([l]) => l !== d.state.lang)];
@@ -794,7 +852,7 @@ function wsRows() {
         return { key: `${id}:${lang}`, label: String(lang).toUpperCase(), active, pages: active ? current?.doc.pages.length ?? 1 : 1, doc: active ? null : docOf(st) };
       }),
     };
-  });
+  }).concat(others);
 }
 
 function wsRefresh() {
@@ -868,6 +926,7 @@ function setWorkspace(enabled) {
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
     onSwitch(key) {
       const [id, lang] = key.split(':');
+      if (id.startsWith('@')) return void (saveCurrent(), (location.href = `/studio/?p=${id.slice(1)}`));
       switchDoc(id, lang);
     },
   });
@@ -883,29 +942,53 @@ function setWorkspace(enabled) {
     renderStepFab();
   }
   $('ws-toggle').setAttribute('aria-pressed', String(enabled));
+  $('ws-toggle').replaceChildren({ lite: 'Lite', pro: 'Pro', max: 'God mode' }[enabled ? getPlan() : 'lite'], h('span', { class: 'pro-tag' }, 'MODE'));
   try {
     sessionStorage.setItem(WS_KEY, enabled ? '1' : '0');
   } catch {}
 }
 
 $('ws-toggle').addEventListener('click', () => {
-  if (workspace?.on) return setWorkspace(false);
-  if (isPro()) return setWorkspace(true);
-  // Réservé aux pros (cybers, secrétariats, recruteurs) : le paiement viendra du wallet.
+  openPlans();
+});
+
+// Lite (par défaut), Pro, God mode : le choix de la façon de travailler.
+function openPlans() {
+  const plans = [
+    { id: 'lite', name: 'Lite', text: 'Un CV, vite fait. L’aperçu d’abord, on touche le CV pour le modifier.' },
+    { id: 'pro', name: 'Pro', text: 'Tu édites toi-même : un projet contient plusieurs CV, chacun avec ses langues, dans un espace infini.' },
+    { id: 'max', name: 'God mode', text: 'Tout est ouvert : tous tes projets dans le même espace, tous les panneaux.' },
+  ];
   const d = openDialog({
-    title: 'Espace infini · Pro',
-    content: h(
-      'div',
-      { class: 'pro-pitch' },
-      h('p', {}, 'Tous tes CV et toutes leurs langues dans un même espace : tu te déplaces de l’un à l’autre, tu compares, tu modifies sans changer de page.'),
-      h('p', { class: 'hint' }, 'Pour les pros : cybers, secrétariats, recruteurs. Pendant la phase d’essai, tu peux l’activer gratuitement.'),
-    ),
-    footer: [
-      h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Plus tard'),
-      h('button', { type: 'button', class: 'btn-primary', onClick: () => (setPro(true), d.close(), setWorkspace(true)) }, 'Activer l’essai Pro'),
+    title: 'Ta façon de travailler',
+    className: 'plans-dialog',
+    content: [
+      h(
+        'div',
+        { class: 'plans' },
+        plans.map((p) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'plan',
+              'aria-pressed': String(getPlan() === p.id),
+              onClick: () => {
+                setPlan(p.id);
+                d.close();
+                setWorkspace(p.id !== 'lite');
+                toast(p.id === 'lite' ? 'Mode Lite : un CV, l’aperçu d’abord.' : p.id === 'pro' ? 'Mode Pro activé.' : 'God mode : tout est ouvert.');
+              },
+            },
+            h('strong', {}, p.name, p.id !== 'lite' && h('span', { class: 'pro-tag' }, p.id === 'max' ? 'MAX' : 'PRO')),
+            h('span', {}, p.text),
+          ),
+        ),
+      ),
+      h('p', { class: 'hint' }, 'Pendant la phase d’essai, Pro et God mode sont gratuits.'),
     ],
   });
-});
+}
 
 // --- Projet et export -----------------------------------------------------------
 

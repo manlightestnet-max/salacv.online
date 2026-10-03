@@ -14,7 +14,26 @@ const CHOICES = [
 export const themeChoice = () => read(KEY) || 'dark';
 
 export function applyTheme(choice = themeChoice()) {
-  document.documentElement.dataset.theme = choice === 'system' ? (light.matches ? 'light' : 'dark') : choice;
+  const t = choice === 'system' ? (light.matches ? 'light' : 'dark') : choice;
+  document.documentElement.dataset.theme = t;
+  syncBrowserBar();
+}
+
+// La barre du navigateur (Chrome Android, Safari) prend la couleur du fond, dans les deux thèmes.
+export function syncBrowserBar() {
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) document.head.append((meta = Object.assign(document.createElement('meta'), { name: 'theme-color' })));
+  const rgb = getComputedStyle(document.documentElement).getPropertyValue('--canvas').trim().split(/\s+/).join(',');
+  if (rgb) meta.content = `rgb(${rgb})`;
+  document.documentElement.style.colorScheme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+// Bouton lune/soleil : bascule directe Sombre ↔ Clair.
+export function toggleTheme() {
+  const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  write(KEY, next);
+  applyTheme(next);
+  return next;
 }
 light.addEventListener('change', () => themeChoice() === 'system' && applyTheme());
 

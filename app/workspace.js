@@ -15,6 +15,9 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
   let frames = []; // { key, label, el, host, x, y, w, h, active }
   let cam = readCam() ?? { x: 80, y: 80, z: 0.35 };
   let on = false;
+  // Miniatures gardées d'un rendu à l'autre : changer de CV ne redessine que ce qui a changé
+  // (pas de flash, pas de saccade).
+  const thumbs = new Map(); // key -> { canvas, doc, width }
 
   function readCam() {
     try {
@@ -30,6 +33,7 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
       sessionStorage.setItem(CAM_KEY, JSON.stringify(cam));
     } catch {}
     onZoom?.(cam.z);
+    preview.dispatchEvent(new Event('ws-camera'));
     scheduleSharpen();
   }
 
@@ -52,9 +56,10 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
         world.append(el);
         const frame = { ...f, el, host, x, y: y + PAD + 40 };
         if (!f.active && f.doc) {
-          const c = h('canvas', { class: 'ws-thumb' });
-          host.append(c);
-          frame.canvas = c;
+          let t = thumbs.get(f.key);
+          if (!t) thumbs.set(f.key, (t = { canvas: h('canvas', { class: 'ws-thumb' }), doc: null, width: 0 }));
+          host.append(t.canvas);
+          frame.thumb = t;
         }
         frames.push(frame);
         rowH = Math.max(rowH, f.active ? PAGE.h * Math.max(1, f.pages ?? 1) + 24 * ((f.pages ?? 1) - 1) : PAGE.h);
@@ -77,10 +82,12 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
   function sharpen() {
     const width = PAGE.w * Math.min(2, Math.max(0.25, cam.z * (window.devicePixelRatio || 1)));
     for (const f of frames) {
-      if (!f.canvas || !f.doc) continue;
-      drawDoc(engine, f.canvas, f.doc, width);
-      f.canvas.style.width = `${PAGE.w}px`;
-      f.canvas.style.height = `${PAGE.h}px`;
+      const t = f.thumb;
+      if (!t || !f.doc || (t.doc === f.doc && t.width === width)) continue;
+      drawDoc(engine, t.canvas, f.doc, width);
+      Object.assign(t, { doc: f.doc, width });
+      t.canvas.style.width = `${PAGE.w}px`;
+      t.canvas.style.height = `${PAGE.h}px`;
     }
   }
 

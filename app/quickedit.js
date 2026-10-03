@@ -408,6 +408,11 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
   document.addEventListener('click', (e) => !e.target.closest('.qe-bar, #canvases, .dialog-backdrop') && deselect());
   document.addEventListener('keydown', (e) => e.key === 'Escape' && !editing && deselect());
   preview.addEventListener('scroll', () => selected && !editing && deselect(), { passive: true });
+  // Espace Pro : la caméra bouge (glisser, zoom) → le contour ne garde plus son repère.
+  preview.addEventListener('ws-camera', () => {
+    if (selected && !editing) deselect();
+    if (!editing) outline.hidden = true;
+  });
 
   // Onglet IA : la question du champ en haut (on reste dans le contexte), l'étudiant écrit
   // comme il parle, l'assistant met en forme ce seul élément.

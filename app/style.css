@@ -1305,3 +1305,68 @@ button.logo-mark { border: 0; cursor: pointer; }
 .ws-group.active .ws-group-label { color: rgb(var(--gray-900)); }
 /* Nom du CV au-dessus de son conteneur (comme une section Figma), langues à l'intérieur. */
 .ws-group-label { top: auto; left: 0; bottom: calc(100% + 10px / var(--wsz, 1)); }
+
+/* --- Barre du haut : sans Accueil ; thème à côté du panneau ; aperçu réglé à droite ---- */
+.theme-btn { font-size: 15px; }
+.hide-preview {
+  position: fixed; top: 16px; right: 16px; z-index: 6; display: none; place-items: center; width: 38px; height: 38px;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 11px; background: rgb(var(--bar)); color: rgb(var(--gray-800)); box-shadow: var(--shadow-lg);
+}
+.hide-preview:hover { color: rgb(var(--gray-900)); border-color: rgb(var(--gray-300)); }
+@media (min-width: 960px) {
+  .hide-preview { display: grid; }
+  .preview-hidden .hide-preview { display: none; }
+  /* Rien ne recouvre le bouton qui rouvre un panneau. */
+  .preview-hidden .ws-picker, .preview-hidden .step-fab { display: none; }
+  .side-hidden .ws-picker { left: 136px; }
+  .show-preview { top: 16px; }
+}
+
+/* --- Nom + modèle du CV (clic sur le titre) ------------------------------------------ */
+.cv-title { cursor: pointer; }
+.cv-title::after { content: ' ▾'; font-size: 10px; color: rgb(var(--gray-500)); }
+.cv-dialog { width: min(100%, 560px); }
+.cv-dialog-label { display: flex; flex-direction: column; gap: 6px; margin: 0; font: 500 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--gray-500)); }
+.cv-dialog-label + .cv-dialog-label { margin-top: 14px; }
+.cv-name-input { height: 42px; padding: 0 12px; border: 1px solid rgb(var(--gray-200)); border-radius: 10px; background: rgb(var(--raised)); color: rgb(var(--gray-900)); font: 600 15px var(--font-sans); text-transform: none; letter-spacing: 0; outline: none; }
+.cv-name-input:focus { border-color: rgb(var(--gray-500)); }
+.templates.in-dialog { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); height: auto; gap: 8px; padding: 6px 0 0; border: 0; overflow: visible; }
+.templates.in-dialog .tpl-card { height: 72px; }
+
+/* --- Respiration : la barre et le contenu du panneau ne se touchent pas ----------- */
+@media (min-width: 960px) {
+  .pro .sheet, .pro .sheet[data-state='collapsed'] { gap: 14px; }
+  .pro .sheet-body, .pro .agent-view { border-top: 1px solid rgb(var(--gray-200)); border-radius: 16px; }
+  .pro .sheet-head { border-radius: 16px; }
+}
+
+/* --- Mobile, clavier ouvert : la sheet colle exactement à la zone visible, au-dessus de tout. */
+@media (max-width: 959px) {
+  .kb-open .sheet, .kb-open .sheet[data-state] {
+    top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100dvh); z-index: 80;
+  }
+  .kb-open .zoombar, .kb-open .topbar, .kb-open .qe-bar, .kb-open .step-fab, .kb-open .ws-picker { display: none !important; }
+}
+
+/* --- Thème clair : élégant, jamais blanc pur ---------------------------------------- */
+:root[data-theme='light'] .sheet-head,
+:root[data-theme='light'] .ws-picker-btn,
+:root[data-theme='light'] .step-fab-btn,
+:root[data-theme='light'] .hide-preview,
+:root[data-theme='light'] .zoombar {
+  background: rgb(250 250 251 / 0.86); backdrop-filter: blur(14px) saturate(1.4);
+  border-color: rgb(0 0 0 / 0.07); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 30px -12px rgb(0 0 0 / 0.18);
+}
+:root[data-theme='light'].pro .sheet-body, :root[data-theme='light'].pro .agent-view {
+  background: rgb(247 247 248); border-color: rgb(0 0 0 / 0.07); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 18px 40px -20px rgb(0 0 0 / 0.2);
+}
+:root[data-theme='light'] .ws-group { background: rgb(0 0 0 / 0.018); border-color: rgb(0 0 0 / 0.08); }
+:root[data-theme='light'] .ws-group.active { background: rgb(0 0 0 / 0.035); border-color: rgb(0 0 0 / 0.22); }
+
+/* Lite / Pro / God mode */
+.plans-dialog { width: min(100%, 520px); }
+.plans { display: flex; flex-direction: column; gap: 8px; }
+.plan { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid rgb(var(--gray-200)); border-radius: 14px; background: rgb(var(--raised)); color: rgb(var(--gray-700)); text-align: left; font: 400 13px/1.45 var(--font-sans); }
+.plan strong { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: rgb(var(--gray-900)); }
+.plan:hover { border-color: rgb(var(--gray-400)); }
+.plan[aria-pressed='true'] { border-color: rgb(var(--gray-900)); box-shadow: 0 0 0 1px rgb(var(--gray-900)); }
