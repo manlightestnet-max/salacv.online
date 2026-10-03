@@ -666,6 +666,7 @@ function paint(doc) {
   });
 
   if (inWs) return;
+  placeLiteTpl(z);
   $('zoom-label').textContent = `${Math.round(z * 100)} %`;
   $('zoom-fit').classList.toggle('active', zoom.fit);
 }
@@ -979,15 +980,50 @@ function wsRefresh() {
   renderStepFab();
 }
 
+// Lite : le même bouton « modèle » à droite de la page, et la même carte, accrochée à la
+// page (elle suit le défilement et le zoom comme la page). Reste ouverte jusqu'au choix.
+let liteTplOpen = false;
+const liteTpl = h('div', { class: 'lite-tpl' });
+function placeLiteTpl(z) {
+  const page = pages[0]?.el;
+  if (workspace?.on || !page || !engine) return liteTpl.remove();
+  if (liteTpl.parentNode !== canvases) canvases.append(liteTpl);
+  const tpl = TEMPLATES.find((t) => t.id === state.template) ?? TEMPLATES[0];
+  const chip = h('button', { type: 'button', class: 'ws-group-tpl lite-chip', onClick: () => ((liteTplOpen = !liteTplOpen), placeLiteTpl(z), liteTplOpen && requestAnimationFrame(() => liteTpl.scrollIntoView({ inline: 'end', block: 'nearest', behavior: 'smooth' }))) }, h('span', {}, tpl.name), h('span', { 'aria-hidden': 'true' }, liteTplOpen ? '▴' : '▾'));
+  const parts = [chip];
+  if (liteTplOpen) {
+    const card = tplCardEl(pickerDocs('main'), (id) => ((liteTplOpen = false), pickTemplate('main', id)), () => openTplStudio('main'));
+    const k = Math.min(1.2, Math.max(0.5, z * 0.8));
+    card.style.transform = `scale(${k})`;
+    parts.push(card);
+    // Place réservée à droite de la page : la carte ne recouvre rien, l'aperçu défile.
+    canvases.style.paddingRight = `${Math.round(410 * k + 70)}px`;
+  } else canvases.style.paddingRight = '';
+  liteTpl.replaceChildren(...parts);
+  Object.assign(liteTpl.style, { left: `${page.offsetLeft + page.offsetWidth + 14}px`, top: `${page.offsetTop}px` });
+}
+// La carte des modèles (espace Pro et Lite).
+function tplCardEl(items, onPick, onExpand) {
+  return h(
+    'div',
+    { class: 'ws-tpl-card' },
+    h('div', { class: 'ws-tpl-card-head' }, h('strong', {}, 'Modèles'), h('button', { type: 'button', class: 'btn-ghost ws-tpl-expand', onClick: (e) => (e.stopPropagation(), onExpand()) }, '⤢ Agrandir')),
+    items.map((t) => {
+      const c = h('canvas', { class: 'tpl-thumb' });
+      if (t.doc) requestAnimationFrame(() => drawDoc(engine, c, t.doc, 50));
+      return h('button', { type: 'button', class: 'tpl-pop-item', 'aria-selected': String(t.selected), onClick: (e) => (e.stopPropagation(), onPick(t.id)) }, c, h('span', {}, t.name));
+    }),
+  );
+}
+
 // Choix du modèle d'un CV de l'espace : les modèles s'ouvrent DANS l'espace, sous le
 // conteneur, chacun montrant ce CV dans ce modèle ; on zoome, on compare, on touche.
 let tplPickFor = null;
 function openTplPicker(id) {
   tplPickFor = tplPickFor === id ? null : id;
   wsRefresh();
-  if (tplPickFor) requestAnimationFrame(() => workspace.focusPicker());
 }
-document.addEventListener('keydown', (e) => e.key === 'Escape' && tplPickFor && ((tplPickFor = null), wsRefresh(), workspace.focusActive()));
+document.addEventListener('keydown', (e) => e.key === 'Escape' && !tplStudio && (tplPickFor || liteTplOpen) && ((tplPickFor = null), (liteTplOpen = false), wsRefresh(), repaint()));
 function pickTemplate(id, tpl) {
   const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
   if (!doc) return;
@@ -998,7 +1034,6 @@ function pickTemplate(id, tpl) {
   tplPickFor = null;
   if (id === activeDoc) update();
   wsRefresh();
-  workspace.focusActive();
   toast(`Modèle « ${TEMPLATES.find((t) => t.id === tpl)?.name} » appliqué.`);
 }
 // Les modèles en grand, dans un dialogue interne au panneau de droite (l'aperçu) : chaque
@@ -1117,6 +1152,7 @@ function setWorkspace(enabled) {
     onTemplate: (id) => openTplPicker(id),
     onPickTemplate: pickTemplate,
     onExpandTemplates: openTplStudio,
+    cardEl: tplCardEl,
     onSwitch(key) {
       const [id, lang] = key.split(':');
       switchDoc(id, lang);

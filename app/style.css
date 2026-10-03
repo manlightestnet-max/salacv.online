@@ -1565,3 +1565,11 @@ button.logo-mark { border: 0; cursor: pointer; }
 .tpl-studio-item.on canvas { outline-color: rgb(var(--gray-900)); }
 .tpl-studio-item.on { color: rgb(var(--gray-900)); font-weight: 600; }
 .tpl-studio-item em { font-style: normal; color: rgb(var(--gray-500)); font-weight: 400; }
+/* La carte est un objet de l'espace : elle zoome et se déplace avec le conteneur. */
+.ws-world .ws-tpl-card { transform: scale(1.35); transform-origin: left top; margin-left: 24px; margin-top: 60px; }
+.ws-world .ws-group-tpl { transform: scale(1.35); left: calc(100% + 24px); }
+/* Lite : à droite de la page. */
+.lite-tpl { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.lite-tpl .ws-group-tpl { position: static; transform: none; }
+.lite-tpl .ws-tpl-card { position: static; transform-origin: left top; margin: 0; }
+@media (max-width: 959px) { .lite-tpl { display: none; } }
