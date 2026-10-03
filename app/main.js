@@ -44,7 +44,7 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
-let project = openProject();
+const project = openProject();
 project.variants ??= {};
 let state = project.state;
 let activeLang = state.lang; // onglet de langue affiché (voir langs.js)
@@ -181,7 +181,7 @@ async function initEngine() {
       // L'IA d'une fenêtre d'édition renvoie un CV : on garde photo, modèle et langue.
       replaceState: applyAiState,
       askLogin: () => openAgent(),
-      // Mêmes fenêtres flottantes d'édition dans tous les modes (Lite, Pro, God mode).
+      // Mêmes fenêtres flottantes d'édition dans tous les modes (Lite et Pro).
       inspector: () => null,
     });
   } catch (err) {
@@ -780,8 +780,8 @@ function curDoc() {
 const docLabel = (d) => normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
 
 // Passer à un autre CV du projet (et à l'une de ses langues), sans recharger.
-function switchDoc(id, lang, { focus = false, save = true } = {}) {
-  if (save) saveCurrent();
+function switchDoc(id, lang, { focus = false } = {}) {
+  saveCurrent();
   activeDoc = id;
   const d = curDoc();
   d.variants ??= {};
@@ -798,18 +798,6 @@ function switchDoc(id, lang, { focus = false, save = true } = {}) {
     renderStepFab();
     if (focus) workspace.focusActive();
   }
-}
-
-// God mode : passer à un autre projet sur place (pas de rechargement), on modifie
-// directement ce qu'on voit.
-function switchProject(id, lang) {
-  const next = getProject(id);
-  if (!next) return;
-  saveCurrent();
-  project = next;
-  project.docs ??= [];
-  history.replaceState(null, '', `${location.pathname}?p=${project.id}`);
-  switchDoc('main', lang, { save: false }); // déjà enregistré, avant de changer de projet
 }
 
 // Nouveau CV dans le projet : mêmes informations, nouvelle profession à écrire.
@@ -946,14 +934,6 @@ function wsRows() {
     return wsLayouts.get(key);
   };
   // Une ligne = un CV du projet (sa famille de langues), une colonne = une langue.
-  // God mode : les autres projets suivent, ouverts d'un clic.
-  const others =
-    getPlan() === 'max'
-      ? listProjects()
-          .filter((p) => p.id !== project.id)
-          .slice(0, 12)
-          .map((p) => ({ id: `@${p.id}`, label: `${projectName(p)} · autre projet`, frames: [{ key: `@${p.id}:${p.state.lang ?? 'fr'}`, label: String(p.state.lang ?? 'fr').toUpperCase(), active: false, pages: 1, doc: docOf(p.state) }] }))
-      : [];
   return [project, ...project.docs].map((d) => {
     const id = d === project ? 'main' : d.id;
     const versions = [[d.state.lang, d.state], ...Object.entries(d.variants ?? {}).filter(([l]) => l !== d.state.lang)];
@@ -965,7 +945,7 @@ function wsRows() {
         return { key: `${id}:${lang}`, label: String(lang).toUpperCase(), active, pages: active ? current?.doc.pages.length ?? 1 : 1, doc: active ? null : docOf(st) };
       }),
     };
-  }).concat(others);
+  });
 }
 
 function wsRefresh() {
@@ -1039,7 +1019,6 @@ function setWorkspace(enabled) {
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
     onSwitch(key) {
       const [id, lang] = key.split(':');
-      if (id.startsWith('@')) return switchProject(id.slice(1), lang);
       switchDoc(id, lang);
     },
   });
@@ -1055,7 +1034,7 @@ function setWorkspace(enabled) {
     renderStepFab();
   }
   $('ws-toggle').setAttribute('aria-pressed', String(enabled));
-  $('ws-toggle').replaceChildren({ lite: 'Lite', pro: 'Pro', max: 'God mode' }[enabled ? getPlan() : 'lite'], h('span', { class: 'pro-tag' }, 'MODE'));
+  $('ws-toggle').replaceChildren({ lite: 'Lite', pro: 'Pro' }[enabled ? getPlan() : 'lite'], h('span', { class: 'pro-tag' }, 'MODE'));
   try {
     sessionStorage.setItem(WS_KEY, enabled ? '1' : '0');
   } catch {}
@@ -1065,12 +1044,11 @@ $('ws-toggle').addEventListener('click', () => {
   openPlans();
 });
 
-// Lite (par défaut), Pro, God mode : le choix de la façon de travailler.
+// Lite (par défaut) ou Pro : le choix de la façon de travailler.
 function openPlans() {
   const plans = [
     { id: 'lite', name: 'Lite', text: 'Un CV, vite fait. L’aperçu d’abord, on touche le CV pour le modifier.' },
     { id: 'pro', name: 'Pro', text: 'Tu édites toi-même : un projet contient plusieurs CV, chacun avec ses langues, dans un espace infini.' },
-    { id: 'max', name: 'God mode', text: 'Tout est ouvert : tous tes projets dans le même espace, tous les panneaux.' },
   ];
   const d = openDialog({
     title: 'Ta façon de travailler',
@@ -1090,15 +1068,15 @@ function openPlans() {
                 setPlan(p.id);
                 d.close();
                 setWorkspace(p.id !== 'lite');
-                toast(p.id === 'lite' ? 'Mode Lite : un CV, l’aperçu d’abord.' : p.id === 'pro' ? 'Mode Pro activé.' : 'God mode : tout est ouvert.');
+                toast(p.id === 'lite' ? 'Mode Lite : un CV, l’aperçu d’abord.' : 'Mode Pro activé.');
               },
             },
-            h('strong', {}, p.name, p.id !== 'lite' && h('span', { class: 'pro-tag' }, p.id === 'max' ? 'MAX' : 'PRO')),
+            h('strong', {}, p.name, p.id !== 'lite' && h('span', { class: 'pro-tag' }, 'PRO')),
             h('span', {}, p.text),
           ),
         ),
       ),
-      h('p', { class: 'hint' }, 'Pendant la phase d’essai, Pro et God mode sont gratuits.'),
+      h('p', { class: 'hint' }, 'Pendant la phase d’essai, le mode Pro est gratuit.'),
     ],
   });
 }

@@ -109,12 +109,11 @@ export function projectName(project) {
 
 // --- Offre Pro (cybers, secrétariats, recruteurs) ------------------------------------
 // Local pendant la phase d'essai ; le wallet décidera quand il sera branché.
-// Trois façons de travailler :
+// Deux façons de travailler :
 //  lite : l'étudiant qui veut un CV vite fait — un projet, un CV, l'aperçu d'abord ;
-//  pro  : celui qui édite lui-même — un projet contient plusieurs CV et leurs langues ;
-//  max  : le God mode — tout est ouvert : tous les projets dans le même espace.
-export const PLANS = ['lite', 'pro', 'max'];
-export const getPlan = () => ({ pro: 'pro', max: 'max' })[read('salacv:plan')] ?? 'lite';
+//  pro  : celui qui édite lui-même — un projet contient plusieurs CV et leurs langues.
+export const PLANS = ['lite', 'pro'];
+export const getPlan = () => (['pro', 'max'].includes(read('salacv:plan')) ? 'pro' : 'lite');
 export const setPlan = (plan) => write('salacv:plan', PLANS.includes(plan) ? plan : 'lite');
 export const isPro = () => getPlan() !== 'lite';
 export const setPro = (on) => setPlan(on ? 'pro' : 'lite');
