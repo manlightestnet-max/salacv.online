@@ -1034,3 +1034,9 @@ html[data-theme] {
   background-color: rgb(var(--raised-hover));
 }
 .tpl-card[aria-pressed='true'] { background-color: rgb(var(--raised-hover)); }
+
+/* Barres du panneau (en-tête « Identité » et pied « Suivant ») : jamais le fond du panneau.
+   Elles prennent le fond de la page ; leurs boutons repassent sur le fond du panneau. */
+.sheet-head, .step-nav { background-color: rgb(var(--canvas)); }
+.sheet-head .btn-ghost, .step-nav .btn-ghost, .step-nav .btn-text { background-color: rgb(var(--surface)); }
+.sheet-head .btn-ghost:hover, .step-nav .btn-ghost:hover { background-color: rgb(var(--raised)); }
