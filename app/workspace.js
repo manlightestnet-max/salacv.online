@@ -34,19 +34,23 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
   }
 
   // --- Cadres -------------------------------------------------------------------------
-  // rows : [[{ key, label, active, doc }]] — une ligne par CV, une colonne par langue.
+  // rows : [{ id, label, frames: [{ key, label, active, doc, pages }] }]
+  // Un conteneur par CV (sa famille de langues), un cadre par langue à l'intérieur.
   function render(rows) {
     frames = [];
     world.replaceChildren();
+    const PAD = 56;
     let y = 0;
     for (const row of rows) {
-      let x = 0;
+      const box = h('div', { class: `ws-group${row.frames.some((f) => f.active) ? ' active' : ''}` }, h('span', { class: 'ws-group-label' }, row.label));
+      world.append(box);
+      let x = PAD;
       let rowH = PAGE.h;
-      for (const f of row) {
+      for (const f of row.frames) {
         const host = h('div', { class: 'ws-pages' });
-        const el = h('div', { class: `ws-frame${f.active ? ' active' : ''}`, 'data-key': f.key, style: `left:${x}px;top:${y}px;width:${PAGE.w}px` }, h('span', { class: 'ws-label' }, f.label), host);
+        const el = h('div', { class: `ws-frame${f.active ? ' active' : ''}`, 'data-key': f.key, style: `left:${x}px;top:${y + PAD + 40}px;width:${PAGE.w}px` }, h('span', { class: 'ws-label' }, f.label), host);
         world.append(el);
-        const frame = { ...f, el, host, x, y };
+        const frame = { ...f, el, host, x, y: y + PAD + 40 };
         if (!f.active && f.doc) {
           const c = h('canvas', { class: 'ws-thumb' });
           host.append(c);
@@ -56,7 +60,8 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
         rowH = Math.max(rowH, f.active ? PAGE.h * Math.max(1, f.pages ?? 1) + 24 * ((f.pages ?? 1) - 1) : PAGE.h);
         x += PAGE.w + GAP.x;
       }
-      y += rowH + GAP.y;
+      Object.assign(box.style, { left: '0px', top: `${y}px`, width: `${x - GAP.x + PAD}px`, height: `${rowH + PAD * 2 + 40}px` });
+      y += rowH + PAD * 2 + 40 + GAP.y;
     }
     sharpen();
   }

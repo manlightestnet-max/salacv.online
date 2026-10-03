@@ -266,7 +266,7 @@ function editor(target, state, changed, close, photoShape) {
 }
 
 // canvases : conteneur des pages ; getDoc() : layout affiché ; getState() : formulaire.
-export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, photoShape = () => null, enabled = () => true, replaceState, askLogin }) {
+export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, photoShape = () => null, enabled = () => true, replaceState, askLogin, inspector = () => null }) {
   const kit = createKit(fonts);
   const mockupState = fromResume(mockup);
   const outline = h('div', { class: 'qe-outline', hidden: true });
@@ -397,7 +397,9 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     const found = locate(e);
     if (!found) return deselect();
     e.stopPropagation();
+    if (editing?.inspector) editing = null; // le panneau passe à la nouvelle sélection
     select(found.target, found.box);
+    if (inspector()) open(realTarget(found.target, getState()), found.box);
   });
   canvases.addEventListener('dblclick', (e) => {
     if (!enabled() || !selected) return;
@@ -447,7 +449,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
   let lastBox = null;
   function open(target, box) {
     lastBox = box;
-    bar.hidden = true;
+    if (!inspector()) bar.hidden = true;
     const state = getState();
     const isItem = target.kind === 'item';
     const base = isItem ? (target.list === 'education' ? 'Formation' : 'Expérience') : TITLES[target.kind];
@@ -469,6 +471,30 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
       };
       ai.el.hidden = true;
       content = [h('div', { class: 'qe-tabs', role: 'tablist' }, tabs), form, ai.el];
+    }
+    // Mode Pro : le contenu de l'élément sélectionné s'affiche dans le panneau de gauche
+    // (comme l'inspecteur d'un éditeur), pas dans une fenêtre.
+    const panel = inspector();
+    if (panel) {
+      const closeIns = () => {
+        editing = null;
+        selected = null;
+        bar.hidden = true;
+        outline.hidden = true;
+        onClose?.();
+      };
+      dialog = { close: closeIns, el: panel, inspector: true };
+      editing = dialog;
+      panel.replaceChildren(
+        h(
+          'div',
+          { class: 'inspector fade' },
+          h('div', { class: 'ins-head' }, h('div', {}, h('span', { class: 'ins-kicker' }, target.ghost ? 'Sélection · exemple' : 'Sélection'), h('strong', {}, title)), h('button', { type: 'button', class: 'btn-ghost', onClick: closeIns }, 'Toutes les étapes')),
+          ...[content].flat(),
+        ),
+      );
+      if (!window.matchMedia('(pointer: coarse)').matches) requestAnimationFrame(() => panel.querySelector(target.focusAdd ? '.items-entry .input, .input' : '.input')?.focus({ preventScroll: true }));
+      return;
     }
     dialog = openDialog({
       title,

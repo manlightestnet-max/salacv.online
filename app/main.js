@@ -168,6 +168,8 @@ async function initEngine() {
         schedule();
       },
       askLogin: () => openAgent(),
+      // Mode Pro : la sélection s'édite dans le panneau de gauche.
+      inspector: () => (workspace?.on ? stepEl : null),
     });
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
@@ -364,6 +366,7 @@ function goTo(i) {
   stepIndex = i;
   renderStep();
   stepEl.scrollTop = 0;
+  if (workspace?.on) renderStepFab();
 }
 
 function renderStep() {
@@ -430,6 +433,12 @@ function update() {
   }
   paint(result.doc);
   paintThumbs();
+  // Mode Pro : le nom du CV actif suit la profession saisie.
+  if (workspace?.on) {
+    const label = document.querySelector('.ws-group.active .ws-group-label');
+    if (label) label.textContent = docLabel(curDoc());
+    if (!pickerOpen) renderPicker();
+  }
 }
 
 // --- Choix du modèle ------------------------------------------------------------
@@ -629,9 +638,48 @@ function photoShape() {
 
 // --- Versions par langue -----------------------------------------------------------
 
+// Un projet peut contenir plusieurs CV (mode Pro) : le CV principal (le projet lui-même)
+// et project.docs. Chaque CV a sa famille de langues (state + variants).
+let activeDoc = 'main';
+project.docs ??= [];
+function curDoc() {
+  return activeDoc === 'main' ? project : project.docs.find((d) => d.id === activeDoc) ?? project;
+}
+const docLabel = (d) => normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
+
+// Passer à un autre CV du projet (et à l'une de ses langues), sans recharger.
+function switchDoc(id, lang, { focus = false } = {}) {
+  saveCurrent();
+  activeDoc = id;
+  const d = curDoc();
+  d.variants ??= {};
+  activeLang = lang && (lang === d.state.lang || d.variants[lang]) ? lang : d.state.lang;
+  state = normalizeState(activeLang === d.state.lang ? d.state : d.variants[activeLang]);
+  langBar.render();
+  renderStep();
+  // Tout de suite (pas de délai) : le cadre actif et la caméra suivent le bon CV.
+  update();
+  if (workspace?.on) {
+    wsRefresh();
+    if (focus) workspace.focusActive();
+  }
+}
+
+// Nouveau CV dans le projet : mêmes informations, nouvelle profession à écrire.
+function addDoc() {
+  const base = normalizeState(structuredClone(state));
+  base.profile.title = '';
+  base.profile.summary = '';
+  const doc = { id: Math.random().toString(36).slice(2, 9), cvName: `CV ${project.docs.length + 2}`, state: base, variants: {} };
+  project.docs.push(doc);
+  switchDoc(doc.id, null, { focus: true });
+  toast('Nouveau CV dans le projet : écris la profession, le reste est déjà là.');
+}
+
 function saveCurrent() {
-  if (activeLang === project.state.lang) project.state = state;
-  else project.variants[activeLang] = state;
+  const doc = curDoc();
+  if (activeLang === doc.state.lang) doc.state = state;
+  else (doc.variants ??= {})[activeLang] = state;
   saveProject(project);
   flashSaved();
   renderTitle();
@@ -691,7 +739,10 @@ $('show-preview').addEventListener('click', () => setPreviewHidden(false));
 setPreviewHidden(read('salacv:preview-hidden') === '1' && desktop.matches);
 
 const langBar = createLangBar({
-  project,
+  // Le CV actif du projet (le projet lui-même, ou l'un de ses CV en mode Pro).
+  get project() {
+    return curDoc();
+  },
   getState: () => state,
   getLang: () => activeLang,
   switchTo(lang, next) {
@@ -727,29 +778,22 @@ let workspace = null;
 const WS_KEY = 'salacv:ws-on';
 
 function wsRows() {
-  const all = listProjects()
-    .filter((p) => p.id !== project.id)
-    .concat([project])
-    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
-    .slice(-12);
   const docOf = (st) => {
     const r = layoutResume(toResume(normalizeState(st), { mockup: example }), engine.fonts);
     return r.ok ? r.doc : null;
   };
-  return all.map((p) => {
-    const mine = p.id === project.id;
-    const base = mine ? project : p;
-    const versions = [[base.state.lang, base.state], ...Object.entries(base.variants ?? {}).filter(([l]) => l !== base.state.lang)];
-    return versions.map(([lang, st]) => {
-      const active = mine && lang === activeLang;
-      return {
-        key: `${p.id}:${lang}`,
-        label: `${projectName(base)} · ${String(lang).toUpperCase()}`,
-        active,
-        pages: active ? current?.doc.pages.length ?? 1 : 1,
-        doc: active ? null : docOf(st),
-      };
-    });
+  // Une ligne = un CV du projet (sa famille de langues), une colonne = une langue.
+  return [project, ...project.docs].map((d) => {
+    const id = d === project ? 'main' : d.id;
+    const versions = [[d.state.lang, d.state], ...Object.entries(d.variants ?? {}).filter(([l]) => l !== d.state.lang)];
+    return {
+      id,
+      label: docLabel(d),
+      frames: versions.map(([lang, st]) => {
+        const active = id === activeDoc && lang === activeLang;
+        return { key: `${id}:${lang}`, label: String(lang).toUpperCase(), active, pages: active ? current?.doc.pages.length ?? 1 : 1, doc: active ? null : docOf(st) };
+      }),
+    };
   });
 }
 
@@ -757,6 +801,62 @@ function wsRefresh() {
   if (!workspace?.on) return;
   workspace.render(wsRows());
   if (current) paint(current.doc);
+  renderPicker();
+  renderStepFab();
+}
+
+// Sélecteur du CV actif dans le projet (en haut à gauche de l'espace).
+let pickerOpen = false;
+function renderPicker() {
+  const el = $('ws-picker');
+  el.hidden = !workspace?.on;
+  if (el.hidden) return;
+  const docs = [project, ...project.docs];
+  const cur = curDoc();
+  const button = h(
+    'button',
+    { type: 'button', class: 'ws-picker-btn', 'aria-expanded': String(pickerOpen), onClick: () => ((pickerOpen = !pickerOpen), renderPicker()) },
+    h('span', { class: 'ws-picker-kicker' }, `Projet · ${docs.length} CV`),
+    h('strong', {}, `${docLabel(cur)} · ${String(activeLang).toUpperCase()}`),
+    h('span', { 'aria-hidden': 'true' }, pickerOpen ? '▴' : '▾'),
+  );
+  const list = pickerOpen
+    ? h(
+        'div',
+        { class: 'ws-picker-list' },
+        docs.map((d) => {
+          const id = d === project ? 'main' : d.id;
+          const langs = [d.state.lang, ...Object.keys(d.variants ?? {}).filter((l) => l !== d.state.lang)];
+          return h(
+            'div',
+            { class: `ws-pick${id === activeDoc ? ' current' : ''}` },
+            h('strong', {}, docLabel(d)),
+            h('div', { class: 'ws-pick-langs' }, langs.map((l) => h('button', { type: 'button', class: `ws-lang${id === activeDoc && l === activeLang ? ' on' : ''}`, onClick: () => ((pickerOpen = false), switchDoc(id, l, { focus: true })) }, String(l).toUpperCase()))),
+          );
+        }),
+        h('button', { type: 'button', class: 'ws-pick-add', onClick: () => ((pickerOpen = false), addDoc()) }, '+ Nouveau CV dans le projet'),
+      )
+    : null;
+  el.replaceChildren(button, list ?? '');
+}
+
+// Étapes en bouton flottant (bas droite) : un clic les déplie.
+let fabOpen = false;
+function renderStepFab() {
+  const el = $('step-fab');
+  el.hidden = !workspace?.on;
+  if (el.hidden) return;
+  const step = STEPS[stepIndex];
+  el.replaceChildren(
+    fabOpen
+      ? h(
+          'div',
+          { class: 'step-fab-list' },
+          STEPS.map((s, i) => h('button', { type: 'button', class: `step-fab-item${i === stepIndex ? ' on' : ''}`, onClick: () => ((fabOpen = false), goTo(i), renderStepFab()) }, h('span', {}, String(i + 1)), s.label)),
+        )
+      : '',
+    h('button', { type: 'button', class: 'step-fab-btn', 'aria-expanded': String(fabOpen), onClick: () => ((fabOpen = !fabOpen), renderStepFab()) }, h('span', { class: 'step-fab-ring', style: `--p:${(stepIndex + 1) / STEPS.length}` }, String(stepIndex + 1)), h('span', {}, step.label), h('small', {}, `${stepIndex + 1}/${STEPS.length}`)),
+  );
 }
 
 function setWorkspace(enabled) {
@@ -768,16 +868,10 @@ function setWorkspace(enabled) {
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
     onSwitch(key) {
       const [id, lang] = key.split(':');
-      if (id === project.id) {
-        langBar.open(lang);
-        wsRefresh();
-        workspace.focusActive();
-      } else {
-        saveCurrent();
-        location.href = `/studio/?p=${id}&lang=${lang}`;
-      }
+      switchDoc(id, lang);
     },
   });
+  root.classList.toggle('pro', enabled);
   if (enabled) {
     workspace.enable();
     wsRefresh();
@@ -785,6 +879,8 @@ function setWorkspace(enabled) {
     workspace.disable();
     canvases.replaceChildren();
     if (current) paint(current.doc);
+    renderPicker();
+    renderStepFab();
   }
   $('ws-toggle').setAttribute('aria-pressed', String(enabled));
   try {

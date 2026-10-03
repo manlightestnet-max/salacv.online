@@ -1230,3 +1230,78 @@ button.logo-mark { border: 0; cursor: pointer; }
 .ws-label { font-size: calc(12px / var(--wsz, 1)); bottom: calc(100% + 8px / var(--wsz, 1)); }
 .ws-frame.active .ws-pages canvas { outline-width: calc(2px / var(--wsz, 1)); }
 .ws-frame:not(.active):hover .ws-pages canvas { outline-width: calc(2px / var(--wsz, 1)); }
+
+/* --- Mode Pro : panneau en deux cartes séparées, étapes flottantes, sélecteur de CV --- */
+@media (min-width: 960px) {
+  .pro .sheet, .pro .sheet[data-state='collapsed'] {
+    background: transparent; border: 0; box-shadow: none; overflow: visible; gap: 10px;
+  }
+  /* 1. La barre d'outils seule. */
+  .pro .sheet-head { border-radius: 14px; border: 1px solid rgb(var(--gray-200)); box-shadow: var(--shadow-lg); }
+  /* 2. Le contenu (modèles + élément sélectionné) dans sa propre carte. */
+  .pro .templates { background: rgb(var(--surface)); border: 1px solid rgb(var(--gray-200)); border-bottom: 0; border-radius: 14px 14px 0 0; }
+  .pro .sheet-body, .pro .agent-view { background: rgb(var(--surface)); border: 1px solid rgb(var(--gray-200)); border-top: 0; border-radius: 0 0 14px 14px; overflow: hidden; box-shadow: var(--shadow-lg); }
+  .pro .stepper { display: none !important; }
+  .pro .sheet-grip { display: none; }
+}
+
+/* Inspecteur : l'élément sélectionné sur le CV. */
+.inspector { display: flex; flex-direction: column; gap: 0.9rem; padding: 1.2rem 1.4rem 2rem; }
+.ins-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgb(var(--gray-200)); }
+.ins-head > div { display: flex; flex-direction: column; gap: 2px; }
+.ins-kicker { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--gray-500)); }
+.ins-head strong { font-size: 18px; font-weight: 600; letter-spacing: -0.011em; }
+
+/* Sélecteur du CV actif (haut gauche de l'espace). */
+.ws-picker { position: fixed; top: 16px; left: calc(var(--side-space) + 16px); z-index: 6; min-width: 240px; }
+.ws-picker[hidden] { display: none; }
+.ws-picker-btn {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 0.75rem; width: 100%; padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 12px; background: rgb(var(--bar)); color: rgb(var(--gray-900)); text-align: left; box-shadow: var(--shadow-lg);
+}
+.ws-picker-kicker { grid-column: 1; font: 500 10px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--gray-500)); }
+.ws-picker-btn strong { grid-column: 1; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.ws-picker-btn > span:last-child { grid-column: 2; grid-row: 1 / span 2; color: rgb(var(--gray-500)); }
+.ws-picker-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid rgb(var(--gray-200)); border-radius: 12px; background: rgb(var(--surface)); box-shadow: var(--shadow-lg); animation: fade-up 0.18s var(--ease-out); }
+.ws-pick { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.5rem 0.6rem; border-radius: 8px; }
+.ws-pick.current { background: rgb(var(--raised)); }
+.ws-pick strong { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-pick-langs { display: flex; gap: 4px; flex: none; }
+.ws-lang { height: 26px; min-width: 34px; padding: 0 6px; border: 1px solid rgb(var(--gray-200)); border-radius: 6px; background: none; color: rgb(var(--gray-600)); font: 500 11px var(--font-mono); }
+.ws-lang:hover { color: rgb(var(--gray-900)); border-color: rgb(var(--gray-400)); }
+.ws-lang.on { background: rgb(var(--gray-900)); border-color: transparent; color: rgb(var(--canvas)); }
+.ws-pick-add { margin-top: 2px; height: 34px; border: 1px dashed rgb(var(--gray-300)); border-radius: 8px; background: none; color: rgb(var(--gray-700)); font: 500 12.5px var(--font-sans); }
+.ws-pick-add:hover { border-color: rgb(var(--gray-500)); color: rgb(var(--gray-900)); }
+
+/* Étapes flottantes (bas droite), dépliables. */
+.step-fab { position: fixed; right: 16px; bottom: 16px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.step-fab[hidden] { display: none; }
+.step-fab-btn {
+  display: inline-flex; align-items: center; gap: 0.6rem; height: 44px; padding: 0 0.9rem 0 0.4rem;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 999px; background: rgb(var(--bar)); color: rgb(var(--gray-900)); font: 600 13px var(--font-sans); box-shadow: var(--shadow-lg);
+}
+.step-fab-btn small { font: 400 11px var(--font-mono); color: rgb(var(--gray-500)); }
+.step-fab-ring {
+  --p: 0; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-size: 12px;
+  background: radial-gradient(closest-side, rgb(var(--bar)) 78%, transparent 80% 100%), conic-gradient(rgb(var(--gray-900)) calc(var(--p) * 360deg), rgb(var(--gray-200)) 0);
+}
+.step-fab-list { display: flex; flex-direction: column; gap: 2px; padding: 6px; border: 1px solid rgb(var(--gray-200)); border-radius: 14px; background: rgb(var(--surface)); box-shadow: var(--shadow-lg); animation: fade-up 0.18s var(--ease-out); }
+.step-fab-item { display: flex; align-items: center; gap: 0.6rem; height: 34px; padding: 0 0.8rem 0 0.4rem; border: 0; border-radius: 8px; background: none; color: rgb(var(--gray-700)); font: 500 13px var(--font-sans); text-align: left; }
+.step-fab-item span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgb(var(--gray-300)); font-size: 11px; }
+.step-fab-item:hover { background: rgb(var(--raised)); color: rgb(var(--gray-900)); }
+.step-fab-item.on { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
+.step-fab-item.on span { border-color: transparent; background: rgb(var(--canvas)); color: rgb(var(--gray-900)); }
+/* La barre du zoom se décale pour laisser la place aux étapes flottantes. */
+.pro .zoombar { left: calc(var(--side-space) + 16px); transform: none; }
+.pro .topbar { display: none; }
+
+/* Conteneur d'un CV (sa famille de langues) dans l'espace. */
+.ws-group {
+  position: absolute; border-radius: calc(18px / var(--wsz, 1)); border: calc(1px / var(--wsz, 1)) solid rgb(var(--gray-200));
+  background: rgb(var(--gray-900) / 0.025);
+}
+.ws-group.active { border-color: rgb(var(--gray-500)); background: rgb(var(--gray-900) / 0.05); }
+.ws-group-label { position: absolute; left: calc(16px / var(--wsz, 1)); top: calc(12px / var(--wsz, 1)); font: 600 calc(13px / var(--wsz, 1)) var(--font-sans); color: rgb(var(--gray-700)); white-space: nowrap; }
+.ws-group.active .ws-group-label { color: rgb(var(--gray-900)); }
+/* Nom du CV au-dessus de son conteneur (comme une section Figma), langues à l'intérieur. */
+.ws-group-label { top: auto; left: 0; bottom: calc(100% + 10px / var(--wsz, 1)); }
