@@ -1410,3 +1410,5 @@ button.logo-mark { border: 0; cursor: pointer; }
 :root[data-theme='light'] .input:focus { background: rgb(232 233 236); }
 :root[data-theme='light'] .step-nav { background: rgb(226 227 231); }
 .step-tabs { margin: 1.2rem 1.4rem 0; }
+.lang-refresh { height: 28px; padding: 0 8px; border: 1px dashed rgb(var(--gray-400)); border-radius: 8px; background: none; color: rgb(var(--gray-800)); font: 600 11px var(--font-mono); white-space: nowrap; animation: fade-up 0.2s var(--ease-out); }
+.lang-refresh:hover { border-style: solid; color: rgb(var(--gray-900)); }

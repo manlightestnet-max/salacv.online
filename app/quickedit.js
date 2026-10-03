@@ -290,8 +290,16 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     const target = hit.photo || initials ? { kind: 'photo' } : resolve(hit.line);
     if (!target) return null;
     const b = (target.kind !== 'photo' && groupBox(hit.lines, hit.line, target, resolve)) || hit.box;
-    const box = { left: r.left + b.x * k - 3, top: r.top + b.y * k - 3, width: b.w * k + 6, height: b.h * k + 6 };
-    return { target, box };
+    const anchor = { canvas, b, docW: doc.width };
+    return { target, box: boxOf(anchor), anchor };
+  }
+
+  // Position à l'écran d'un élément du CV, relue à chaque fois : le contour reste collé à
+  // son élément quand on fait défiler, zoome ou déplace l'espace.
+  function boxOf({ canvas, b, docW }) {
+    const r = canvas.getBoundingClientRect();
+    const k = r.width / docW;
+    return { left: r.left + b.x * k - 3, top: r.top + b.y * k - 3, width: b.w * k + 6, height: b.h * k + 6 };
   }
 
   function show(box, strong = false) {
@@ -345,8 +353,8 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     return out;
   }
 
-  function select(raw, box) {
-    selected = { raw, box };
+  function select(raw, box, anchor = null) {
+    selected = { raw, box, anchor };
     show(box, true);
     const label = raw.kind === 'item' ? (raw.list === 'education' ? 'Formation' : 'Expérience') : raw.kind === 'section' ? (raw.list === 'education' ? 'Formation' : 'Expérience') : TITLES[raw.kind];
     bar.replaceChildren(
@@ -361,7 +369,11 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
       ),
     );
     bar.hidden = false;
-    // Au-dessus de l'élément, sinon en dessous ; toujours dans l'écran.
+    placeBar(box);
+  }
+
+  // Au-dessus de l'élément, sinon en dessous ; toujours dans l'écran.
+  function placeBar(box) {
     const r = bar.getBoundingClientRect();
     const top = box.top - r.height - 8 > 8 ? box.top - r.height - 8 : box.top + box.height + 8;
     const left = Math.min(window.innerWidth - r.width - 8, Math.max(8, box.left + box.width / 2 - r.width / 2));
@@ -398,7 +410,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     if (!found) return deselect();
     e.stopPropagation();
     if (editing?.inspector) editing = null; // le panneau passe à la nouvelle sélection
-    select(found.target, found.box);
+    select(found.target, found.box, found.anchor);
     if (inspector()) open(realTarget(found.target, getState()), found.box);
   });
   canvases.addEventListener('dblclick', (e) => {
@@ -407,12 +419,22 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
   });
   document.addEventListener('click', (e) => !e.target.closest('.qe-bar, #canvases, .dialog-backdrop') && deselect());
   document.addEventListener('keydown', (e) => e.key === 'Escape' && !editing && deselect());
-  preview.addEventListener('scroll', () => selected && !editing && deselect(), { passive: true });
-  // Espace Pro : la caméra bouge (glisser, zoom) → le contour ne garde plus son repère.
-  preview.addEventListener('ws-camera', () => {
-    if (selected && !editing) deselect();
-    if (!editing) outline.hidden = true;
-  });
+  // Défilement, zoom, caméra de l'espace : la sélection suit son élément (jamais figée).
+  let follow = 0;
+  const track = () => {
+    cancelAnimationFrame(follow);
+    follow = requestAnimationFrame(() => {
+      if (!selected?.anchor) return void (!editing && !selected && (outline.hidden = true));
+      if (!selected.anchor.canvas.isConnected) return deselect();
+      const box = boxOf(selected.anchor);
+      selected.box = box;
+      show(box, true);
+      if (!bar.hidden) placeBar(box);
+    });
+  };
+  preview.addEventListener('scroll', track, { passive: true });
+  preview.addEventListener('ws-camera', track);
+  window.addEventListener('resize', track);
 
   // Onglet IA : la question du champ en haut (on reste dans le contexte), l'étudiant écrit
   // comme il parle, l'assistant met en forme ce seul élément.

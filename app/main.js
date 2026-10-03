@@ -111,6 +111,7 @@ $('final-view').addEventListener('click', () => {
   finalView = !finalView;
   $('final-view').setAttribute('aria-pressed', String(finalView));
   update();
+  if (workspace?.on) wsRefresh();
 });
 $('hide-side').addEventListener('click', () => setSideHidden(true));
 $('show-side').addEventListener('click', () => setSideHidden(false));
@@ -493,6 +494,7 @@ function update() {
   }
   paint(result.doc);
   paintThumbs();
+  langBar.render(); // ↻ quand une traduction est en retard sur l'original
   // Mode Pro : le nom du CV actif suit la profession saisie.
   if (workspace?.on) {
     const label = document.querySelector('.ws-group.active .ws-group-label');
@@ -876,10 +878,11 @@ const WS_KEY = 'salacv:ws-on';
 const wsLayouts = new Map();
 function wsRows() {
   const docOf = (st) => {
-    const key = JSON.stringify(st);
+    // Rendu final : tous les cadres, pas seulement l'actif.
+    const key = `${finalView ? 'final' : 'ghost'}|${JSON.stringify(st)}`;
     if (!wsLayouts.has(key)) {
       if (wsLayouts.size > 40) wsLayouts.clear();
-      const r = layoutResume(toResume(normalizeState(st), { mockup: example }), engine.fonts);
+      const r = layoutResume(toResume(normalizeState(st), finalView ? {} : { mockup: example }), engine.fonts, { watermark: WATERMARK });
       wsLayouts.set(key, r.ok ? r.doc : null);
     }
     return wsLayouts.get(key);

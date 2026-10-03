@@ -46,6 +46,17 @@ export function createLangBar(ctx) {
   const busy = new Set();
   const main = () => ctx.project.state.lang;
   const versions = () => [main(), ...Object.keys(ctx.project.variants ?? {}).filter((l) => l !== main())];
+  // Empreinte du contenu de l'original (sans modèle, langue ni photo) : si l'original a
+  // changé depuis la traduction, on recommande de la rafraîchir.
+  const sig = (st) => {
+    const { template, lang, profile, ...rest } = st ?? {};
+    return JSON.stringify([rest, { ...profile, photo: '' }]);
+  };
+  const stale = (lang) => {
+    const t = ctx.project.translatedFrom?.[lang];
+    const src = main() === ctx.getLang() ? ctx.getState() : ctx.project.state;
+    return Boolean(t) && t !== sig(src);
+  };
 
   function render() {
     tabs.replaceChildren(
@@ -64,7 +75,23 @@ export function createLangBar(ctx) {
           h('span', { class: 'lang-name' }, langName(lang)),
         ),
       ),
+      // Versions traduites en retard sur l'original : un bouton pour les rafraîchir.
+      ...versions()
+        .filter((l) => l !== main() && !busy.has(l) && stale(l))
+        .map((l) =>
+          h(
+            'button',
+            { type: 'button', class: 'lang-refresh', title: `L’original a changé : retraduire la version ${langName(l)}`, onClick: () => refresh(l) },
+            `↻ ${l.toUpperCase()}`,
+          ),
+        ),
     );
+  }
+
+  function refresh(lang) {
+    if (!session()?.token) return ctx.askLogin();
+    const from = main() === ctx.getLang() ? ctx.getState() : ctx.project.state;
+    translateInto(lang, from);
   }
 
   function open(lang) {
@@ -85,6 +112,7 @@ export function createLangBar(ctx) {
       return ctx.toast(r.error ?? 'La traduction a échoué.');
     }
     ctx.project.variants = { ...ctx.project.variants, [lang]: withShared(r.state, ctx.getState()) };
+    ctx.project.translatedFrom = { ...ctx.project.translatedFrom, [lang]: sig(from) };
     ctx.save();
     open(lang);
     ctx.toast(`Version ${langName(lang)} prête : relis-la, touche le CV pour corriger.`);
@@ -139,7 +167,31 @@ export function createLangBar(ctx) {
 
   // Onglet actif touché : retraduire depuis l'original, ou supprimer cette version.
   function manage(lang) {
-    if (lang === main()) return;
+    if (lang === main()) {
+      // L'original : on propose les versions générées (EN, PT…) et leur état.
+      const others = versions().filter((l) => l !== main());
+      const d = openDialog({
+        title: `Version ${langName(lang)} · originale`,
+        content: [
+          h('p', { class: 'lang-note' }, others.length ? 'Les autres versions sont faites à partir de celle-ci.' : 'Crée une version en anglais, portugais… à partir de celle-ci.'),
+          others.length &&
+            h(
+              'div',
+              { class: 'lang-options' },
+              others.map((l) =>
+                h(
+                  'button',
+                  { type: 'button', class: 'lang-option', onClick: () => (d.close(), stale(l) ? refresh(l) : open(l)) },
+                  langName(l),
+                  h('small', {}, stale(l) ? '↻ à retraduire (recommandé)' : ctx.project.translatedFrom?.[l] ? 'à jour' : 'copie manuelle'),
+                ),
+              ),
+            ),
+        ],
+        footer: [h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => (d.close(), add()) }, '+ Ajouter une langue')],
+      });
+      return;
+    }
     const logged = Boolean(session()?.token);
     const dialog = openDialog({
       title: `Version ${langName(lang)}`,
