@@ -1,5 +1,18 @@
 # DSL des modèles de CV
 
+Deux formes, dans le même champ « Téléverser un modèle » :
+
+- **canvas** (`"kind": "canvas"`) : n'importe quelle mise en page, décrite par des
+  primitives (rect, line, circle, poly, text, photo, contacts) posées sur la page A4
+  (595 × 842 points), des zones où le contenu s'écoule et les variables salacv
+  (`{{name}}`, `{{title}}`, `{{label:curriculum}}`…). C'est ce qu'un agent produit à partir
+  d'une image : la référence complète est le skill
+  [`skills/salacv-modele-cv/SKILL.md`](../skills/salacv-modele-cv/SKILL.md), avec un
+  exemple dans [`docs/exemples/canvas-bandeau.json`](exemples/canvas-bandeau.json).
+- **préréglé** (ci-dessous) : une colonne, quelques choix (en-tête, titres, puces).
+
+## Forme préréglée
+
 Un modèle de CV salacv peut être décrit en **JSON**, sans écrire de code. N'importe qui
 peut écrire ce fichier ; l'admin le téléverse dans **Admin › Modèles › Téléverser un
 modèle**. L'aperçu se met à jour pendant la saisie. Une fois enregistré, le modèle

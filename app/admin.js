@@ -11,6 +11,7 @@ import example from '../examples/etudiant.json';
 import { registerTemplate } from '../src/templates/index.js';
 import { parseTemplateSpec, templateFromSpec } from '../src/templates/spec.js';
 import SKILL from '../skills/salacv-modele-cv/SKILL.md?raw';
+import CANVAS_EXAMPLE from '../docs/exemples/canvas-bandeau.json';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -391,9 +392,8 @@ async function templatesView() {
   });
 
   // Téléverser un modèle écrit dans le DSL (JSON) : aperçu, puis enregistrement.
-  const EXAMPLE = { id: 'mon-modele', name: 'Mon modèle', header: 'banner', heading: 'band', bullet: 'check', paper: 'plain', colors: { ink: '#111111', accent: '#0F766E', band: '#E0F2F1' }, sizes: { name: 18, body: 9.4, heading: 10.5 } };
   const area = h('textarea', { class: 'admin-input admin-json', rows: 12, spellcheck: 'false' });
-  area.value = JSON.stringify(EXAMPLE, null, 2);
+  area.value = JSON.stringify(CANVAS_EXAMPLE, null, 2);
   const file = h('input', { type: 'file', accept: 'application/json,.json', class: 'visually-hidden', id: 'tpl-file' });
   file.addEventListener('change', async () => file.files?.[0] && ((area.value = await file.files[0].text()), preview()));
   const status = h('p', { class: 'admin-error', 'aria-live': 'polite' });
@@ -442,7 +442,7 @@ async function templatesView() {
     h(
       'div',
       { class: 'card-pad skill-share' },
-      h('p', { class: 'admin-hint' }, 'Donne ce skill à un agent (Claude, Gemini, ChatGPT…) avec la photo d’un CV : il répond avec le JSON du modèle, à coller dans « Téléverser un modèle ».'),
+      h('p', { class: 'admin-hint' }, 'Donne ce skill à un agent (Claude, Gemini, ChatGPT…) avec n’importe quelle image de CV : il la décrit en formes, textes et zones avec nos variables ({{name}}, {{title}}…), et répond avec le JSON à coller dans « Téléverser un modèle ».'),
       h('pre', { class: 'skill-text' }, SKILL),
       h(
         'div',

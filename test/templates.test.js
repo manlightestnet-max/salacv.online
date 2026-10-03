@@ -49,10 +49,16 @@ test('DSL des modèles : un modèle JSON se dessine comme les autres', async () 
 });
 
 test('skill des agents : ses exemples JSON sont acceptés par le DSL', async () => {
-  const { parseTemplateSpec } = await import('../src/templates/spec.js');
+  const { parseTemplateSpec, templateFromSpec } = await import('../src/templates/spec.js');
+  const { registerTemplate } = await import('../src/templates/index.js');
   const md = await readFile(new URL('../skills/salacv-modele-cv/SKILL.md', import.meta.url), 'utf8');
-  const lines = md.split('\n').filter((l) => l.startsWith('{ "id"'));
-  const block = md.match(/```json\n(\{[\s\S]*?\})\n```/)[1];
-  for (const json of [block, ...lines]) assert.equal(parseTemplateSpec(JSON.parse(json)).ok, true, json);
-  assert.ok(lines.length >= 5);
+  const blocks = [...md.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => JSON.parse(m[1])).filter((j) => j.kind === 'canvas');
+  assert.ok(blocks.length >= 1);
+  for (const spec of blocks) {
+    const r = parseTemplateSpec(spec);
+    assert.equal(r.ok, true, r.error);
+    registerTemplate(templateFromSpec(r.spec));
+    const lay = layoutResume({ ...example, template: spec.id }, fonts);
+    assert.equal(lay.ok, true);
+  }
 });

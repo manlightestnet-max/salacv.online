@@ -1,0 +1,30 @@
+{
+  "kind": "canvas",
+  "id": "bandeau-bleu",
+  "name": "Bandeau bleu",
+  "colors": { "ink": "#1F2937", "accent": "#1E3A8A", "band": "#8EA2D6", "side": "#F3F4F6", "muted": "#6B7280" },
+  "page": { "top": 40, "bottom": 46 },
+  "decor": [
+    { "type": "rect", "x": 0, "y": 0, "w": 595.28, "h": 112, "fill": "$band" },
+    { "type": "rect", "x": 0, "y": 112, "w": 190, "h": 730, "fill": "$side", "page": "all" },
+    { "type": "line", "x1": 190, "y1": 112, "x2": 190, "y2": 842, "color": "#D1D5DB", "lw": 0.8, "page": "all" }
+  ],
+  "header": [
+    { "type": "photo", "x": 40, "y": 30, "w": 110, "h": 110, "shape": "circle", "bg": "#E5E7EB" },
+    { "type": "text", "x": 210, "y": 34, "w": 360, "text": "{{name}}", "size": 22, "weight": 600, "color": "#FFFFFF", "upper": true },
+    { "type": "text", "x": 210, "y": 66, "w": 360, "text": "{{title}}", "size": 11, "weight": 600, "color": "$accent", "upper": true },
+    { "type": "text", "x": 22, "y": 160, "w": 150, "text": "{{label:contact}}", "size": 11, "weight": 500, "color": "$accent", "upper": true },
+    { "type": "contacts", "x": 22, "y": 180, "w": 150, "size": 8.4, "color": "$ink", "gap": 1 }
+  ],
+  "areas": [
+    { "x": 210, "y": 132, "w": 350, "content": ["summary", "timeline", "text"] },
+    { "x": 22, "y": 260, "w": 150, "content": ["bullets", "list"] }
+  ],
+  "section": {
+    "size": 8.8,
+    "color": "$ink",
+    "bullet": "dot",
+    "period": { "position": "above", "color": "$muted" },
+    "heading": { "size": 10.5, "weight": 500, "color": "$accent", "underline": "full", "underlineColor": "#CBD5E1", "height": 18 }
+  }
+}
