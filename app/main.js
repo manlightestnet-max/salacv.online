@@ -16,10 +16,20 @@ import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { STEPS } from './steps.js';
 import { createAgentPanel } from './agent.js';
+import { askAgent } from './ai.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
+let stepAi = false;
+const STEP_AI = {
+  identite: { q: 'Comment t’appelles-tu, quel métier vises-tu, et comment te joindre ?', part: 'l’identité et les contacts (nom, profession, email, téléphones, adresse)' },
+  profil: { q: 'Qui es-tu, que sais-tu faire, et que cherches-tu ?', part: 'le profil professionnel (2 à 4 phrases)' },
+  formation: { q: 'Quelles études as-tu faites ? École, diplôme, années.', part: 'la formation' },
+  experience: { q: 'Où as-tu travaillé ou fait un stage, et qu’y as-tu fait ?', part: 'les expériences' },
+  competences: { q: 'Qu’est-ce que tu sais faire ? Écris en vrac.', part: 'les compétences' },
+  langues: { q: 'Quelles langues parles-tu (et à quel niveau), et que fais-tu de ton temps libre ?', part: 'les langues et les loisirs' },
+};
 const preview = $('preview');
 const canvases = $('canvases');
 const sheet = $('sheet');
@@ -166,14 +176,7 @@ async function initEngine() {
       onClose: () => !agentOpen && renderStep(),
       photoShape,
       // L'IA d'une fenêtre d'édition renvoie un CV : on garde photo, modèle et langue.
-      replaceState(next) {
-        const { photo } = state.profile;
-        const { template, lang } = state;
-        state = normalizeState(next);
-        Object.assign(state, { template, lang });
-        state.profile.photo = photo;
-        schedule();
-      },
+      replaceState: applyAiState,
       askLogin: () => openAgent(),
       // Mode Pro : la sélection s'édite dans le panneau de gauche.
       inspector: () => (workspace?.on ? stepEl : null),
@@ -399,12 +402,61 @@ function renderStep() {
   );
   $('stepper').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   ctx.onAdd = null;
-  stepEl.replaceChildren(h('div', { class: 'fade' }, step.render(ctx)));
+  // Chaque étape bascule entre Formulaire et ✦ IA, comme les fenêtres flottantes.
+  const ai = STEP_AI[step.id];
+  const tabs = ai
+    ? h(
+        'div',
+        { class: 'qe-tabs step-tabs', role: 'tablist' },
+        ['Formulaire', '✦ IA'].map((label, i) =>
+          h('button', { type: 'button', role: 'tab', class: 'qe-tab', 'aria-selected': String(stepAi === (i === 1)), onClick: () => ((stepAi = i === 1), renderStep()) }, label),
+        ),
+      )
+    : null;
+  stepEl.replaceChildren(h('div', { class: 'fade' }, tabs, ai && stepAi ? stepAiPane(ai) : step.render(ctx)));
   $('step-title').textContent = step.label;
   $('progress').textContent = `${stepIndex + 1}/${STEPS.length}`;
   renderTitle();
   $('prev').style.visibility = stepIndex === 0 ? 'hidden' : 'visible';
   $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
+}
+
+// L'IA renvoie un CV : on garde photo, modèle et langue.
+function applyAiState(next) {
+  const { photo } = state.profile;
+  const { template, lang } = state;
+  state = normalizeState(next);
+  Object.assign(state, { template, lang });
+  state.profile.photo = photo;
+  schedule();
+}
+
+// --- Mode IA par étape -------------------------------------------------------------
+// La question en haut (on reste dans le contexte), on écrit en vrac, l'IA met en forme.
+function stepAiPane(ai) {
+  const text = h('textarea', { class: 'input', rows: 6, placeholder: 'Écris comme tu parles, même en vrac…' });
+  const status = h('p', { class: 'qe-ai-status', 'aria-live': 'polite' });
+  const go = h('button', { type: 'button', class: 'btn-primary qe-ai-go' }, '✦ Donner vie');
+  go.addEventListener('click', async () => {
+    const said = text.value.trim();
+    if (!said) return text.focus();
+    go.disabled = true;
+    status.textContent = 'L’IA écrit…';
+    const r = await askAgent(state, `Mets à jour seulement ${ai.part} du CV avec ce que dit l’utilisateur. Ne modifie rien d’autre. N’invente rien.\n\n« ${said} »`);
+    go.disabled = false;
+    if (!r.ok) {
+      status.textContent = r.error ?? 'L’IA n’a pas pu répondre. Réessaie.';
+      if (r.login) status.append(' ', h('button', { type: 'button', class: 'btn-text', onClick: () => openAgent() }, 'Me connecter'));
+      return;
+    }
+    applyAiState(r.state);
+    // Retour au formulaire, rempli par l'IA : on relit et on corrige.
+    stepAi = false;
+    renderStep();
+    toast('✦ C’est fait : relis et corrige si besoin.');
+  });
+  setTimeout(() => text.focus(), 50);
+  return h('div', { class: 'step qe-ai step-ai' }, h('p', { class: 'qe-ai-question' }, ai.q), h('p', { class: 'qe-ai-hint' }, 'L’IA met en forme sans rien inventer. Tu relis ensuite.'), text, h('div', { class: 'qe-ai-row' }, status, go));
 }
 
 // Ctrl+Entrée : ajoute un bloc dans l'étape courante (le composant place le curseur dedans).

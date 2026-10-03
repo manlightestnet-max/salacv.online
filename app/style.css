@@ -1399,3 +1399,14 @@ button.logo-mark { border: 0; cursor: pointer; }
 :root[data-theme='light'] .cv-name-input { background: rgb(236 237 240); border-color: rgb(0 0 0 / 0.07); }
 :root[data-theme='light'] .input:focus { background: rgb(242 243 245); border-color: rgb(0 0 0 / 0.35); }
 :root[data-theme='light'] .sheet-body, :root[data-theme='light'] .step-scroll { background: rgb(246 246 247); }
+.step-tabs { margin: 0 0 1rem; }
+.step-ai { display: flex; flex-direction: column; gap: 0.7rem; }
+
+/* --- Thème clair : plus aucun blanc (panneaux, champs, cartes) ----------------------- */
+:root[data-theme='light'] .sheet, :root[data-theme='light'] .sheet-body, :root[data-theme='light'] .step-scroll,
+:root[data-theme='light'] .agent-view, :root[data-theme='light'] .dialog, :root[data-theme='light'] .qe-pop { background: rgb(238 238 240) !important; }
+:root[data-theme='light'] .input, :root[data-theme='light'] .period-button, :root[data-theme='light'] .cv-name-input,
+:root[data-theme='light'] .tpl-card, :root[data-theme='light'] .plan { background: rgb(227 228 232); border-color: rgb(0 0 0 / 0.08); }
+:root[data-theme='light'] .input:focus { background: rgb(232 233 236); }
+:root[data-theme='light'] .step-nav { background: rgb(226 227 231); }
+.step-tabs { margin: 1.2rem 1.4rem 0; }
