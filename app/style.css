@@ -1467,3 +1467,21 @@ button.logo-mark { border: 0; cursor: pointer; }
   .sheet[data-state='expanded'] .sheet-head { grid-template-columns: 44px 1fr 44px; }
 }
 @media (max-width: 959px) { .sheet-head .cv-sub { text-align: center; max-width: 100%; } }
+
+/* Mobile : indicateur replier/déplier à la place du bouton Modifier. */
+@media (max-width: 959px) {
+  #toggle, .sheet[data-state='expanded'] #toggle {
+    display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%;
+    background: rgb(var(--raised)); color: rgb(var(--gray-900)); border: 0; font: 400 20px/1 var(--font-sans);
+  }
+  .sheet-head, .sheet[data-state='expanded'] .sheet-head { grid-template-columns: 44px 1fr 44px; }
+  /* Pied aligné : Précédent / Aperçu à gauche, Générer / Suivant à droite. */
+  .step-nav { display: flex; align-items: center; gap: 8px; }
+  .step-nav .shortcut-hint { display: none; }
+  .step-nav #prev[hidden] { display: none; }
+  .step-nav #generate { margin-left: auto; }
+}
+.step-nav { display: flex; align-items: center; gap: 8px; }
+.step-nav #prev[hidden] { display: none; }
+.step-nav #generate { margin-left: auto; }
+@media (min-width: 960px) { .step-nav .shortcut-hint { margin-left: 8px; } }

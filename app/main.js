@@ -210,7 +210,9 @@ function setSheet(next) {
   sheet.dataset.state = next;
   sheet.style.transform = '';
   const open = desktop.matches || next === 'expanded';
-  $('toggle').textContent = next === 'expanded' ? 'Aperçu' : 'Modifier';
+  // Mobile : un simple indicateur (chevron) pour déplier / replier, pas de bouton texte.
+  $('toggle').textContent = desktop.matches ? '' : next === 'expanded' ? '⌄' : '⌃';
+  $('toggle').setAttribute('aria-label', next === 'expanded' ? 'Replier' : 'Déplier');
   $('sheet-body').inert = !open; // pas de focus clavier dans la partie cachée
   $('agent-view').inert = !open;
   if (!open) document.activeElement?.blur();
@@ -422,7 +424,7 @@ function renderStep() {
   $('step-title').textContent = step.label;
   $('progress').textContent = `${stepIndex + 1}/${STEPS.length}`;
   renderTitle();
-  $('prev').style.visibility = stepIndex === 0 ? 'hidden' : 'visible';
+  $('prev').hidden = stepIndex === 0;
   $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
 }
 

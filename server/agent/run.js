@@ -52,7 +52,7 @@ export async function handle(payload, { callModel, env = process.env } = {}) {
   const scope = SCOPES[payload.scope] ? payload.scope : null;
   const { specs: toolSpecs, tools } = scopedTools(scope);
   const said = scope
-    ? `[Section en cours : ${SCOPES[scope].label}. Tu ne modifies que cette section. S'il manque une information importante, pose UNE question courte au lieu d'inventer.]\n\n${message}`
+    ? `[Section en cours : ${SCOPES[scope].label}. Tu ne modifies que cette section. S'il manque une information importante, pose UNE question courte au lieu d'inventer. Tes modifications sont une PROPOSITION : l'utilisateur la voit dans son formulaire et choisit de la garder ou non. Dans ta réponse, dis « Je te propose… » et invite-le à relire puis garder ; ne dis jamais « c'est fait » ni « j'ai ajouté ».]\n\n${message}`
     : message;
   const messages = build(run.state, said, payload.history);
   const secrets = allKeys(env);
