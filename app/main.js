@@ -798,7 +798,7 @@ project.docs ??= [];
 function curDoc() {
   return activeDoc === 'main' ? project : project.docs.find((d) => d.id === activeDoc) ?? project;
 }
-const docLabel = (d) => normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
+const docLabel = (d) => (d.styled && d.cvName) || normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
 
 // Passer à un autre CV du projet (et à l'une de ses langues), sans recharger.
 function switchDoc(id, lang, { focus = false } = {}) {
@@ -1047,38 +1047,96 @@ function openTplStudio(id) {
   closeTplStudio();
   const items = pickerDocs(id);
   const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
-  let size = 200;
+  // Taille gardée d'une ouverture à l'autre ; la glissière ne fait que changer la taille
+  // d'affichage (aucun nouveau rendu) : les aperçus sont dessinés une fois, en haute définition.
+  let size = Number(read('salacv:tpl-size')) || 220;
+  const picked = new Set();
   const grid = h('div', { class: 'tpl-studio-grid' });
-  const draw = () => {
-    grid.style.setProperty('--tw', `${size}px`);
-    grid.replaceChildren(
-      ...items.map((t) => {
-        const c = h('canvas');
-        if (t.doc) requestAnimationFrame(() => drawDoc(engine, c, t.doc, size));
-        return h('button', { type: 'button', class: `tpl-studio-item${t.selected ? ' on' : ''}`, onClick: () => (closeTplStudio(), pickTemplate(id, t.id)) }, c, h('span', {}, t.name, t.selected && h('em', {}, ' · actuel')));
-      }),
+  grid.style.setProperty('--tw', `${size}px`);
+  const bar = h('div', { class: 'tpl-studio-bar', hidden: true });
+  const renderBar = () => {
+    bar.hidden = !picked.size;
+    if (!picked.size) return;
+    bar.replaceChildren(
+      h('span', {}, `${picked.size} modèle${picked.size > 1 ? 's' : ''} sélectionné${picked.size > 1 ? 's' : ''}`),
+      h('button', { type: 'button', class: 'btn-text', onClick: () => (picked.clear(), grid.querySelectorAll('.tpl-studio-item').forEach((el) => el.classList.remove('picked')), renderBar()) }, 'Annuler'),
+      h('button', { type: 'button', class: 'btn-primary', onClick: () => createFromTemplates(doc, [...picked]) }, `Créer ${picked.size} conteneur${picked.size > 1 ? 's' : ''}`),
     );
   };
-  const range = h('input', { type: 'range', min: 140, max: 420, step: 20, value: size, 'aria-label': 'Taille des aperçus' });
-  range.addEventListener('change', () => ((size = Number(range.value)), draw()));
+  grid.append(
+    ...items.map((t) => {
+      const c = h('canvas');
+      if (t.doc) requestAnimationFrame(() => drawDoc(engine, c, t.doc, 420));
+      const el = h(
+        'div',
+        { class: `tpl-studio-item${t.selected ? ' on' : ''}` },
+        h('button', { type: 'button', class: 'tpl-studio-pick', onClick: () => (closeTplStudio(), pickTemplate(id, t.id)) }, c),
+        // Sélection multiple (Pro) : un conteneur par modèle coché.
+        workspace?.on &&
+          h('button', {
+            type: 'button',
+            class: 'tpl-studio-check',
+            'aria-label': `Sélectionner ${t.name}`,
+            onClick: () => {
+              picked.has(t.id) ? picked.delete(t.id) : picked.add(t.id);
+              el.classList.toggle('picked', picked.has(t.id));
+              renderBar();
+            },
+          }),
+        h('span', {}, t.name, t.selected && h('em', {}, ' · actuel')),
+      );
+      return el;
+    }),
+  );
+  const range = h('input', { type: 'range', min: 140, max: 420, step: 10, value: size, 'aria-label': 'Taille des aperçus' });
+  range.addEventListener('input', () => {
+    size = Number(range.value);
+    grid.style.setProperty('--tw', `${size}px`);
+    store('salacv:tpl-size', String(size));
+  });
   tplStudio = h(
     'section',
     { class: 'tpl-studio', role: 'dialog', 'aria-label': 'Modèles' },
     h(
       'header',
       { class: 'tpl-studio-head' },
-      h('div', {}, h('span', { class: 'ws-picker-kicker' }, 'Modèles'), h('strong', {}, docLabel(doc))),
+      h('div', {}, h('span', { class: 'ws-picker-kicker' }, workspace?.on ? 'Modèles · coche-en plusieurs pour créer des conteneurs' : 'Modèles'), h('strong', {}, docLabel(doc))),
       h('label', { class: 'tpl-studio-size' }, 'Taille', range),
       h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Fermer', onClick: closeTplStudio }, '✕'),
     ),
     grid,
+    bar,
   );
   document.body.append(tplStudio);
-  draw();
+}
+
+// Un nouveau CV (conteneur) du projet par modèle choisi, copie du CV d'origine.
+function createFromTemplates(from, ids) {
+  saveCurrent();
+  const src = from === curDoc() ? state : from.state;
+  for (const tpl of ids) {
+    const st = normalizeState(structuredClone(src));
+    st.template = tpl;
+    const variants = Object.fromEntries(Object.entries(from.variants ?? {}).map(([l, v]) => [l, { ...structuredClone(v), template: tpl }]));
+    project.docs.push({ id: Math.random().toString(36).slice(2, 9), cvName: `${docLabel(from)} · ${TEMPLATES.find((t) => t.id === tpl)?.name}`, styled: true, state: st, variants });
+  }
+  saveProject(project);
+  closeTplStudio();
+  tplPickFor = null;
+  wsRefresh();
+  toast(`${ids.length} conteneur${ids.length > 1 ? 's' : ''} créé${ids.length > 1 ? 's' : ''} dans le projet.`);
 }
 document.addEventListener('keydown', (e) => e.key === 'Escape' && tplStudio && closeTplStudio());
 
+// Mises en page des modèles gardées tant que le CV ne change pas (pas de lag à chaque rendu).
+let pickerCache = { key: '', items: [] };
 function pickerDocs(id) {
+  const key = `${id}|${JSON.stringify(id === activeDoc ? state : (id === 'main' ? project : project.docs.find((d) => d.id === id))?.state)}|${JSON.stringify(tplSettings)}|${isPro()}`;
+  if (pickerCache.key === key) return pickerCache.items;
+  pickerCache = { key, items: pickerDocsFresh(id) };
+  return pickerCache.items;
+}
+function pickerDocsFresh(id) {
   const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
   const base = toResume(normalizeState(id === activeDoc ? state : doc.state), { mockup: example });
   const current = id === activeDoc ? state.template : doc.state.template;
