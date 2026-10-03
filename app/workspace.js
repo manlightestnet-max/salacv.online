@@ -10,7 +10,7 @@ const GAP = { x: 120, y: 190 };
 const CAM_KEY = 'salacv:ws-cam';
 const Z = { min: 0.08, max: 3 };
 
-export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom }) {
+export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, onTemplate }) {
   const world = h('div', { class: 'ws-world' });
   let frames = []; // { key, label, el, host, x, y, w, h, active }
   let cam = readCam() ?? { x: 80, y: 80, z: 0.35 };
@@ -46,7 +46,13 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
     const PAD = 56;
     let y = 0;
     for (const row of rows) {
-      const box = h('div', { class: `ws-group${row.frames.some((f) => f.active) ? ' active' : ''}` }, h('span', { class: 'ws-group-label' }, row.label));
+      // En haut à droite du conteneur : le modèle de ce CV (miniature + nom) ; un clic ouvre
+      // le choix des modèles juste là.
+      const chip = row.template
+        ? h('button', { type: 'button', class: 'ws-group-tpl', title: 'Changer de modèle', onClick: (e) => (e.stopPropagation(), onTemplate?.(row.id, chip)) }, h('canvas', { class: 'ws-tpl-thumb' }), h('span', {}, row.template.name), h('span', { 'aria-hidden': 'true' }, '▾'))
+        : null;
+      if (chip && row.template.doc) requestAnimationFrame(() => drawDoc(engine, chip.firstChild, row.template.doc, 22));
+      const box = h('div', { class: `ws-group${row.frames.some((f) => f.active) ? ' active' : ''}` }, h('span', { class: 'ws-group-label' }, row.label), chip);
       world.append(box);
       let x = PAD;
       let rowH = PAGE.h;
@@ -153,7 +159,7 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom })
   preview.addEventListener(
     'pointerdown',
     (e) => {
-      if (!on) return;
+      if (!on || e.target.closest?.('.ws-group-tpl')) return;
       if (e.pointerType === 'touch') {
         touches.set(e.pointerId, e);
         if (touches.size === 2) {

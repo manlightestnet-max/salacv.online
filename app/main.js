@@ -4,7 +4,7 @@
 // en grisé pour montrer le format.
 import { syncBrowserBar, toggleTheme } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
-import { loadEngine } from './lib/engine.js';
+import { drawDoc, loadEngine } from './lib/engine.js';
 import { createProject, getPlan, getProject, isPro, setPlan, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
 import { openDialog } from './dialog.js';
 import { openExport } from './export.js';
@@ -938,9 +938,11 @@ function wsRows() {
   return [project, ...project.docs].map((d) => {
     const id = d === project ? 'main' : d.id;
     const versions = [[d.state.lang, d.state], ...Object.entries(d.variants ?? {}).filter(([l]) => l !== d.state.lang)];
+    const tpl = TEMPLATES.find((t) => t.id === d.state.template) ?? TEMPLATES[0];
     return {
       id,
       label: docLabel(d),
+      template: { id: tpl.id, name: tpl.name, doc: docOf(id === activeDoc ? state : d.state) },
       frames: versions.map(([lang, st]) => {
         const active = id === activeDoc && lang === activeLang;
         return { key: `${id}:${lang}`, label: String(lang).toUpperCase(), active, pages: active ? current?.doc.pages.length ?? 1 : 1, doc: active ? null : docOf(st) };
@@ -956,6 +958,56 @@ function wsRefresh() {
   renderPicker();
   renderStepFab();
 }
+
+// Choix du modèle d'un CV de l'espace : une carte posée sous le bouton (pas un dialogue).
+// On choisit, elle se referme.
+let tplCard = null;
+function closeTplCard() {
+  tplCard?.remove();
+  tplCard = null;
+}
+function openTplCard(id, anchor) {
+  if (tplCard) return closeTplCard();
+  const doc = id === 'main' ? project : project.docs.find((d) => d.id === id);
+  if (!doc) return;
+  const base = toResume(normalizeState(id === activeDoc ? state : doc.state), { mockup: example });
+  const current = id === activeDoc ? state.template : doc.state.template;
+  tplCard = h(
+    'div',
+    { class: 'tpl-card-pop', role: 'listbox', 'aria-label': 'Modèle' },
+    TEMPLATES.map((t) => {
+      const c = h('canvas', { class: 'tpl-thumb' });
+      const r = layoutResume({ ...base, template: t.id }, engine.fonts);
+      if (r.ok) requestAnimationFrame(() => drawDoc(engine, c, r.doc, 42));
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: 'tpl-pop-item',
+          'aria-selected': String(t.id === current),
+          onClick: () => {
+            // Toutes les langues de ce CV prennent le modèle.
+            for (const v of [doc.state, ...Object.values(doc.variants ?? {})]) v.template = t.id;
+            if (id === activeDoc) state.template = t.id;
+            saveProject(project);
+            closeTplCard();
+            if (id === activeDoc) update();
+            wsLayouts.clear();
+            wsRefresh();
+          },
+        },
+        c,
+        h('span', {}, t.name),
+      );
+    }),
+  );
+  document.body.append(tplCard);
+  const r = anchor.getBoundingClientRect();
+  const w = tplCard.offsetWidth;
+  Object.assign(tplCard.style, { top: `${Math.min(r.bottom + 8, window.innerHeight - tplCard.offsetHeight - 12)}px`, left: `${Math.max(12, Math.min(r.right - w, window.innerWidth - w - 12))}px` });
+  setTimeout(() => document.addEventListener('pointerdown', (e) => !tplCard?.contains(e.target) && closeTplCard(), { once: true }));
+}
+preview.addEventListener('ws-camera', closeTplCard);
 
 // Sélecteur du CV actif dans le projet (en haut à gauche de l'espace).
 let pickerOpen = false;
@@ -1018,6 +1070,7 @@ function setWorkspace(enabled) {
     canvases,
     engine,
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
+    onTemplate: openTplCard,
     onSwitch(key) {
       const [id, lang] = key.split(':');
       switchDoc(id, lang);
