@@ -88,6 +88,7 @@ renderStep();
 initEngine();
 
 // Lune / soleil, à côté du bouton du panneau : un clic, le thème bascule.
+const themeLabel = () => (root.dataset.theme === 'light' ? '☾ Passer en sombre' : '☀ Passer en clair');
 function renderThemeBtn() {
   const lightOn = root.dataset.theme === 'light';
   $('theme').textContent = lightOn ? '☾' : '☀';
@@ -122,6 +123,7 @@ desktop.addEventListener('change', () => {
   repaint();
 });
 initSheetDrag();
+$('sheet-scrim').addEventListener('click', () => setSheet('collapsed'));
 initKeyboard();
 initSplitter();
 initPreviewGestures();
@@ -414,7 +416,9 @@ function renderStep() {
         ),
       )
     : null;
-  stepEl.replaceChildren(h('div', { class: 'fade' }, tabs, ai && stepAi ? stepAiPane(ai) : step.render(ctx)));
+  // Changer d'étape garde la proposition en cours.
+  if (aiProposal && aiProposal.step !== step.id) aiProposal = null;
+  stepEl.replaceChildren(h('div', { class: 'fade' }, tabs, ai && stepAi ? stepAiPane(ai) : [proposalBanner(), step.render(ctx)]));
   $('step-title').textContent = step.label;
   $('progress').textContent = `${stepIndex + 1}/${STEPS.length}`;
   renderTitle();
@@ -434,30 +438,61 @@ function applyAiState(next) {
 
 // --- Mode IA par étape -------------------------------------------------------------
 // La question en haut (on reste dans le contexte), on écrit en vrac, l'IA met en forme.
+// L'agent de l'étape : une vraie conversation (il garde le fil, peut poser une question),
+// limité aux outils de cette section. Son résultat arrive d'abord comme une proposition
+// dans le formulaire : on voit, puis on garde ou on annule.
+const stepChats = {};
+let aiProposal = null; // { step, before }
 function stepAiPane(ai) {
-  const text = h('textarea', { class: 'input', rows: 6, placeholder: 'Écris comme tu parles, même en vrac…' });
+  const stepId = STEPS[stepIndex].id;
+  const chat = (stepChats[stepId] ??= []);
+  const log = h('div', { class: 'step-chat' }, chat.map((m) => h('p', { class: `step-msg ${m.role}` }, m.text)));
+  const text = h('textarea', { class: 'input', rows: 3, placeholder: chat.length ? 'Réponds, ou précise…' : 'Écris comme tu parles, même en vrac…' });
   const status = h('p', { class: 'qe-ai-status', 'aria-live': 'polite' });
-  const go = h('button', { type: 'button', class: 'btn-primary qe-ai-go' }, '✦ Donner vie');
-  go.addEventListener('click', async () => {
+  const go = h('button', { type: 'button', class: 'btn-primary qe-ai-go' }, '✦ Envoyer');
+  const send = async () => {
     const said = text.value.trim();
     if (!said) return text.focus();
     go.disabled = true;
     status.textContent = 'L’IA écrit…';
-    const r = await askAgent(state, `Mets à jour seulement ${ai.part} du CV avec ce que dit l’utilisateur. Ne modifie rien d’autre. N’invente rien.\n\n« ${said} »`);
+    const r = await askAgent(state, said, { scope: stepId, history: chat.slice(-8) });
     go.disabled = false;
     if (!r.ok) {
       status.textContent = r.error ?? 'L’IA n’a pas pu répondre. Réessaie.';
       if (r.login) status.append(' ', h('button', { type: 'button', class: 'btn-text', onClick: () => openAgent() }, 'Me connecter'));
       return;
     }
-    applyAiState(r.state);
-    // Retour au formulaire, rempli par l'IA : on relit et on corrige.
-    stepAi = false;
+    chat.push({ role: 'user', text: said }, { role: 'assistant', text: r.reply ?? '' });
+    if (r.changes?.length) {
+      // Proposition : visible dans le formulaire et sur le CV, rien n'est définitif.
+      aiProposal = { step: stepId, before: structuredClone(state) };
+      applyAiState(r.state);
+      stepAi = false;
+    }
     renderStep();
-    toast('✦ C’est fait : relis et corrige si besoin.');
-  });
-  setTimeout(() => text.focus(), 50);
-  return h('div', { class: 'step qe-ai step-ai' }, h('p', { class: 'qe-ai-question' }, ai.q), h('p', { class: 'qe-ai-hint' }, 'L’IA met en forme sans rien inventer. Tu relis ensuite.'), text, h('div', { class: 'qe-ai-row' }, status, go));
+  };
+  go.addEventListener('click', send);
+  text.addEventListener('keydown', (e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && (e.preventDefault(), send()));
+  setTimeout(() => (text.focus(), (log.scrollTop = log.scrollHeight)), 50);
+  return h(
+    'div',
+    { class: 'step qe-ai step-ai' },
+    h('p', { class: 'qe-ai-question' }, ai.q),
+    chat.length ? log : h('p', { class: 'qe-ai-hint' }, 'L’IA ne touche que cette section, sans rien inventer. Tu vois sa proposition avant de la garder.'),
+    text,
+    h('div', { class: 'qe-ai-row' }, status, go),
+  );
+}
+
+function proposalBanner() {
+  if (!aiProposal || aiProposal.step !== STEPS[stepIndex].id) return null;
+  return h(
+    'div',
+    { class: 'ai-proposal' },
+    h('span', {}, '✦ Proposition de l’IA : relis ci-dessous.'),
+    h('button', { type: 'button', class: 'btn-text', onClick: () => ((state = normalizeState(aiProposal.before)), (aiProposal = null), schedule(), renderStep()) }, 'Annuler'),
+    h('button', { type: 'button', class: 'btn-primary', onClick: () => ((aiProposal = null), renderStep()) }, 'Garder'),
+  );
 }
 
 // Ctrl+Entrée : ajoute un bloc dans l'étape courante (le composant place le curseur dedans).
@@ -672,6 +707,8 @@ function initPreviewGestures() {
       const r = canvases.getBoundingClientRect();
       pinch = { d: dist(e.touches), zoom: currentZoom(), m, f: 1, ox: m.x - r.left, oy: m.y - r.top };
       canvases.style.transformOrigin = `${pinch.ox}px ${pinch.oy}px`;
+      // Le navigateur ne défile plus pendant le pincement : il ne nous vole pas le geste.
+      preview.style.overflow = 'hidden';
     },
     { passive: true },
   );
@@ -698,6 +735,7 @@ function initPreviewGestures() {
     const px = preview.scrollLeft + p.m.x - r0.left;
     const py = preview.scrollTop + p.m.y - r0.top;
     canvases.style.transform = '';
+    preview.style.overflow = '';
     zoom = { fit: false, value: p.zoom * p.f };
     paint(current.doc);
     preview.scrollLeft = px * p.f - (m.x - r0.left);
@@ -813,7 +851,13 @@ $('cv-title').addEventListener('click', () => {
   const d = openDialog({
     title: 'Ce CV',
     className: 'cv-dialog',
-    content: [h('label', { class: 'cv-dialog-label' }, 'Nom', input), h('p', { class: 'cv-dialog-label' }, 'Modèle'), tpl],
+    content: [
+      h('label', { class: 'cv-dialog-label' }, 'Nom', input),
+      h('p', { class: 'cv-dialog-label' }, 'Modèle'),
+      tpl,
+      // Mobile : le thème vit ici (la barre de la sheet reste légère).
+      h('button', { type: 'button', class: 'btn-ghost cv-theme', onClick: (e) => (toggleTheme(), renderThemeBtn(), (e.currentTarget.textContent = themeLabel())) }, themeLabel()),
+    ],
     footer: [h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => d.close() }, 'Terminé')],
     onClose: () => {
       tpl.classList.remove('in-dialog');

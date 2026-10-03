@@ -1412,3 +1412,58 @@ button.logo-mark { border: 0; cursor: pointer; }
 .step-tabs { margin: 1.2rem 1.4rem 0; }
 .lang-refresh { height: 28px; padding: 0 8px; border: 1px dashed rgb(var(--gray-400)); border-radius: 8px; background: none; color: rgb(var(--gray-800)); font: 600 11px var(--font-mono); white-space: nowrap; animation: fade-up 0.2s var(--ease-out); }
 .lang-refresh:hover { border-style: solid; color: rgb(var(--gray-900)); }
+.step-chat { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+.step-msg { margin: 0; padding: 8px 11px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; max-width: 88%; white-space: pre-wrap; }
+.step-msg.user { align-self: flex-end; background: rgb(var(--raised)); color: rgb(var(--gray-900)); }
+.step-msg.assistant { align-self: flex-start; color: rgb(var(--gray-700)); padding-left: 0; }
+.ai-proposal {
+  display: flex; align-items: center; gap: 8px; margin: 1rem 1.4rem 0; padding: 8px 8px 8px 12px;
+  border: 1px solid rgb(var(--gray-300)); border-radius: 12px; background: rgb(var(--raised)); font-size: 13px; color: rgb(var(--gray-800));
+}
+.ai-proposal span { flex: 1; }
+.ai-proposal .btn-primary { height: 32px; padding: 0 14px; }
+
+/* ===== Mobile : bottom sheet épurée ===================================================== */
+.sheet-scrim { display: none; }
+.cv-theme { display: none; margin-top: 14px; width: 100%; }
+@media (max-width: 959px) {
+  .cv-theme { display: block; }
+  /* Coins propres, élévation nette quand elle est dépliée. */
+  .sheet, .sheet[data-state] { border-radius: 24px 24px 0 0; border: 0; box-shadow: 0 -1px 0 rgb(var(--gray-200)), 0 -12px 40px -16px rgb(0 0 0 / 0.45); z-index: 20; }
+  .sheet[data-state='expanded'] { box-shadow: 0 -1px 0 rgb(var(--gray-200)), 0 -24px 70px -10px rgb(0 0 0 / 0.6); }
+  .sheet-scrim {
+    display: block; position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / 0.42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s var(--ease-out);
+  }
+  body:has(.sheet[data-state='expanded']) .sheet-scrim { opacity: 1; pointer-events: auto; }
+  body:has(.sheet[data-state='expanded']) .zoombar, body:has(.sheet[data-state='expanded']) .topbar { opacity: 0; pointer-events: none; }
+
+  /* Pas de barre d'outils en haut : le titre au centre, l'action à droite. */
+  .sheet-head, :root[data-theme] .sheet-head {
+    display: grid; grid-template-columns: 44px 1fr auto; gap: 0.5rem; height: 58px; padding: 0 12px;
+    background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important;
+  }
+  .sheet-head .assistant-btn, .sheet-head .theme-btn, .sheet-head .side-btn { display: none !important; }
+  .sheet-head .logo-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 14px; }
+  .sheet-title { text-align: center; min-width: 0; }
+  .sheet-title .cv-title { max-width: 100%; justify-content: center; font-size: 15px; }
+  .sheet-title .cv-sub { font-size: 12px; }
+  #toggle { height: 36px; padding: 0 16px; border-radius: 999px; font-size: 13.5px; }
+
+  /* Étapes : pastilles minimalistes. */
+  .stepper { border: 0; padding-top: 2px; padding-bottom: 10px; gap: 6px; }
+  .step-pill { height: 32px; border: 0; background: rgb(var(--raised)); font-size: 13px; }
+  .step-pill.active { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
+
+  /* Bascule Formulaire / IA : fine, discrète. */
+  .step-tabs { margin: 12px 16px 0; padding: 2px; border-radius: 999px; }
+  .step-tabs .qe-tab { height: 30px; border-radius: 999px; font-size: 12.5px; }
+  .ai-proposal { margin: 12px 16px 0; }
+  .step-nav { border-top: 1px solid rgb(var(--gray-200)); }
+}
+@media (max-width: 959px) {
+  .sheet-head .sheet-title { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .sheet-head .cv-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .sheet[data-state='expanded'] .sheet-head { grid-template-columns: 44px 1fr 44px; }
+}
+@media (max-width: 959px) { .sheet-head .cv-sub { text-align: center; max-width: 100%; } }

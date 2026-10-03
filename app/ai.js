@@ -11,7 +11,8 @@ export function aiSession() {
 }
 
 // state sans photo ni modèle (ils ne quittent jamais le navigateur). → { ok, state, reply, error }
-export async function askAgent(state, message) {
+// opts : { scope (étape du studio : outils limités à cette section), history (le fil de l'étape) }
+export async function askAgent(state, message, { scope, history } = {}) {
   const token = aiSession()?.token;
   if (!token) return { ok: false, login: true, error: 'Connecte-toi à l’assistant pour utiliser l’IA.' };
   const { photo, ...profile } = state.profile;
@@ -20,7 +21,7 @@ export async function askAgent(state, message) {
     res = await fetch('/api/agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ state: { ...state, profile, template: undefined }, message }),
+      body: JSON.stringify({ state: { ...state, profile, template: undefined }, message, scope, history }),
     });
   } catch {
     return { ok: false, error: 'Pas de connexion. Vérifie ton réseau et réessaie.' };

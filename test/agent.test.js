@@ -164,3 +164,19 @@ test('serveur Node (VPS) : mêmes routes que Vercel, site servi par le même pro
     server.close();
   }
 });
+
+test('onglet IA d’une étape : seuls les outils de la section, liste forcée', async () => {
+  const model = scripted(
+    [
+      call('set_identity', { name: 'Intrus' }),
+      call('add_entry', { section: 'experiences', period: '2024', title: 'Licence en droit', org: 'UPC' }),
+    ],
+    [call('final_answer', { text: 'Formation ajoutée.' })],
+  );
+  const out = await handle({ state: { profile: { name: 'Awa' } }, message: 'licence en droit UPC 2024', scope: 'formation' }, { callModel: model, env: ENV });
+  assert.equal(out.ok, true);
+  assert.equal(out.state.profile.name, 'Awa'); // outil hors section refusé
+  assert.equal(out.state.education[0].title, 'Licence en droit'); // section forcée sur education
+  assert.equal(out.state.experiences.filter((e) => e.title).length, 0);
+  assert.match(model.seen[0].at(-1).content, /Section en cours : Formation/);
+});
