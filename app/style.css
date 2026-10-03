@@ -1370,3 +1370,32 @@ button.logo-mark { border: 0; cursor: pointer; }
 .plan strong { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: rgb(var(--gray-900)); }
 .plan:hover { border-color: rgb(var(--gray-400)); }
 .plan[aria-pressed='true'] { border-color: rgb(var(--gray-900)); box-shadow: 0 0 0 1px rgb(var(--gray-900)); }
+
+/* --- Aperçu masqué : même fond quadrillé (cahier d'école), et la marque visible --- */
+.brand-stage { display: none; }
+@media (min-width: 960px) {
+  .preview-hidden body { background: rgb(var(--canvas)); }
+  .preview-hidden body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgb(var(--gray-900) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--gray-900) / 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 35%, transparent 85%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 35%, transparent 85%);
+  }
+  .preview-hidden .brand-stage {
+    display: flex; flex-direction: column; gap: 4px; position: fixed; left: 28px; bottom: 26px; z-index: 1; max-width: calc(50vw - 470px);
+    color: rgb(var(--gray-500)); font: 400 12.5px/1.45 var(--font-sans); pointer-events: none;
+  }
+  .brand-stage strong { font: 700 28px var(--font-sans); letter-spacing: -0.03em; color: rgb(var(--gray-900)); }
+  .brand-stage small { font: 400 11px var(--font-mono); color: rgb(var(--gray-400)); }
+}
+@media (min-width: 960px) and (max-width: 1340px) { .preview-hidden .brand-stage { display: none; } }
+
+/* --- Thème clair : jamais de blanc côté champs ------------------------------------ */
+:root[data-theme='light'] .input,
+:root[data-theme='light'] .period-button,
+:root[data-theme='light'] .cv-name-input { background: rgb(236 237 240); border-color: rgb(0 0 0 / 0.07); }
+:root[data-theme='light'] .input:focus { background: rgb(242 243 245); border-color: rgb(0 0 0 / 0.35); }
+:root[data-theme='light'] .sheet-body, :root[data-theme='light'] .step-scroll { background: rgb(246 246 247); }
