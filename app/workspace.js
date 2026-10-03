@@ -40,10 +40,8 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
   // --- Cadres -------------------------------------------------------------------------
   // rows : [{ id, label, frames: [{ key, label, active, doc, pages }] }]
   // Un conteneur par CV (sa famille de langues), un cadre par langue à l'intérieur.
-  let pickerArea = null;
   function render(rows) {
     frames = [];
-    pickerArea = null;
     world.replaceChildren();
     const PAD = 56;
     let y = 0;
@@ -76,29 +74,20 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
       Object.assign(box.style, { left: '0px', top: `${y}px`, width: `${x - GAP.x + PAD}px`, height: `${rowH + PAD * 2 + 40}px` });
       y += rowH + PAD * 2 + 40 + GAP.y;
 
-      // Choix du modèle, posé dans l'espace sous le conteneur : chaque modèle est un CV
-      // (le sien, dans ce modèle), qu'on zoome et qu'on parcourt comme le reste.
+      // Choix du modèle : la carte des modèles, accrochée à droite de son conteneur (elle
+      // suit le conteneur quand on déplace ou zoome l'espace, garde sa taille à l'écran et
+      // ne le recouvre jamais).
       if (row.picker) {
-        const TW = PAGE.w * 0.5;
-        const TH = PAGE.h * 0.5;
-        const perRow = 6;
-        const area = h('div', { class: 'ws-tpl-area' }, h('span', { class: 'ws-group-label' }, 'Modèles · touche celui que tu veux'));
-        world.append(area);
-        row.picker.forEach((t, i) => {
-          const tx = PAD + (i % perRow) * (TW + 50);
-          const ty = y + PAD + 30 + Math.floor(i / perRow) * (TH + 80);
-          const tile = h('div', { class: `ws-tpl-tile${t.selected ? ' on' : ''}`, 'data-row': row.id, 'data-tpl': t.id, style: `left:${tx}px;top:${ty}px;width:${TW}px` }, h('span', { class: 'ws-label' }, t.name));
-          world.append(tile);
-          let th = thumbs.get(`tpl:${row.id}:${t.id}`);
-          if (!th) thumbs.set(`tpl:${row.id}:${t.id}`, (th = { canvas: h('canvas', { class: 'ws-thumb' }), doc: null, width: 0 }));
-          tile.append(th.canvas);
-          frames.push({ key: `tpl:${t.id}`, el: tile, x: tx, y: ty, thumb: th, doc: t.doc, w: TW, h: TH });
-        });
-        const rowsN = Math.ceil(row.picker.length / perRow);
-        const areaH = rowsN * (TH + 80) + PAD + 30;
-        Object.assign(area.style, { left: '0px', top: `${y}px`, width: `${PAD * 2 + perRow * (TW + 50) - 50}px`, height: `${areaH}px` });
-        pickerArea = { x: 0, y, w: PAD * 2 + perRow * (TW + 50) - 50, h: areaH };
-        y += areaH + GAP.y;
+        const card = h(
+          'div',
+          { class: 'ws-tpl-card', style: `left:${x - GAP.x + PAD}px;top:${y - (rowH + PAD * 2 + 40 + GAP.y)}px` },
+          row.picker.map((t) => {
+            const c = h('canvas', { class: 'tpl-thumb' });
+            if (t.doc) requestAnimationFrame(() => drawDoc(engine, c, t.doc, 50));
+            return h('button', { type: 'button', class: 'tpl-pop-item', 'aria-selected': String(t.selected), onClick: (e) => (e.stopPropagation(), onPickTemplate?.(row.id, t.id)) }, c, h('span', {}, t.name));
+          }),
+        );
+        world.append(card);
       }
     }
     sharpen();
@@ -160,14 +149,22 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
     apply();
   }
   const focusActive = () => fit(frames.find((f) => f.active));
-  // Cadre la zone des modèles (ouverte depuis le bouton du conteneur).
+  // Déplace la caméra juste assez pour que la carte des modèles soit entière à l'écran.
   function focusPicker() {
-    if (!pickerArea) return;
+    const card = world.querySelector('.ws-tpl-card');
+    if (!card) return;
     const r = preview.getBoundingClientRect();
-    const a = pickerArea;
-    cam.z = Math.max(Z.min, Math.min(1, (r.width - 120) / a.w, (r.height - 120) / a.h));
-    cam.x = (r.width - a.w * cam.z) / 2 - a.x * cam.z;
-    cam.y = (r.height - a.h * cam.z) / 2 - a.y * cam.z;
+    const c = card.getBoundingClientRect();
+    const pad = 24;
+    let dx = 0;
+    let dy = 0;
+    if (c.right > r.right - pad) dx = r.right - pad - c.right;
+    if (c.left + dx < r.left + pad) dx = r.left + pad - c.left;
+    if (c.top < r.top + 70) dy = r.top + 70 - c.top;
+    else if (c.bottom > r.bottom - 80) dy = Math.max(r.top + 70 - c.top, r.bottom - 80 - c.bottom);
+    if (!dx && !dy) return;
+    cam.x += dx;
+    cam.y += dy;
     apply();
   }
 
@@ -198,7 +195,7 @@ export function createWorkspace({ preview, canvases, engine, onSwitch, onZoom, o
   preview.addEventListener(
     'pointerdown',
     (e) => {
-      if (!on || e.target.closest?.('.ws-group-tpl')) return;
+      if (!on || e.target.closest?.('.ws-group-tpl, .ws-tpl-card')) return;
       if (e.pointerType === 'touch') {
         touches.set(e.pointerId, e);
         if (touches.size === 2) {

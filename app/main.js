@@ -985,7 +985,7 @@ let tplPickFor = null;
 function openTplPicker(id) {
   tplPickFor = tplPickFor === id ? null : id;
   wsRefresh();
-  if (tplPickFor) workspace.focusPicker();
+  if (tplPickFor) requestAnimationFrame(() => workspace.focusPicker());
 }
 document.addEventListener('keydown', (e) => e.key === 'Escape' && tplPickFor && ((tplPickFor = null), wsRefresh(), workspace.focusActive()));
 function pickTemplate(id, tpl) {

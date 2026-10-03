@@ -1527,3 +1527,15 @@ button.logo-mark { border: 0; cursor: pointer; }
 .ws-tpl-tile:hover canvas { outline: calc(2px / var(--wsz, 1)) solid rgb(var(--gray-500)); }
 .ws-tpl-tile.on canvas { outline: calc(3px / var(--wsz, 1)) solid rgb(var(--gray-900)); }
 .ws-tpl-tile.on .ws-label { color: rgb(var(--gray-900)); font-weight: 600; }
+
+/* Carte des modèles accrochée à droite du conteneur (taille constante à l'écran). */
+.ws-tpl-card {
+  position: absolute; margin-left: calc(24px / var(--wsz, 1)); transform: scale(calc(1 / var(--wsz, 1))); transform-origin: left top;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 380px; padding: 10px;
+  border: 1px solid rgb(var(--gray-200)); border-radius: 16px; background: rgb(var(--surface)); box-shadow: var(--shadow-lg); animation: fade-up 0.16s var(--ease-out);
+}
+.ws-tpl-card .tpl-pop-item { padding: 8px; font-size: 14px; }
+.ws-tpl-card .tpl-thumb { width: 50px; }
+/* Bouton du modèle à droite du conteneur (jamais sur le nom du CV) ; la carte juste dessous. */
+.ws-group-tpl { right: auto; bottom: auto; left: calc(100% + 12px / var(--wsz, 1)); top: 0; transform-origin: left top; }
+.ws-tpl-card { margin-left: calc(12px / var(--wsz, 1)); margin-top: calc(46px / var(--wsz, 1)); }
