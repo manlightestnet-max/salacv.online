@@ -17,6 +17,8 @@ import { h } from './dom.js';
 import { STEPS } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
+import { registerTemplate } from '../src/templates/index.js';
+import { templateFromSpec } from '../src/templates/spec.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -545,7 +547,7 @@ function update() {
 // Une carte par modèle, avec une miniature du CV de l'étudiant dans ce modèle.
 
 const THUMB = { w: 42, h: 59 };
-const thumbs = TEMPLATES.map((t) => {
+function makeThumb(t) {
   const canvas = h('canvas', { class: 'tpl-thumb', 'aria-hidden': 'true' });
   const card = h(
     'button',
@@ -566,7 +568,8 @@ const thumbs = TEMPLATES.map((t) => {
     h('span', {}, t.name),
   );
   return { id: t.id, canvas, card, surface: null };
-});
+}
+const thumbs = TEMPLATES.map(makeThumb);
 $('templates').replaceChildren(...thumbs.map((t) => t.card));
 
 // Modèles gérés par l'admin : disponible ou non, et pour qui (tous, Lite, Pro). Le modèle
@@ -584,7 +587,28 @@ function applyTplSettings() {
 }
 fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
   .then((r) => r.json())
-  .then((r) => r.ok && ((tplSettings = r.templates ?? {}), applyTplSettings()))
+  .then((r) => {
+    if (!r.ok) return;
+    tplSettings = r.templates ?? {};
+    // Modèles téléversés par l'admin (DSL) : enregistrés dans le moteur et proposés.
+    for (const spec of r.specs ?? []) {
+      try {
+        registerTemplate(templateFromSpec(spec));
+      } catch {
+        continue;
+      }
+      if (TEMPLATES.some((t) => t.id === spec.id)) continue;
+      TEMPLATES.push({ id: spec.id, name: spec.name });
+      const t = makeThumb({ id: spec.id, name: spec.name });
+      thumbs.push(t);
+      $('templates').append(t.card);
+    }
+    applyTplSettings();
+    if (engine) {
+      pickerCache = { key: '', items: [] };
+      update();
+    }
+  })
   .catch(() => {});
 
 let thumbTimer;

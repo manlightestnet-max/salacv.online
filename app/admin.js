@@ -8,6 +8,8 @@ import { openThemePicker } from './lib/theme.js';
 import { relativeDate } from './lib/store.js';
 import { TEMPLATES, normalizeState, toResume } from './state.js';
 import example from '../examples/etudiant.json';
+import { registerTemplate } from '../src/templates/index.js';
+import { parseTemplateSpec, templateFromSpec } from '../src/templates/spec.js';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -344,6 +346,9 @@ async function templatesView() {
   const r = await api('templates');
   if (!r.ok) return page('Modèles', null, null, notice(r.error, 'error'));
   const settings = r.templates ?? {};
+  const specs = r.specs ?? [];
+  for (const spec of specs) registerTemplate(templateFromSpec(spec));
+  const list = [...TEMPLATES, ...specs.filter((x) => !TEMPLATES.some((t) => t.id === x.id)).map((x) => ({ id: x.id, name: x.name, uploaded: true }))];
   const save = async (id, patch) => {
     const cur = { enabled: true, audience: 'all', ...settings[id], ...patch };
     const out = await api('setTemplate', { id, ...cur });
@@ -352,7 +357,7 @@ async function templatesView() {
   };
   engine ??= await loadEngine();
   const base = toResume(normalizeState({}), { mockup: example });
-  const rows = TEMPLATES.map((t) => {
+  const rows = list.map((t) => {
     const s = { enabled: true, audience: 'all', ...settings[t.id] };
     const thumb = h('canvas', { class: 'tpl-admin-thumb' });
     const lay = layoutResume({ ...base, template: t.id }, engine.fonts);
@@ -368,10 +373,66 @@ async function templatesView() {
       h('div', { class: 'row-main' }, h('strong', {}, t.name), h('small', {}, t.id)),
       aud,
       h('label', { class: 'tpl-avail' }, avail, 'Disponible'),
+      t.uploaded &&
+        h('button', {
+          type: 'button',
+          class: 'row-del',
+          title: 'Supprimer ce modèle téléversé',
+          onClick: async () => {
+            if (!confirm(`Supprimer le modèle « ${t.name} » ?`)) return;
+            const out = await api('deleteTemplateSpec', { id: t.id });
+            if (!out.ok) return alert(out.error);
+            render();
+          },
+        }, '✕'),
     );
     return row;
   });
-  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, card(`${TEMPLATES.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')));
+
+  // Téléverser un modèle écrit dans le DSL (JSON) : aperçu, puis enregistrement.
+  const EXAMPLE = { id: 'mon-modele', name: 'Mon modèle', header: 'banner', heading: 'band', bullet: 'check', paper: 'plain', colors: { ink: '#111111', accent: '#0F766E', band: '#E0F2F1' }, sizes: { name: 18, body: 9.4, heading: 10.5 } };
+  const area = h('textarea', { class: 'admin-input admin-json', rows: 12, spellcheck: 'false' });
+  area.value = JSON.stringify(EXAMPLE, null, 2);
+  const file = h('input', { type: 'file', accept: 'application/json,.json', class: 'visually-hidden', id: 'tpl-file' });
+  file.addEventListener('change', async () => file.files?.[0] && ((area.value = await file.files[0].text()), preview()));
+  const status = h('p', { class: 'admin-error', 'aria-live': 'polite' });
+  const prev = h('canvas', { class: 'tpl-dsl-preview' });
+  const readSpec = () => {
+    try {
+      return parseTemplateSpec(JSON.parse(area.value));
+    } catch {
+      return { ok: false, error: 'JSON invalide : vérifie les virgules et les guillemets.' };
+    }
+  };
+  function preview() {
+    const r = readSpec();
+    status.textContent = r.ok ? '' : r.error;
+    if (!r.ok) return;
+    registerTemplate(templateFromSpec(r.spec));
+    const lay = layoutResume({ ...base, template: r.spec.id }, engine.fonts);
+    if (lay.ok) drawDoc(engine, prev, lay.doc, 260);
+  }
+  let timer;
+  area.addEventListener('input', () => (clearTimeout(timer), (timer = setTimeout(preview, 300))));
+  requestAnimationFrame(preview);
+  const saveSpec = async () => {
+    const r = readSpec();
+    if (!r.ok) return (status.textContent = r.error);
+    const out = await api('saveTemplateSpec', { spec: r.spec });
+    if (!out.ok) return (status.textContent = out.error);
+    render();
+  };
+  const upload = card(
+    'Téléverser un modèle (DSL)',
+    h('a', { class: 'row-link', href: 'https://github.com/ml87-maker/smlab/blob/main/docs/modeles-dsl.md', target: '_blank', rel: 'noopener noreferrer' }, 'Référence du DSL ↗'),
+    h(
+      'div',
+      { class: 'card-pad tpl-dsl' },
+      h('div', { class: 'tpl-dsl-edit' }, area, status, h('div', { class: 'row' }, h('label', { class: 'btn-ghost', for: 'tpl-file' }, 'Choisir un fichier .json'), file, h('button', { type: 'button', class: 'btn-primary', onClick: saveSpec }, 'Enregistrer le modèle'))),
+      h('div', { class: 'tpl-dsl-side' }, h('span', { class: 'admin-label' }, 'Aperçu en direct'), prev),
+    ),
+  );
+  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, card(`${list.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')), upload);
 }
 
 // --- Skills de l'agent ----------------------------------------------------------------------

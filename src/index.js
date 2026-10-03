@@ -14,7 +14,8 @@ export function layoutResume(input, fonts, options = {}) {
   const resume = parsed.resume;
 
   const size = PAGE_SIZES.A4;
-  const template = templates[resume.template];
+  // Modèle inconnu (téléversé puis supprimé, pas encore chargé) : Minimal, jamais d'erreur.
+  const template = templates[resume.template] ?? templates.minimal;
   const kit = createKit(fonts);
   const doc = paginate(template.build(resume, kit, size), { ...size, margin: template.margin });
   doc.images = images(resume);

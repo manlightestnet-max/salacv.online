@@ -148,3 +148,9 @@ body.admin {
 .tpl-admin-thumb { flex: none; width: 44px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 1px var(--line); }
 .tpl-aud { flex: none; width: 110px; height: 34px; padding: 0 8px; }
 .tpl-avail { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.tpl-dsl { display: grid; grid-template-columns: 1fr 280px; gap: 18px; align-items: start; }
+.tpl-dsl-edit { display: flex; flex-direction: column; gap: 10px; }
+.tpl-dsl-edit textarea { font: 12.5px/1.5 var(--font-mono); min-height: 280px; }
+.tpl-dsl-side { display: flex; flex-direction: column; gap: 8px; }
+.tpl-dsl-preview { width: 260px; background: #fff; border-radius: 4px; box-shadow: 0 0 0 1px var(--line), 0 18px 40px -22px rgb(0 0 0 / 0.6); }
+@media (max-width: 900px) { .tpl-dsl { grid-template-columns: 1fr; } }

@@ -38,3 +38,12 @@ for (const id of Object.keys(templates)) {
     }
   });
 }
+
+test('DSL des modèles : un modèle JSON se dessine comme les autres', async () => {
+  const { templateFromSpec } = await import('../src/templates/spec.js');
+  const { registerTemplate } = await import('../src/templates/index.js');
+  registerTemplate(templateFromSpec({ id: 'test-dsl', name: 'Test', header: 'title', heading: 'dot', paper: 'lined', colors: { accent: '#0F766E' } }));
+  const r = layoutResume({ ...example, template: 'test-dsl' }, fonts);
+  assert.equal(r.ok, true);
+  assert.ok(r.doc.pages[0].length > 50);
+});

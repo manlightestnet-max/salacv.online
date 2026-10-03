@@ -27,6 +27,9 @@ export function emptyLanguage() {
   return { name: '', level: '' };
 }
 
+const TEMPLATE_ID = /^[a-z0-9][a-z0-9-]{1,39}$/;
+
+// Modèles intégrés ; ceux de l'admin (DSL) s'ajoutent à cette liste au chargement.
 export const TEMPLATES = [
   { id: 'minimal', name: 'Minimal' },
   { id: 'bandeau', name: 'Bandeau' },
@@ -68,7 +71,7 @@ export function normalizeState(raw) {
   Object.assign(s.profile, raw.profile ?? {});
   s.profile.phones = list(s.profile.phones);
   if (!PHOTO.test(s.profile.photo ?? '')) s.profile.photo = '';
-  if (TEMPLATES.some((t) => t.id === raw.template)) s.template = raw.template;
+  if (TEMPLATE_ID.test(raw.template ?? '')) s.template = raw.template; // intégré ou téléversé
   if (LANGS.includes(raw.lang)) s.lang = raw.lang;
   for (const key of ['education', 'experiences', 'languages']) if (Array.isArray(raw[key])) s[key] = raw[key];
   s.skills = list(raw.skills);
@@ -164,7 +167,7 @@ export function toResume(state, { mockup } = {}) {
     profile.ghost = ghost;
   }
 
-  const template = TEMPLATES.some((t) => t.id === state.template) ? state.template : 'minimal';
+  const template = TEMPLATE_ID.test(state.template ?? '') ? state.template : 'minimal';
   return { version: 1, template, lang, profile, sections };
 }
 
@@ -187,7 +190,7 @@ export function fromResume(resume) {
     summary: p.summary ?? '',
     photo: p.photo ?? '',
   });
-  if (TEMPLATES.some((t) => t.id === resume.template)) s.template = resume.template;
+  if (TEMPLATE_ID.test(resume.template ?? '')) s.template = resume.template;
   if (LANGS.includes(resume.lang)) s.lang = resume.lang;
   // Section reconnue par son titre dans n'importe quelle langue du tableau.
   const byTitle = (title) => {

@@ -60,3 +60,18 @@ test('modèles : disponibilité et public gérés par l’admin, lus par le stud
   const [, pub] = await templateSettings();
   assert.equal(pub.templates.marine.enabled, false);
 });
+
+test('DSL des modèles : téléversé, validé, lu par le studio, supprimé', async () => {
+  const token = await login();
+  const bad = await admin({ action: 'saveTemplateSpec', spec: { id: 'Mon Modèle', name: 'x' } }, token, ENV);
+  assert.equal(bad[0], 400);
+  const dup = await admin({ action: 'saveTemplateSpec', spec: { id: 'cursus', name: 'x' } }, token, ENV);
+  assert.equal(dup[0], 400);
+  const [st, r] = await admin({ action: 'saveTemplateSpec', spec: { id: 'kin-bleu', name: 'Kin bleu', header: 'pill', heading: 'band', colors: { band: '#DBEAFE' } } }, token, ENV);
+  assert.equal(st, 200);
+  assert.equal(r.specs[0].bullet, 'dot'); // valeurs par défaut remplies
+  const [, pub] = await templateSettings();
+  assert.equal(pub.specs[0].id, 'kin-bleu');
+  const [, del] = await admin({ action: 'deleteTemplateSpec', id: 'kin-bleu' }, token, ENV);
+  assert.equal(del.specs.length, 0);
+});

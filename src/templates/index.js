@@ -11,3 +11,8 @@ import { vitae } from './vitae.js';
 // Pour en ajouter un : le fichier, une ligne ici, l'id dans l'enum du schéma (src/dsl/schema.js)
 // et dans TEMPLATES (app/state.js).
 export const templates = { minimal, bandeau, vitae, diagonale, epure, marine, contraste, classique, cursus, encadre, sobre, cahier };
+
+// Modèles ajoutés à l'exécution (téléversés par l'admin, au format DSL : spec.js).
+export function registerTemplate(template) {
+  templates[template.id] = template;
+}

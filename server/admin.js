@@ -9,6 +9,8 @@ import { timingSafeEqual } from 'node:crypto';
 import { issue, verify } from './agent/auth.js';
 import { SKILLS } from './agent/skills/index.js';
 import { store } from './store.js';
+import { parseTemplateSpec } from '../src/templates/spec.js';
+import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
 
 // Ressources de départ (recherche Congo-Brazzaville, dans le repo) tant que l'admin n'a rien
@@ -124,7 +126,7 @@ export async function admin(payload, token, env = process.env) {
     case 'cvs':
       return [200, { ok: true, cvs: await s.range('cvs', Math.min(Number(payload.limit) || 200, MAX_CVS)) }];
     case 'templates':
-      return [200, { ok: true, templates: await s.get('templates', {}) }];
+      return [200, { ok: true, templates: await s.get('templates', {}), specs: await s.get('templateSpecs', []) }];
     case 'setTemplate': {
       const id = String(payload.id ?? '');
       if (!/^[a-z0-9-]{1,40}$/.test(id)) return [400, { ok: false, error: 'Modèle inconnu.' }];
@@ -134,6 +136,24 @@ export async function admin(payload, token, env = process.env) {
       await s.set('templates', all);
       log(`Modèle ${id}`, `${all[id].enabled ? 'disponible' : 'indisponible'} · ${audience}`);
       return [200, { ok: true, templates: all }];
+    }
+    // Modèles écrits dans le DSL (JSON), téléversés ici : ajouter / remplacer, supprimer.
+    case 'saveTemplateSpec': {
+      const r = parseTemplateSpec(payload.spec);
+      if (!r.ok) return [400, { ok: false, error: r.error }];
+      if (BUILTIN_IDS.has(r.spec.id)) return [400, { ok: false, error: `« ${r.spec.id} » est un modèle intégré : choisis un autre id.` }];
+      const specs = (await s.get('templateSpecs', [])).filter((x) => x.id !== r.spec.id);
+      if (specs.length >= 60) return [400, { ok: false, error: '60 modèles téléversés maximum.' }];
+      specs.push(r.spec);
+      await s.set('templateSpecs', specs);
+      log(`Modèle téléversé : ${r.spec.name}`, r.spec.id);
+      return [200, { ok: true, specs }];
+    }
+    case 'deleteTemplateSpec': {
+      const specs = (await s.get('templateSpecs', [])).filter((x) => x.id !== payload.id);
+      await s.set('templateSpecs', specs);
+      log('Modèle supprimé', String(payload.id));
+      return [200, { ok: true, specs }];
     }
     case 'resources':
       return [200, { ok: true, resources: await loadResources(s) }];
@@ -170,8 +190,10 @@ export async function admin(payload, token, env = process.env) {
 
 // Modèles de CV : disponible ou non, et pour qui (tous, Lite, Pro).
 const AUDIENCES = ['all', 'lite', 'pro'];
+const BUILTIN_IDS = new Set(['minimal', 'bandeau', 'vitae', 'diagonale', 'epure', 'marine', 'contraste', ...BUILTIN_SPECS.map((x) => x.id)]);
 export async function templateSettings() {
-  return [200, { ok: true, templates: await store().get('templates', {}) }];
+  const s = store();
+  return [200, { ok: true, templates: await s.get('templates', {}), specs: await s.get('templateSpecs', []) }];
 }
 
 const LISTS = ['metiers', 'domaines', 'etablissements', 'entreprises'];

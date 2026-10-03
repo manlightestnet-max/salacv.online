@@ -15,22 +15,39 @@ const M = { top: 46, bottom: 50, left: 54, right: 54 };
 const X = M.left;
 const W = PAGE.width - M.left - M.right;
 
-const VARIANTS = {
-  classique: { head: 'bar', top: 'left', ink: '#111111', accent: '#111111', barBg: '#D9D9D9', bullet: 'check' },
-  cursus: { head: 'beige', top: 'banner', ink: '#111111', accent: '#111111', barBg: '#E7E2CF', bullet: 'check' },
-  encadre: { head: 'box', top: 'pill', ink: '#111111', accent: '#111111', barBg: '#111111', bullet: 'dot' },
-  sobre: { head: 'underline', top: 'center', ink: '#111111', accent: '#111111', barBg: '#111111', bullet: 'arrow' },
-  cahier: { head: 'red', top: 'notebook', ink: '#1E3A8A', accent: '#C81E1E', barBg: '#C81E1E', bullet: 'dash' },
-};
+// Les cinq modèles intégrés, écrits dans le DSL des modèles (voir spec.js et
+// docs/modeles-dsl.md) : exactement ce qu'un admin peut téléverser.
+export const BUILTIN_SPECS = [
+  { id: 'classique', name: 'Classique', header: 'left', heading: 'bar', bullet: 'check', colors: { band: '#D9D9D9' } },
+  { id: 'cursus', name: 'Cursus', header: 'banner', heading: 'band', bullet: 'check', colors: { band: '#E7E2CF' } },
+  { id: 'encadre', name: 'Encadré', header: 'pill', heading: 'box', bullet: 'dot' },
+  { id: 'sobre', name: 'Sobre', header: 'center', heading: 'underline', bullet: 'arrow' },
+  { id: 'cahier', name: 'Cahier', header: 'title', heading: 'dot', bullet: 'dash', paper: 'lined', colors: { ink: '#1E3A8A', accent: '#C81E1E' } },
+];
+
+// Spécification (déjà validée) → réglages internes du moteur.
+function settings(spec) {
+  const c = { ink: '#111111', accent: '#111111', band: '#D9D9D9', ...spec.colors };
+  return {
+    top: spec.header,
+    head: { bar: 'bar', band: 'beige', box: 'box', underline: 'underline', dot: 'red' }[spec.heading],
+    bullet: spec.bullet,
+    ink: c.ink,
+    accent: c.accent,
+    barBg: c.band,
+    lined: spec.paper === 'lined',
+    sizes: { name: 17, body: 9.4, heading: 10.5, ...spec.sizes },
+  };
+}
 
 function styles(v, ghost) {
   return tone(
     {
-      name: { font: 'sans-600', size: 17, color: v.ink },
+      name: { font: 'sans-600', size: v.sizes.name, color: v.ink },
       big: { font: 'sans-600', size: 20, color: v.ink },
       line: { font: 'sans-500', size: 9.6, color: v.ink },
-      head: { font: 'sans-600', size: 10.5, color: v.head === 'red' ? v.accent : v.ink, tracking: 0.6 },
-      para: { font: 'sans-400', size: 9.4, color: v.ink },
+      head: { font: 'sans-600', size: v.sizes.heading, color: v.head === 'red' ? v.accent : v.ink, tracking: 0.6 },
+      para: { font: 'sans-400', size: v.sizes.body, color: v.ink },
       period: { font: 'sans-600', size: 9.4, color: v.ink },
       title: { font: 'sans-600', size: 9.6, color: v.ink },
       org: { font: 'sans-400', size: 9.4, color: v.ink },
@@ -43,10 +60,11 @@ function styles(v, ghost) {
   );
 }
 
-function make(id) {
-  const v = VARIANTS[id];
+// Un modèle à partir de sa spécification JSON (intégrée ou téléversée par l'admin).
+export function fromSpec(spec) {
+  const v = settings(spec);
   return {
-    id,
+    id: spec.id,
     margin: M,
 
     build(resume, kit) {
@@ -114,7 +132,7 @@ function make(id) {
           return block(ops, y + 14);
         }
 
-        if (v.top === 'banner' || v.top === 'pill' || v.top === 'notebook') {
+        if (v.top === 'banner' || v.top === 'pill' || v.top === 'title') {
           const t = label(lang, 'label.curriculum').toUpperCase();
           if (v.top === 'banner') {
             const st = { font: 'sans-400', size: 20, color: '#111111' };
@@ -240,9 +258,9 @@ function make(id) {
       }
     },
 
-    // Cahier : feuille lignée et marge rouge, sur chaque page.
+    // Papier ligné (cahier) : lignes et marge rouge, sur chaque page.
     decorate(doc) {
-      if (v.top !== 'notebook') return;
+      if (!v.lined) return;
       doc.pages.forEach((ops) => {
         const lines = [];
         for (let y = 40; y < PAGE.height - 20; y += 13.5) lines.push({ t: 'line', x1: 0, y1: y, x2: PAGE.width, y2: y, color: '#D6E4F5', lw: 0.5 });
@@ -253,8 +271,5 @@ function make(id) {
   };
 }
 
-export const classique = make('classique');
-export const cursus = make('cursus');
-export const encadre = make('encadre');
-export const sobre = make('sobre');
-export const cahier = make('cahier');
+const built = Object.fromEntries(BUILTIN_SPECS.map((s) => [s.id, fromSpec(s)]));
+export const { classique, cursus, encadre, sobre, cahier } = built;
