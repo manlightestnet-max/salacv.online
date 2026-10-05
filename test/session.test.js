@@ -91,3 +91,14 @@ test('withSession : durée du cookie plafonnée à 7 jours ; clé en ligne = jus
   assert.equal(h3, undefined);
   assert.equal(body.ok, false);
 });
+
+test('mon compte : /api/me rend photo Google, date d’inscription et connexions ; une photo hors Google est ignorée', async () => {
+  const { recordLogin } = await import('../server/db/users.js');
+  await recordLogin('lea@example.com', { name: 'Léa', picture: 'https://lh3.googleusercontent.com/a/photo-lea=s96-c' });
+  await recordLogin('lea@example.com', { picture: 'https://evil.example.com/x.png' }); // ignorée : la photo reste celle de Google
+  const me = await (await post('me', {}, { Authorization: `Bearer ${issue('lea@example.com', ENV)}` })).json();
+  assert.equal(me.picture, 'https://lh3.googleusercontent.com/a/photo-lea=s96-c');
+  assert.equal(me.name, 'Léa');
+  assert.equal(me.logins, 2);
+  assert.ok(me.since > 0 && me.lastLogin >= me.since);
+});

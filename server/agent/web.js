@@ -43,7 +43,7 @@ export async function googleLogin(payload, client, env = process.env, { verifyTo
   if (!identity) return [401, { ok: false, error: 'Connexion Google refusée. Réessaie.' }];
   const token = issue(identity.email, env);
   if (!token) return [503, { ok: false, error: 'Connexion indisponible : le serveur n’est pas encore configuré (clé maître manquante). Préviens l’administrateur.' }];
-  if ((await recordLogin(identity.email, { name: identity.name }).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
+  if ((await recordLogin(identity.email, { name: identity.name, picture: identity.picture }).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
   const adminToken = await adminTokenFor(identity, env).catch(() => null); // retiré de la réponse par server/http.js
   return [200, { ok: true, token, username: identity.email, name: identity.name, picture: identity.picture, kind: 'google', ...(adminToken ? { adminToken } : {}) }];
 }
@@ -127,7 +127,21 @@ export async function me(token, { env = process.env } = {}) {
   if (!username) return [200, { ok: true, loggedIn: false }];
   const user = await getUser(username).catch(() => null);
   if (user?.blocked) return [200, { ok: true, loggedIn: false }];
-  return [200, { ok: true, loggedIn: true, username, name: user?.name ?? '', kind: username.startsWith('key:') ? 'key' : 'google' }];
+  return [
+    200,
+    {
+      ok: true,
+      loggedIn: true,
+      username,
+      name: user?.name ?? '',
+      kind: username.startsWith('key:') ? 'key' : 'google',
+      // « Mon compte » : photo Google, date d'inscription, dernière connexion, nombre de connexions.
+      picture: user?.picture ?? '',
+      since: user?.first ?? null,
+      lastLogin: user?.last ?? null,
+      logins: user?.logins ?? 0,
+    },
+  ];
 }
 
 // Où en est le visiteur ? (barre de progression) — rien de secret.

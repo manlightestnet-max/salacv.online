@@ -1,8 +1,8 @@
 // Tableau de bord : mes CV enregistrés, l'explorateur de formats (gratuits et premium à
-// venir) et la gestion des crédits. Les miniatures sont rendues par le vrai moteur.
+// venir), la gestion des crédits et le compte (menu en haut à droite, page « Mon compte »). Les miniatures sont rendues par le vrai moteur.
 import { openThemePicker } from './lib/theme.js';
 import { readSession } from './login.js';
-import { initSession } from './session.js';
+import { initSession, logout } from './session.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
@@ -322,7 +322,146 @@ function personasView() {
   );
 }
 
-const VIEWS = { projets: projectsView, personnalites: personasView, explorer: explorerView, credits: creditsView };
+// --- Compte ------------------------------------------------------------------------------
+const pc = window.desktop?.isDesktop ? window.desktop : null;
+const dateFr = (ms) => new Date(ms).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+const initials = (s) => {
+  const parts = String(s.name || s.username || '?').replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
+};
+// Photo Google si on l'a, sinon les initiales (aussi si l'image ne charge pas).
+function avatar(session, size) {
+  const letters = h('span', { class: 'avatar', style: `--s:${size}px`, 'aria-hidden': 'true' }, session ? initials(session) : '?');
+  if (!session?.picture) return letters;
+  const img = h('img', { class: 'avatar', style: `--s:${size}px`, src: session.picture, alt: '', referrerpolicy: 'no-referrer', decoding: 'async' });
+  img.addEventListener('error', () => img.replaceWith(letters));
+  return img;
+}
+const accountLabel = (s) => (s.kind === 'key' ? 'Clé en ligne' : 'Compte Google');
+const displayName = (s) => s.name || (s.kind === 'key' ? 'Compte avec clé' : s.username.replace(/@.*/, ''));
+
+async function signOut(button) {
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Déconnexion…';
+  }
+  await logout();
+  location.replace(pc ? '/welcome/' : '/');
+}
+
+// Bouton en haut à droite : avatar → menu (identité, Mon compte, thème, déconnexion).
+function accountMenu() {
+  const session = readSession();
+  const root = $('account');
+  const trigger = h('button', { type: 'button', class: 'account-btn', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': session ? `Mon compte : ${displayName(session)}` : 'Compte' }, avatar(session, 30));
+  const close = () => {
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  };
+  const item = (label, attrs) => h(attrs.href ? 'a' : 'button', { class: 'menu-item', role: 'menuitem', ...(attrs.href ? {} : { type: 'button' }), ...attrs }, label);
+  const menu = h(
+    'div',
+    { class: 'account-menu', role: 'menu', hidden: true },
+    session
+      ? h('div', { class: 'menu-who' }, avatar(session, 38), h('div', {}, h('strong', {}, displayName(session)), h('small', {}, session.kind === 'key' ? accountLabel(session) : session.username)))
+      : h('div', { class: 'menu-who' }, avatar(null, 38), h('div', {}, h('strong', {}, 'Pas connecté'), h('small', {}, pc ? 'Clé hors ligne active sur ce PC' : 'Visiteur'))),
+    h('div', { class: 'menu-sep' }),
+    item('Mon compte', { href: '#compte', onClick: () => close() }),
+    item('Mes CV', { href: '#projets', onClick: () => close() }),
+    item('Crédits', { href: '#credits', onClick: () => close() }),
+    item('Thème', { onClick: () => (close(), openThemePicker()) }),
+    h('div', { class: 'menu-sep' }),
+    session
+      ? item('Se déconnecter', { class: 'menu-item danger', onClick: (e) => signOut(e.currentTarget) })
+      : item('Se connecter', { href: pc ? '/welcome/' : '/auth/?next=/dashboard/' }),
+  );
+  const open = () => {
+    menu.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    menu.querySelector('.menu-item')?.focus();
+  };
+  trigger.addEventListener('click', () => (menu.hidden ? open() : close()));
+  document.addEventListener('pointerdown', (e) => !root.contains(e.target) && close());
+  root.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) {
+      close();
+      trigger.focus();
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const items = [...menu.querySelectorAll('.menu-item')];
+      const i = items.indexOf(document.activeElement);
+      if (i < 0) return;
+      e.preventDefault();
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    }
+  });
+  root.replaceChildren(trigger, menu);
+}
+
+async function accountView() {
+  const session = readSession();
+  if (!session) {
+    return h(
+      'section',
+      {},
+      header('Mon compte', 'Tu utilises salacv avec une clé hors ligne sur ce PC.'),
+      h(
+        'div',
+        { class: 'panel' },
+        h('strong', {}, 'Pas de compte connecté'),
+        h('p', {}, 'Connecte-toi avec Google ou une clé en ligne pour retrouver tes CV partout, tes crédits et l’assistant.'),
+        h('div', { class: 'row' }, h('a', { class: 'btn-primary', href: pc ? '/welcome/' : '/auth/?next=/dashboard/' }, 'Se connecter')),
+      ),
+    );
+  }
+  const { credits } = await wallet.balance();
+  const stat = (value, label, href) => h('a', { class: 'stat', href }, h('strong', {}, String(value)), h('span', {}, label));
+  const nCv = listProjects().length;
+  const nPersonas = listPersonas().length;
+  const logoutBtn = h('button', { type: 'button', class: 'btn-ghost danger' }, 'Se déconnecter');
+  logoutBtn.addEventListener('click', () => signOut(logoutBtn));
+  const facts = [
+    session.since && ['Membre depuis', dateFr(session.since)],
+    session.lastLogin && ['Dernière connexion', relativeDate(session.lastLogin)],
+    session.logins > 0 && ['Connexions', String(session.logins)],
+    ['Type de compte', accountLabel(session)],
+  ].filter(Boolean);
+  return h(
+    'section',
+    { class: 'account-page' },
+    header('Mon compte', 'Ton profil, ton espace et ta session.'),
+    h(
+      'div',
+      { class: 'panel profile' },
+      avatar(session, 64),
+      h('div', { class: 'profile-text' }, h('strong', {}, displayName(session)), session.kind !== 'key' && h('span', {}, session.username), h('span', { class: 'badge' }, accountLabel(session))),
+    ),
+    h(
+      'div',
+      { class: 'stats' },
+      stat(nCv, nCv > 1 ? 'CV enregistrés' : 'CV enregistré', '#projets'),
+      stat(nPersonas, nPersonas > 1 ? 'personnalités' : 'personnalité', '#personnalites'),
+      stat(credits, credits > 1 ? 'crédits' : 'crédit', '#credits'),
+    ),
+    h('div', { class: 'panel' }, h('strong', {}, 'Détails'), h('dl', { class: 'facts' }, facts.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v))))),
+    h(
+      'div',
+      { class: 'panel' },
+      h('strong', {}, 'Tes données'),
+      h('p', {}, 'Tes CV et tes personnalités sont enregistrés sur ton compte salacv, pas dans ce navigateur : tu les retrouves sur n’importe quel appareil en te connectant.'),
+      session.kind !== 'key' && h('p', {}, 'Ton nom et ta photo viennent de ton compte Google ; salacv ne voit jamais ton mot de passe.'),
+    ),
+    h(
+      'div',
+      { class: 'panel session' },
+      h('strong', {}, 'Session'),
+      h('p', {}, pc ? 'Tu es connecté dans l’app salacv sur ce PC.' : 'Tu es connecté dans ce navigateur. La session dure 7 jours, puis on te redemande de te connecter.'),
+      h('div', { class: 'row' }, logoutBtn, h('button', { type: 'button', class: 'btn-ghost', onClick: () => openThemePicker() }, 'Changer de thème')),
+    ),
+  );
+}
+
+const VIEWS = { projets: projectsView, personnalites: personasView, explorer: explorerView, credits: creditsView, compte: accountView };
 
 async function render() {
   const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'projets';
@@ -339,6 +478,7 @@ async function refreshCredits() {
   $('credit-count').textContent = String((await wallet.balance()).credits);
 }
 
+accountMenu();
 window.addEventListener('hashchange', () => {
   render();
   window.scrollTo({ top: 0 });

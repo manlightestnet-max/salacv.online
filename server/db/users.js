@@ -5,6 +5,7 @@ import { query } from './index.js';
 const shape = (r) => ({
   username: r.username,
   name: r.name,
+  picture: r.picture ?? '',
   first: new Date(r.first_at).getTime(),
   last: new Date(r.last_at).getTime(),
   logins: Number(r.logins),
@@ -15,14 +16,18 @@ const shape = (r) => ({
 
 // Connexion réussie : crée le compte (accès à l'IA accordé d'office) ou met à jour son passage.
 // Un compte bloqué n'est pas modifié. → { blocked, aiAccess }
-export async function recordLogin(username, { name = '' } = {}) {
+export async function recordLogin(username, { name = '', picture = '' } = {}) {
+  // Photo : seulement une adresse https des serveurs d'images de Google (jamais une adresse quelconque affichée telle quelle).
+  const photo = /^https:\/\/[a-z0-9-]+\.googleusercontent\.com\/[^\s"'<>]{1,400}$/i.test(String(picture)) ? String(picture) : '';
   const rows = await query(
-    `INSERT INTO users (username, name, logins) VALUES ($1, $2, 1)
+    `INSERT INTO users (username, name, picture, logins) VALUES ($1, $2, $3, 1)
      ON CONFLICT (username) DO UPDATE
-       SET last_at = now(), logins = users.logins + 1, name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE users.name END
+       SET last_at = now(), logins = users.logins + 1,
+           name = CASE WHEN EXCLUDED.name <> '' THEN EXCLUDED.name ELSE users.name END,
+           picture = CASE WHEN EXCLUDED.picture <> '' THEN EXCLUDED.picture ELSE users.picture END
        WHERE users.blocked = false
      RETURNING blocked, ai_access`,
-    [username, String(name).slice(0, 80)],
+    [username, String(name).slice(0, 80), photo],
   );
   if (rows.length) return { blocked: false, aiAccess: rows[0].ai_access };
   return { blocked: true, aiAccess: false };
