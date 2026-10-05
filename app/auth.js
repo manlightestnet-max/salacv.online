@@ -2,8 +2,21 @@
 //   • web      : /auth/?next=/dashboard/        → jeton vérifié par /api/google, session enregistrée, retour à `next`
 //   • desktop  : /auth/?desktop=1&port=…&state=… → ouverte par l'app Electron dans le navigateur du PC ;
 //                le jeton est renvoyé à l'app sur son port local (127.0.0.1), qui le vérifie et ouvre la session.
+//
+// Google s'ouvre dans CET onglet (redirection), pas dans une fenêtre surgissante que le navigateur peut bloquer.
+// La redirection exige que la page de retour de Firebase soit sur notre propre domaine : /__/auth/* est relayé vers
+// firebaseapp.com (vercel.json), et https://<site>/__/auth/handler doit être autorisé dans Google Cloud.
 import { initializeApp } from 'firebase/app';
-import { GoogleAuthProvider, getAuth, signInWithPopup } from 'firebase/auth';
+import {
+  GoogleAuthProvider,
+  browserPopupRedirectResolver,
+  getRedirectResult,
+  inMemoryPersistence,
+  initializeAuth,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+} from 'firebase/auth';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -12,6 +25,9 @@ const APP_PORTS = [47831, 47832, 47833, 47834]; // les seuls ports sur lesquels 
 const port = Number(params.get('port'));
 const state = params.get('state') ?? '';
 const adminMode = params.get('admin') === '1'; // connexion de l'administrateur (UID comparé côté serveur)
+const returning = params.get('g') === '1'; // retour de Google (marque posée juste avant la redirection)
+// Redirection sur le site en ligne (https, relais /__/auth/) ; fenêtre Google seulement en développement local.
+const useRedirect = location.protocol === 'https:';
 
 // Retour limité à une page du site (jamais une adresse externe).
 const next = (() => {
@@ -40,53 +56,38 @@ async function loadConfig() {
     return fallback;
   }
 }
-let config = { apiKey: '' };
 
+// --- Retour visuel ------------------------------------------------------------------------
 const button = $('auth-google');
+const label = $('auth-label');
+const statusLine = $('auth-status');
 const error = $('auth-error');
-let leaving = false; // une redirection est en cours (session trouvée ou connexion Google lancée)
-// lock : erreur bloquante (lien invalide, configuration absente) → le bouton reste désactivé.
+const READY = 'Continuer avec Google';
+
+// ready : cliquable · busy : spinner · done : connecté · locked : impossible (configuration, lien invalide)
+function setButton(kind, text) {
+  button.dataset.state = kind;
+  button.disabled = kind !== 'ready';
+  label.textContent = text;
+}
+function say(text, ok = false) {
+  statusLine.textContent = text;
+  statusLine.toggleAttribute('data-ok', ok);
+  statusLine.hidden = !text;
+}
+
+let leaving = false; // une redirection est en cours (session trouvée ou connexion lancée)
 const fail = (message, lock = false) => {
   leaving = false;
+  say('');
   error.textContent = message;
   error.hidden = false;
-  button.disabled = lock;
+  setButton(lock ? 'locked' : 'ready', READY);
 };
 
 if (adminMode) $('auth-text').textContent = 'Administration : connecte-toi avec le compte Google de l’administrateur.';
-if (desktop) {
-  $('auth-text').textContent = 'Connecte-toi avec Google, puis reviens dans l’app salacv : elle s’ouvrira toute seule.';
-  if (!APP_PORTS.includes(port) || !/^[0-9a-f]{32}$/.test(state)) {
-    fail('Lien invalide. Relance la connexion depuis l’app salacv.', true);
-  }
-}
-// Déjà connecté (dans cet onglet ou un autre) → on repart directement, sans redemander Google.
-// Vérifié au chargement et chaque fois que l'onglet redevient visible. Pas pour le desktop : la session vit dans l'app.
-async function alreadySignedIn() {
-  if (desktop || leaving) return;
-  try {
-    const res = await fetch(adminMode ? '/api/admin' : '/api/me', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(adminMode ? { action: 'session' } : {}),
-    });
-    const d = await res.json();
-    if (!(adminMode ? d.ok : d.ok && d.loggedIn) || leaving) return;
-    leaving = true;
-    $('auth-title').textContent = 'Déjà connecté';
-    location.replace(adminMode ? '/admin/' : next);
-  } catch {}
-}
-alreadySignedIn();
-window.addEventListener('focus', alreadySignedIn);
-document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && alreadySignedIn());
-
-button.disabled = true;
-loadConfig().then((c) => {
-  config = c;
-  if (!c.apiKey) return fail('La connexion Google n’est pas encore configurée : l’administrateur doit renseigner la clé Firebase.', true);
-  if (!desktop || (APP_PORTS.includes(port) && /^[0-9a-f]{32}$/.test(state))) button.disabled = false;
-});
+if (desktop) $('auth-text').textContent = 'Connecte-toi avec Google, puis reviens dans l’app salacv : elle s’ouvrira toute seule.';
+const desktopLinkOk = !desktop || (APP_PORTS.includes(port) && /^[0-9a-f]{32}$/.test(state));
 
 const FRIENDLY = {
   'auth/popup-closed-by-user': 'La fenêtre Google a été fermée avant la fin. Réessaie.',
@@ -94,37 +95,138 @@ const FRIENDLY = {
   'auth/popup-blocked': 'Ton navigateur a bloqué la fenêtre Google. Autorise-la puis réessaie.',
   'auth/network-request-failed': 'Pas de connexion Internet. Vérifie ton réseau puis réessaie.',
   'auth/unauthorized-domain': 'Ce domaine n’est pas autorisé pour la connexion Google.',
+  'auth/user-cancelled': 'Connexion annulée. Réessaie quand tu veux.',
+  'auth/web-storage-unsupported': 'Ton navigateur bloque la connexion (mode privé strict ?). Essaie une fenêtre normale.',
 };
+const friendly = (err) => FRIENDLY[err?.code] ?? 'La connexion a échoué. Réessaie dans un instant.';
+
+// --- Session déjà ouverte -------------------------------------------------------------------
+// Dans cet onglet ou un autre → on repart directement, sans redemander Google. Vérifié au chargement et chaque fois
+// que l'onglet redevient visible. Pas pour le desktop : la session vit dans l'app.
+function goTo(url, text = 'Déjà connecté') {
+  leaving = true;
+  $('auth-title').textContent = text;
+  setButton('done', 'Connecté');
+  say('Ouverture de ton espace…', true);
+  location.replace(url);
+}
+async function alreadySignedIn() {
+  if (desktop || leaving) return false;
+  try {
+    const res = await fetch(adminMode ? '/api/admin' : '/api/me', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(adminMode ? { action: 'session' } : {}),
+    });
+    const d = await res.json();
+    if (!(adminMode ? d.ok : d.ok && d.loggedIn) || leaving) return false;
+    goTo(adminMode ? '/admin/' : next);
+    return true;
+  } catch {
+    return false;
+  }
+}
+const recheck = () => button.dataset.state === 'ready' && alreadySignedIn();
+window.addEventListener('focus', recheck);
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && recheck());
+
+// --- Connexion ------------------------------------------------------------------------------
+let auth = null;
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' }); // laisse choisir le compte au lieu de reprendre le dernier
+
+// Firebase ne garde rien dans le navigateur (mémoire seulement) : seul le jeton d'identité sert, une fois.
+function makeAuth(config) {
+  const authDomain = useRedirect ? location.host : config.authDomain;
+  return initializeAuth(initializeApp({ ...config, authDomain }), { persistence: inMemoryPersistence, popupRedirectResolver: browserPopupRedirectResolver });
+}
+
+// Jeton Google obtenu → session salacv (ou retour vers l'app desktop).
+async function finish(result) {
+  leaving = true;
+  $('auth-title').textContent = 'Connexion en cours…';
+  setButton('busy', 'Connexion…');
+  say('Vérification de ton compte…');
+  const idToken = await result.user.getIdToken();
+  signOut(auth).catch(() => {});
+  if (desktop) {
+    $('auth-title').textContent = 'Retour vers l’app…';
+    setButton('done', 'Connecté');
+    say('C’est bon : l’app salacv s’ouvre. Tu peux fermer cet onglet.', true);
+    // Navigation de premier niveau vers le port local : le jeton reste dans le fragment (jamais envoyé au réseau).
+    location.replace(`http://127.0.0.1:${port}/__desktop/callback#idToken=${encodeURIComponent(idToken)}&state=${encodeURIComponent(state)}`);
+    return;
+  }
+  const res = await fetch(adminMode ? '/api/admin' : '/api/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(adminMode ? { action: 'login', idToken } : { idToken }),
+  }).catch(() => null);
+  if (!res) return fail('Le serveur ne répond pas. Vérifie ta connexion puis réessaie.');
+  const data = await res.json().catch(() => ({ ok: false }));
+  if (!data.ok) return fail(data.error || 'Connexion refusée. Réessaie.');
+  goTo(adminMode ? '/admin/' : next, 'Connecté');
+}
 
 button.addEventListener('click', async () => {
+  if (!auth || leaving) return;
   error.hidden = true;
   if (!navigator.onLine) return fail('Pas de connexion Internet. La connexion Google en a besoin.');
-  button.disabled = true;
+  leaving = true;
   try {
-    leaving = true; // la connexion en cours redirigera elle-même
-    const auth = getAuth(initializeApp(config));
-    const result = await signInWithPopup(auth, new GoogleAuthProvider());
-    const idToken = await result.user.getIdToken();
-    if (desktop) {
-      $('auth-title').textContent = 'Retour vers l’app…';
-      // Navigation de premier niveau vers le port local : le jeton reste dans le fragment (jamais envoyé au réseau).
-      location.replace(`http://127.0.0.1:${port}/__desktop/callback#idToken=${encodeURIComponent(idToken)}&state=${encodeURIComponent(state)}`);
+    if (useRedirect) {
+      setButton('busy', 'Ouverture de Google…');
+      say('Tu choisis ton compte chez Google, puis tu reviens ici automatiquement.');
+      // Marque le retour dans l'adresse : à la fin, Google ramène exactement ici.
+      const url = new URL(location.href);
+      url.searchParams.set('g', '1');
+      history.replaceState(null, '', url);
+      await signInWithRedirect(auth, provider);
       return;
     }
-    if (adminMode) {
-      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', idToken }) });
-      const data = await res.json().catch(() => ({ ok: false }));
-      if (!data.ok) return fail(data.error || 'Connexion refusée.');
-      $('auth-title').textContent = 'Connecté';
-      location.replace('/admin/');
-      return;
-    }
-    const res = await fetch('/api/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
-    const data = await res.json().catch(() => ({ ok: false }));
-    if (!data.ok) return fail(data.error || 'Connexion refusée. Réessaie.');
-    $('auth-title').textContent = 'Connecté';
-    location.replace(next);
+    setButton('busy', 'Fenêtre Google ouverte…');
+    await finish(await signInWithPopup(auth, provider));
   } catch (err) {
-    fail(FRIENDLY[err?.code] ?? 'La connexion a échoué. Réessaie dans un instant.');
+    fail(friendly(err));
   }
 });
+
+// --- Démarrage --------------------------------------------------------------------------------
+async function start() {
+  if (returning) {
+    $('auth-title').textContent = 'Connexion en cours…';
+    setButton('busy', 'Retour de Google…');
+    say('Un instant, on termine ta connexion.');
+    const url = new URL(location.href);
+    url.searchParams.delete('g');
+    history.replaceState(null, '', url); // un rechargement ne repasse pas par ici
+  } else {
+    setButton('busy', 'Vérification…');
+  }
+  if (!desktopLinkOk) return fail('Lien invalide. Relance la connexion depuis l’app salacv.', true);
+  const config = await loadConfig();
+  if (!config.apiKey) return fail('La connexion Google n’est pas encore configurée : l’administrateur doit renseigner la clé Firebase.', true);
+  auth = makeAuth(config);
+  if (useRedirect) {
+    try {
+      const result = await getRedirectResult(auth);
+      if (result) return await finish(result);
+    } catch (err) {
+      return fail(friendly(err));
+    }
+    if (returning) $('auth-title').textContent = 'Connexion';
+  }
+  if (await alreadySignedIn()) return;
+  say('');
+  setButton('ready', READY);
+  showTemplates();
+}
+
+// Grand écran : les modèles défilent à côté (moteur chargé à part, sans retarder la connexion).
+function showTemplates() {
+  const root = $('auth-show-cols');
+  if (!root || !matchMedia('(min-width: 900px)').matches) return;
+  import('./auth-showcase.js').then((m) => m.showTemplates(root)).catch(() => {});
+}
+
+start().catch((err) => fail(friendly(err)));
