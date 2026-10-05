@@ -41,6 +41,13 @@ function fakeR2() {
   return { objects, log, fetchImpl };
 }
 
+async function configureR2() {
+  await setSetting('r2.accountId', 'compte123', ENV);
+  await setSetting('r2.accessKeyId', 'AKIATEST', ENV);
+  await setSetting('r2.secretAccessKey', 'secret-test-0123456789', ENV);
+  await setSetting('r2.bucket', 'salacv-test', ENV);
+}
+
 const cv = (id, extra = {}) => ({ id, state: { profile: { name: 'Grace', ...extra }, template: 'minimal' }, createdAt: 1_700_000_000_000, updatedAt: 1_700_000_000_000 });
 
 test('sans connexion : aucune sauvegarde (401)', async () => {
@@ -48,30 +55,22 @@ test('sans connexion : aucune sauvegarde (401)', async () => {
   assert.equal((await projectsRoute({ action: 'save', id: 'abcd', data: {} }, 'jeton-faux', { env: ENV }))[0], 401);
 });
 
-test('sans R2 : les CV sont gardés dans la base, par compte, et isolés entre comptes', async () => {
+test('sans R2 : l’enregistrement est refusé avec un message clair (aucun repli silencieux), la liste est vide', async () => {
   assert.equal(await r2Configured(ENV), false);
   const a = token('ana@example.com');
-  const b = token('ben@example.com');
-  assert.equal((await projectsRoute({ action: 'save', id: 'cv1abc', kind: 'cv', createdAt: 1_700_000_000_000, data: cv('cv1abc') }, a, { env: ENV }))[0], 200);
-  assert.equal((await projectsRoute({ action: 'save', id: 'per1abc', kind: 'persona', data: { name: 'Moi' } }, a, { env: ENV }))[0], 200);
-  const [, listA] = await projectsRoute({ action: 'list' }, a, { env: ENV });
-  assert.deepEqual(listA.items.map((i) => [i.id, i.kind]).sort(), [['cv1abc', 'cv'], ['per1abc', 'persona']]);
-  assert.equal(listA.items.find((i) => i.id === 'cv1abc').data.state.profile.name, 'Grace');
-  assert.equal(listA.items.find((i) => i.id === 'cv1abc').createdAt, 1_700_000_000_000);
-  const [, listB] = await projectsRoute({ action: 'list' }, b, { env: ENV });
-  assert.equal(listB.items.length, 0); // un autre compte ne voit rien
-  // mise à jour : même id, nouveau contenu
-  await projectsRoute({ action: 'save', id: 'cv1abc', data: cv('cv1abc', { title: 'Comptable' }) }, a, { env: ENV });
-  assert.equal((await projectsRoute({ action: 'list' }, a, { env: ENV }))[1].items.find((i) => i.id === 'cv1abc').data.state.profile.title, 'Comptable');
-  // suppression : seulement la sienne
-  assert.equal((await projectsRoute({ action: 'delete', id: 'cv1abc' }, b, { env: ENV }))[1].deleted, false);
-  assert.equal((await projectsRoute({ action: 'delete', id: 'cv1abc' }, a, { env: ENV }))[1].deleted, true);
-  assert.equal((await projectsRoute({ action: 'list' }, a, { env: ENV }))[1].items.length, 1);
+  const [status, body] = await projectsRoute({ action: 'save', id: 'cv1abc', kind: 'cv', data: cv('cv1abc') }, a, { env: ENV });
+  assert.equal(status, 503);
+  assert.match(body.error, /R2/);
+  const [, list] = await projectsRoute({ action: 'list' }, a, { env: ENV });
+  assert.deepEqual(list, { ok: true, storage: false, items: [] });
+  assert.equal((await query('SELECT count(*)::int AS n FROM projects'))[0].n, 0, 'rien n’est gardé dans la base');
 });
 
 test('validation : identifiant, type, forme, taille et nombre maximum de CV', async () => {
+  await configureR2();
   const t = token('cleo@example.com');
-  const save = (p) => projectsRoute({ action: 'save', ...p }, t, { env: ENV });
+  const r2 = fakeR2();
+  const save = (p) => projectsRoute({ action: 'save', ...p }, t, { env: ENV, fetchImpl: r2.fetchImpl });
   assert.equal((await save({ id: 'A!', data: {} }))[0], 400);
   assert.equal((await save({ id: 'abcd', kind: 'virus', data: {} }))[0], 400);
   assert.equal((await save({ id: 'abcd', data: [] }))[0], 400);
@@ -86,11 +85,8 @@ test('validation : identifiant, type, forme, taille et nombre maximum de CV', as
   assert.equal((await save({ id: 'p0000', data: { a: 2 } }))[0], 200); // mettre à jour un CV existant reste possible
 });
 
-test('avec R2 : le contenu part sur le bucket (requêtes signées, clé anonyme), l’index reste en base', async () => {
-  await setSetting('r2.accountId', 'compte123', ENV);
-  await setSetting('r2.accessKeyId', 'AKIATEST', ENV);
-  await setSetting('r2.secretAccessKey', 'secret-test-0123456789', ENV);
-  await setSetting('r2.bucket', 'salacv-test', ENV);
+test('avec R2 : le contenu part sur le bucket (requêtes signées, dossier du compte), l’index reste en base', async () => {
+  await configureR2();
   assert.equal(await r2Configured(ENV), true);
   const [{ value: stored }] = await query(`SELECT value FROM settings WHERE key = 'r2.secretAccessKey'`);
   assert.ok(!stored.includes('secret-test'), 'les clés d’accès sont chiffrées en base');

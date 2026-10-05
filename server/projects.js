@@ -1,5 +1,6 @@
-// CV des comptes connectés : l'application ne garde plus rien dans le navigateur. Le contenu est écrit sur R2 (si l'admin
-// l'a configuré) ou, à défaut, dans la base ; la table `projects` garde l'index. Un visiteur non connecté n'a aucune sauvegarde.
+// CV des comptes connectés : le contenu est écrit UNIQUEMENT sur Cloudflare R2, dans le dossier du compte (u/<empreinte>/…) ;
+// la table `projects` ne garde que l'index (identifiant, dates, taille). Rien n'est gardé dans le navigateur. Un visiteur non
+// connecté n'a aucune sauvegarde. Sans R2 configuré, l'enregistrement est refusé avec un message clair (aucun repli silencieux).
 import { query } from './db/index.js';
 import { verify } from './agent/auth.js';
 import { getUser } from './db/users.js';
@@ -59,16 +60,14 @@ export async function saveProject(username, { id, kind = 'cv', data, createdAt }
     if (n >= MAX_PROJECTS) return { ok: false, status: 400, error: `Tu as atteint la limite de ${MAX_PROJECTS} CV. Supprime-en pour en créer d’autres.` };
   }
 
-  let key = null;
-  if (await r2Configured(opts.env)) {
-    key = keyOf(username, kind, id);
-    await r2Put(key, json, 'application/json', opts);
-  }
+  if (!(await r2Configured(opts.env))) return { ok: false, status: 503, error: 'Le stockage des CV n’est pas encore configuré par l’administrateur (Cloudflare R2).' };
+  const key = keyOf(username, kind, id);
+  await r2Put(key, json, 'application/json', opts);
   await query(
     `INSERT INTO projects (username, id, kind, data, r2_key, bytes, created_at)
      VALUES ($1, $2, $3, $4::jsonb, $5, $6, to_timestamp($7 / 1000.0))
      ON CONFLICT (username, id) DO UPDATE SET kind = EXCLUDED.kind, data = EXCLUDED.data, r2_key = EXCLUDED.r2_key, bytes = EXCLUDED.bytes, updated_at = now()`,
-    [username, id, kind, key ? null : json, key, bytes, Number.isFinite(createdAt) ? createdAt : Date.now()],
+    [username, id, kind, null, key, bytes, Number.isFinite(createdAt) ? createdAt : Date.now()],
   );
   return { ok: true };
 }
@@ -87,7 +86,7 @@ export async function projectsRoute(payload, token, { env = process.env, ...opts
   const o = { env, ...opts };
   switch (String(payload?.action ?? 'list')) {
     case 'list':
-      return [200, { ok: true, items: await listProjects(username, o) }];
+      return [200, { ok: true, storage: await r2Configured(env), items: await listProjects(username, o) }];
     case 'save': {
       if (!saveLimiter.allow(username)) return [429, { ok: false, error: 'Trop d’enregistrements. Réessaie dans un instant.' }];
       const r = await saveProject(username, payload, o);

@@ -83,7 +83,8 @@ Routes (`server/http.js`), identiques sur Vercel (`api/*.js`) et sur le VPS
 (`server/index.js`, site + API dans le même process Node) :
 
 - `POST /api/google` `{ idToken }` : connexion Google (voir « Connexion » plus bas), renvoie un
-  jeton de session signé côté serveur, valable 7 jours.
+  session valable 7 jours : le jeton signé est posé dans un **cookie httpOnly** (`sv_session`), jamais renvoyé à la page. Seul le relais de
+  l'app desktop (en-tête `X-Salacv-Client: desktop`) le reçoit, pour son coffre chiffré (`safeStorage`). `POST /api/me` dit qui est connecté ; `POST /api/logout` efface les cookies.
 - `POST /api/key` `{ key, device }` : activation d'une clé KEYGEN **en ligne** (PC), session plafonnée à la fin de vie de la clé.
 - `POST /api/login` : ancienne connexion fictive, **fermée** (410). `SALACV_ALLOW_PASSWORD_LOGIN=1` ne sert qu'aux essais locaux.
 - `POST /api/agent` `{ state, message, history? }` avec `Authorization: Bearer <jeton>`.
@@ -129,9 +130,10 @@ Tout se règle par l'admin, dans l'onglet « Clés IA » :
   filigrane, Word bloqué**. Compte avec crédit → PDF propre + Word, **1 crédit par version** (re-télécharger la même version est
   gratuit). Débit atomique en base, registre `credit_ledger`, jamais de solde négatif ni de double débit.
 - **Cadeau d'inscription** (admin → Clés IA) : crédits offerts à la première connexion ; 3 par défaut, 0 pour le désactiver.
-- **Sauvegarde des CV** (`/api/projects`) : sur **R2** (admin → Clés IA → Stockage R2), sinon dans la base. Le navigateur ne garde
-  plus rien (seulement thème, mode Lite/Pro…). Les anciennes données locales sont envoyées au compte à la première connexion.
-  Les PDF payés des clients sont aussi gardés sur R2. Les clés d'objet ne contiennent jamais d'e-mail.
+- **Sauvegarde des CV** (`/api/projects`) : **uniquement sur Cloudflare R2**, dans le dossier du compte (`u/<empreinte>/…`, jamais d'e-mail) ;
+  la base ne garde que l'index. R2 non configuré = enregistrement refusé avec un message clair (aucun repli). Le navigateur ne garde
+  plus rien : ni CV, ni session, ni jeton. Restent seulement des préférences d'affichage (thème, mode Lite/Pro, largeur du panneau).
+  Les PDF payés des clients sont aussi gardés sur R2.
 - **Avis** (`/api/feedback`) : note + mot de n'importe quel utilisateur, un par personne, 5 nouveaux par IP et par jour ; ils
   alimentent les statistiques de la landing (`/api/stats` : note moyenne, CV préparés — rien n'est affiché sans donnée réelle).
 - **Mode Pro** : « Générer » ouvre une fenêtre pour choisir, CV par CV (et par langue), PDF et/ou Word.

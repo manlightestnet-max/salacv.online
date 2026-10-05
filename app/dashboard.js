@@ -2,6 +2,7 @@
 // venir) et la gestion des crédits. Les miniatures sont rendues par le vrai moteur.
 import { openThemePicker } from './lib/theme.js';
 import { readSession } from './login.js';
+import { initSession } from './session.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
@@ -22,6 +23,7 @@ async function gate() {
   location.replace('/auth/?next=/dashboard/');
   return false;
 }
+await initSession();
 if (!(await gate())) await new Promise(() => {}); // la page change : on n'affiche rien
 await initStore(); // les CV et personnalités du compte, depuis le serveur
 

@@ -5,16 +5,16 @@ import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { captureReferral } from './lib/store.js';
 import { h } from './dom.js';
 import { TEMPLATES } from './state.js';
 import { readSession } from './login.js';
+import { initSession } from './session.js';
 
 const $ = (id) => document.getElementById(id);
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CYCLE_MS = 2600;
 
-captureReferral();
+await initSession(); // qui est connecté ? (demandé au serveur)
 
 $('theme').addEventListener('click', () => openThemePicker());
 

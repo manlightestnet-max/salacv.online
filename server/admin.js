@@ -96,7 +96,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     }
     const t = issue(ADMIN, env, Date.now(), ADMIN_TTL);
     if (t) await log('Connexion admin', identity.email);
-    return t ? [200, { ok: true, token: t, email: identity.email }] : [503, { ok: false, error: 'Clé de signature absente (SALACV_SESSION_SECRET).' }];
+    return t ? [200, { ok: true, token: t, email: identity.email }] : [503, { ok: false, error: 'Serveur non configuré : la variable SALACV_MASTER_KEY est absente ou invalide (32 octets en base64). Ouvre /api/status pour voir ce qui manque.' }];
   }
   if (!String(env.SALACV_ADMIN_UID ?? '').trim() || verify(token, env) !== ADMIN) return [401, { ok: false, error: 'Connexion admin requise.' }];
 
@@ -128,6 +128,8 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     }
     case 'journal':
       return [200, { ok: true, journal: await s.range('journal', MAX_JOURNAL) }];
+    case 'whoami':
+      return [200, { ok: true }];
     // Ce qui est prêt et ce qui manque : tout se règle dans cette interface, sauf les secrets de démarrage.
     case 'setup': {
       const keys = await pool.listKeys();
@@ -142,7 +144,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
             { id: 'admin', label: 'Administrateur', ok: Boolean(String(env.SALACV_ADMIN_UID ?? '').trim()), detail: 'UID Firebase du compte admin', env: 'SALACV_ADMIN_UID' },
             { id: 'firebase', label: 'Connexion Google (clé Firebase)', ok: Boolean(await getSetting('firebase.apiKey', env)), detail: 'À renseigner dans « Clés IA » → Connexion Google', env: null },
             { id: 'ai', label: 'Clés IA', ok: usable.length > 0, detail: `${usable.length} utilisable${usable.length > 1 ? 's' : ''}, dont ${usable.filter((k) => k.public).length} publique${usable.filter((k) => k.public).length > 1 ? 's' : ''} (visiteurs)`, env: null },
-            { id: 'r2', label: 'Stockage R2 (CV et PDF des clients)', ok: await r2Configured(env), detail: 'Sinon les CV sont gardés dans la base', env: null, optional: true },
+            { id: 'r2', label: 'Stockage R2 (CV et PDF des clients)', ok: await r2Configured(env), detail: 'Obligatoire : sans lui, les comptes ne peuvent pas sauvegarder leurs CV', env: null },
           ],
         },
       ];

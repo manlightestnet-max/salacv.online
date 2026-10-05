@@ -53,6 +53,29 @@ const licenseStorage = {
     fsSync.writeFileSync(userFile('license.bin'), safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(text) : text);
   },
 };
+// Session du compte : le jeton est gardé ICI (processus principal, chiffré par le système), jamais dans la page.
+// La page ne voit que des requêtes /api/* ; le relais ajoute l'en-tête Authorization.
+const sessionVault = {
+  file: () => userFile('session.bin'),
+  read() {
+    try {
+      const raw = fsSync.readFileSync(this.file());
+      const data = JSON.parse(safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString('utf8'));
+      return data.expiresAt && data.expiresAt < Date.now() ? null : data.token;
+    } catch {
+      return null;
+    }
+  },
+  write(token, expiresAt) {
+    const text = JSON.stringify({ token, expiresAt: expiresAt ?? Date.now() + 7 * 24 * 3600_000 });
+    fsSync.writeFileSync(this.file(), safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(text) : text);
+  },
+  clear() {
+    try {
+      fsSync.unlinkSync(this.file());
+    } catch {}
+  },
+};
 let licensePromise = null;
 function getLicense() {
   licensePromise ??= (async () => {
@@ -99,8 +122,21 @@ async function relayApi(req, res) {
   } catch {
     return send(400, { ok: false, error: 'Requête invalide.' });
   }
-  const auth = req.headers.authorization ? { Authorization: String(req.headers.authorization) } : {};
-  const { status, body } = await callBackend(new URL(req.url, 'http://127.0.0.1').pathname, payload, auth);
+  const route = new URL(req.url, 'http://127.0.0.1').pathname;
+  if (route === '/api/logout') {
+    sessionVault.clear();
+    return send(200, { ok: true });
+  }
+  const stored = sessionVault.read();
+  const auth = stored ? { Authorization: `Bearer ${stored}` } : {};
+  const { status, body } = await callBackend(route, payload, auth);
+  // Connexion (Google ou clé) : le jeton va dans le coffre, la page n'en reçoit jamais copie.
+  if ((route === '/api/google' || route === '/api/key') && body?.ok && body.token) {
+    sessionVault.write(body.token, body.expiresAt);
+    const { token, ...rest } = body;
+    return send(status, rest);
+  }
+  if (status === 401 && stored && route !== '/api/admin') sessionVault.clear(); // session refusée : on l'oublie
   send(status, body);
 }
 
@@ -161,9 +197,9 @@ function desktopRoutes(req, res) {
       if (!expires || expires < Date.now()) return reply(400, { ok: false, error: 'Cette connexion a expiré. Relance-la depuis l’app.' });
       const { status, body } = await callBackend('/api/google', { idToken });
       if (!body.ok) return reply(status, body);
-      const session = { token: body.token, username: body.username, name: body.name, kind: 'google' };
+      sessionVault.write(body.token, body.expiresAt);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        await mainWindow.webContents.executeJavaScript(`localStorage.setItem('salacv:session', ${JSON.stringify(JSON.stringify(session))}); location.replace('/dashboard/'); true`);
+        await mainWindow.webContents.executeJavaScript(`location.replace('/dashboard/'); true`);
         mainWindow.show();
         mainWindow.focus();
       }

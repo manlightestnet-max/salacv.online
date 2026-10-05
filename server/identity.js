@@ -33,6 +33,17 @@ export function clientIp(req) {
 
 const sign = (id, env) => createHmac('sha256', signingSecret(env)).update(`anon:${id}`).digest('base64url');
 
+export const SESSION_COOKIE = 'sv_session';
+export const ADMIN_COOKIE = 'sv_admin';
+
+// Cookie de session : httpOnly (invisible du JavaScript de la page), Secure en ligne, SameSite=Lax (jamais envoyé par un autre site).
+export function cookieString(name, value, maxAge, req, env = process.env) {
+  const secure = String(req?.headers?.['x-forwarded-proto'] ?? '').includes('https') || Boolean(env.VERCEL);
+  return `${name}=${value}; Path=/; Max-Age=${Math.max(0, Math.floor(maxAge))}; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
+}
+export const clearCookieString = (name, req, env) => cookieString(name, '', 0, req, env);
+export const readCookie = (req, name) => parseCookies(req.headers?.cookie)[name] ?? '';
+
 function parseCookies(header) {
   const out = {};
   for (const part of String(header ?? '').split(';')) {

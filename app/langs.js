@@ -5,16 +5,9 @@ import { LANGS, langName } from '../src/i18n/index.js';
 import { h } from './dom.js';
 import { openDialog } from './dialog.js';
 import { normalizeState } from './state.js';
+import { getSession } from './session.js';
 
-const SESSION_KEY = 'salacv:session';
-
-function session() {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  } catch {
-    return null;
-  }
-}
+const session = getSession; // l'identité vient du serveur (cookie httpOnly)
 
 // La version dans `lang`, avec le modèle et la photo de `from`.
 function withShared(next, from) {
@@ -25,13 +18,12 @@ function withShared(next, from) {
 }
 
 async function requestTranslation(state, to) {
-  const token = session()?.token;
   const { photo, ...profile } = state.profile; // la photo ne part jamais
   let res;
   try {
     res = await fetch('/api/translate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ state: { ...state, profile, template: undefined }, to }),
     });
   } catch {
@@ -77,7 +69,7 @@ export function createLangBar(ctx) {
 
   // Garde commune de la traduction automatique : un compte, et Internet. Retourne vrai si bloqué.
   function blocked(retry) {
-    if (!session()?.token) {
+    if (!session()) {
       notice({
         title: 'Connexion requise',
         text: 'La traduction automatique passe par l’assistant IA, qui demande un compte.',
@@ -183,7 +175,7 @@ export function createLangBar(ctx) {
       pick = l;
       options.forEach((b, i) => b.setAttribute('aria-pressed', String(LANGS[i] === l)));
     }
-    const logged = Boolean(session()?.token);
+    const logged = Boolean(session());
     const from = ctx.getState();
     const offline = !online();
     const dialog = openDialog({
@@ -235,7 +227,7 @@ export function createLangBar(ctx) {
       });
       return;
     }
-    const logged = Boolean(session()?.token);
+    const logged = Boolean(session());
     const dialog = openDialog({
       title: `Version ${langName(lang)}`,
       content: h('p', { class: 'lang-note' }, `Retraduire remplace cette version par une nouvelle traduction de la version ${langName(main())}.`),

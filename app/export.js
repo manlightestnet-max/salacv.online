@@ -30,9 +30,8 @@ const MIME = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-off
 
 // Appel du serveur de génération (avec le jeton s'il y en a un).
 async function callRender(payload) {
-  const session = readSession();
   try {
-    const res = await fetch('/api/render', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.token}` } : {}) }, body: JSON.stringify(payload) });
+    const res = await fetch('/api/render', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     return { status: res.status, data: await res.json().catch(() => ({ ok: false, error: 'Réponse inattendue du serveur.' })) };
   } catch {
     return { status: 0, data: { ok: false, error: 'Pas de connexion Internet. Vérifie ton réseau puis réessaie.' } };
@@ -335,14 +334,10 @@ function feedback() {
 }
 
 function shareForTrial(resume) {
-  let token = null;
-  try {
-    token = JSON.parse(localStorage.getItem('salacv:session') || 'null')?.token ?? null;
-  } catch {}
   const { photo, ...profile } = resume.profile;
   fetch('/api/collect', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ resume: { ...resume, profile } }),
     keepalive: true,
   }).catch(() => {}); // hors ligne : la génération ne dépend jamais de cet envoi

@@ -2,10 +2,12 @@
 // Node du VPS (server/index.js). Vercel = VPS : aucune différence de comportement.
 import * as web from './agent/web.js';
 import { admin, templateSettings } from './admin.js';
-import { clientIp, context } from './identity.js';
+import { ADMIN_COOKIE, SESSION_COOKIE, clearCookieString, clientIp, context, cookieString, readCookie } from './identity.js';
 import { MAX_RENDER_BODY, creditsRoute, render } from './render.js';
 import { feedback, statsRoute } from './feedback.js';
 import { MAX_PROJECTS_BODY, projectsRoute } from './projects.js';
+import { signingSecret } from './agent/auth.js';
+import { db } from './db/index.js';
 import { configRoute } from './keys/routes.js';
 
 function send(res, status, body, headers = {}) {
@@ -31,6 +33,22 @@ async function readJson(req, max) {
 }
 
 // Contexte de la requête (IP normalisée, session anonyme signée, type de client) : voir server/identity.js.
+// Jeton de la requête : en-tête Authorization (app desktop : le relais le porte) ou cookie httpOnly (web).
+const tokenOf = (req, cookie = SESSION_COOKIE) => web.bearer(req.headers.authorization) || readCookie(req, cookie);
+const SESSION_SECONDS = 7 * 24 * 3600;
+
+// Connexion réussie : le jeton va dans un cookie httpOnly. Le navigateur ne le reçoit JAMAIS dans la réponse ; seul le relais de
+// l'app desktop (qui se déclare) le reçoit, pour le garder dans le coffre du système.
+export async function withSession(promise, req, ctx) {
+  const [status, body] = await promise;
+  if (!body?.ok || !body.token) return [status, body];
+  const token = body.token;
+  const maxAge = body.expiresAt ? (body.expiresAt - Date.now()) / 1000 : SESSION_SECONDS;
+  const out = { ...body };
+  if (ctx.client !== 'desktop') delete out.token;
+  return [status, out, { 'Set-Cookie': cookieString(SESSION_COOKIE, token, Math.min(maxAge, SESSION_SECONDS), req) }];
+}
+
 const withCookie = async (promise, ctx) => {
   const [status, body] = await promise;
   return ctx.setCookie ? [status, body, { 'Set-Cookie': ctx.setCookie }] : [status, body];
@@ -41,36 +59,65 @@ export const ROUTES = {
   // SALACV_ALLOW_PASSWORD_LOGIN=1 ne sert qu'aux essais en local.
   login: (payload, req) =>
     process.env.SALACV_ALLOW_PASSWORD_LOGIN === '1'
-      ? web.login(payload, clientIp(req))
+      ? withSession(web.login(payload, clientIp(req)), req, context(req))
       : [410, { ok: false, error: 'La connexion par mot de passe n’existe plus : utilise Google ou une clé.' }],
-  google: (payload, req) => web.googleLogin(payload, clientIp(req)),
-  key: (payload, req) => web.keyLogin(payload, clientIp(req)),
+  google: (payload, req) => withSession(web.googleLogin(payload, clientIp(req)), req, context(req)),
+  key: (payload, req) => withSession(web.keyLogin(payload, clientIp(req)), req, context(req)),
+  me: (payload, req) => web.me(tokenOf(req)),
+  logout: (payload, req) => [200, { ok: true }, { 'Set-Cookie': [clearCookieString(SESSION_COOKIE, req), clearCookieString(ADMIN_COOKIE, req)] }],
   agent: (payload, req) => {
     const ctx = context(req);
-    return withCookie(web.agent(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+    return withCookie(web.agent(payload, tokenOf(req), { ctx }), ctx);
   },
   translate: (payload, req) => {
     const ctx = context(req);
-    return withCookie(web.translate(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+    return withCookie(web.translate(payload, tokenOf(req), { ctx }), ctx);
   },
   render: (payload, req) => {
     const ctx = context(req);
-    return withCookie(render(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+    return withCookie(render(payload, tokenOf(req), { ctx }), ctx);
   },
-  credits: (payload, req) => creditsRoute(web.bearer(req.headers.authorization)),
+  credits: (payload, req) => creditsRoute(tokenOf(req)),
   feedback: (payload, req) => {
     const ctx = context(req);
-    return withCookie(feedback(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+    return withCookie(feedback(payload, tokenOf(req), { ctx }), ctx);
   },
   stats: () => statsRoute(),
-  projects: (payload, req) => projectsRoute(payload, web.bearer(req.headers.authorization)),
+  // Diagnostic de démarrage : seulement des oui/non (jamais une valeur). Ouvrable dans le navigateur (GET).
+  status: async () => {
+    const env = process.env;
+    const masterOk = (() => {
+      try {
+        return Buffer.from(env.SALACV_MASTER_KEY ?? '', 'base64').length === 32;
+      } catch {
+        return false;
+      }
+    })();
+    let dbOk = false;
+    try {
+      dbOk = Boolean(await db());
+    } catch {}
+    const checks = { database: dbOk, masterKey: masterOk, sessionSigning: Boolean(signingSecret(env)), adminUid: Boolean(String(env.SALACV_ADMIN_UID ?? '').trim()) };
+    const names = { database: 'DATABASE_URL', masterKey: 'SALACV_MASTER_KEY', sessionSigning: 'SALACV_MASTER_KEY', adminUid: 'SALACV_ADMIN_UID' };
+    const missing = [...new Set(Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => names[k]))];
+    return [200, { ok: true, ready: missing.length === 0, checks, missing }];
+  },
+  projects: (payload, req) => projectsRoute(payload, tokenOf(req)),
   usage: (payload, req) => {
     const ctx = context(req);
-    return withCookie(web.usage(web.bearer(req.headers.authorization), { ctx }), ctx);
+    return withCookie(web.usage(tokenOf(req), { ctx }), ctx);
   },
-  collect: (payload, req) => web.collectCv(payload, web.bearer(req.headers.authorization), clientIp(req)),
+  collect: (payload, req) => web.collectCv(payload, tokenOf(req), clientIp(req)),
   config: () => configRoute(),
-  admin: (payload, req) => admin(payload, web.bearer(req.headers.authorization)),
+  admin: async (payload, req) => {
+    const [status, body] = await admin(payload, tokenOf(req, ADMIN_COOKIE));
+    // Connexion admin : cookie httpOnly de 8 h, jamais le jeton dans la réponse.
+    if (payload.action === 'login' && body.ok && body.token) {
+      const { token, ...rest } = body;
+      return [status, rest, { 'Set-Cookie': cookieString(ADMIN_COOKIE, token, 8 * 3600, req) }];
+    }
+    return [status, body];
+  },
   // Public : réglages des modèles (disponibles, pour qui), lus par le studio.
   templates: () => templateSettings(),
 };
@@ -80,6 +127,10 @@ const MAX_BODY = { admin: 2 * 1024 * 1024, render: MAX_RENDER_BODY, projects: MA
 const limit = (name) => MAX_BODY[name] ?? web.MAX_BODY;
 
 export async function serve(name, req, res) {
+  if (name === 'status' && req.method === 'GET') {
+    const [status, body] = await ROUTES.status();
+    return send(res, status, body);
+  }
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'Méthode non autorisée.' });
   let payload;
   try {

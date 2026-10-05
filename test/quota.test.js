@@ -190,3 +190,23 @@ test('sessions : la clé de signature est dérivée de SALACV_MASTER_KEY (aucune
   assert.equal(issue('zoe@example.com', {}), null);
   assert.equal(issue('zoe@example.com', { SALACV_MASTER_KEY: 'trop-court' }), null);
 });
+
+test('/api/status : seulement des oui/non, jamais une valeur ; liste ce qui manque', async () => {
+  const keep = { ...process.env };
+  delete process.env.SALACV_MASTER_KEY;
+  delete process.env.SALACV_SESSION_SECRET;
+  delete process.env.SALACV_ADMIN_UID;
+  try {
+    const [, bad] = await ROUTES.status();
+    assert.equal(bad.ready, false);
+    assert.deepEqual(bad.missing.sort(), ['SALACV_ADMIN_UID', 'SALACV_MASTER_KEY']);
+    process.env.SALACV_MASTER_KEY = randomBytes(32).toString('base64');
+    process.env.SALACV_ADMIN_UID = 'uid-secret-123';
+    const [, good] = await ROUTES.status();
+    assert.equal(good.ready, true);
+    assert.deepEqual(good.missing, []);
+    assert.ok(!JSON.stringify(good).includes(process.env.SALACV_MASTER_KEY) && !JSON.stringify(good).includes('uid-secret-123'), 'aucune valeur ne sort');
+  } finally {
+    Object.assign(process.env, keep);
+  }
+});

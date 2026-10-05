@@ -10,12 +10,15 @@
     // active sur ce PC) → tableau de bord ; sinon → page d'accueil (connexion).
     (function () {
       var go = function (logged) { location.replace(logged ? '/dashboard/' : '/welcome/'); };
-      var s = null;
-      try { s = JSON.parse(localStorage.getItem('salacv:session') || 'null'); } catch (e) {}
-      if (s && s.token && !(s.expiresAt && s.expiresAt < Date.now())) return go(true);
-      var lic = window.desktop && window.desktop.license;
-      if (!lic) return go(false);
-      lic.status().then(function (st) { go(Boolean(st && st.state === 'active')); }, function () { go(false); });
+      fetch('/api/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.loggedIn) return go(true);
+          var lic = window.desktop && window.desktop.license;
+          if (!lic) return go(false);
+          return lic.status().then(function (st) { go(Boolean(st && st.state === 'active')); }, function () { go(false); });
+        })
+        .catch(function () { go(false); });
     })();
   </script>
 </head>

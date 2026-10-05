@@ -3,18 +3,12 @@
 //   SCVN-… clé en ligne  : vérifiée par le serveur, ouvre une session (assistant, crédits)
 import { h } from './dom.js';
 import { openDialog } from './dialog.js';
+import { getSession, initSession } from './session.js';
 
-const SESSION_KEY = 'salacv:session';
 const desktop = () => (window.desktop?.isDesktop ? window.desktop : null);
 
-export const readSession = () => {
-  try {
-    const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-    return s?.token && !(s.expiresAt && s.expiresAt < Date.now()) ? s : null;
-  } catch {
-    return null;
-  }
-};
+// Compat : l'identité vient de session.js (serveur), plus du navigateur.
+export const readSession = getSession;
 
 const dateFr = (ms) => new Date(ms).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -83,7 +77,7 @@ export function loginPanel({ onDone, intro } = {}) {
           if (!res) return say('Le serveur ne répond pas. Vérifie ta connexion puis réessaie.');
           const data = await res.json().catch(() => ({ ok: false }));
           if (!data.ok) return say(data.error || (res.status >= 500 ? 'Le serveur ne répond pas. Réessaie dans un instant.' : 'Clé refusée.'));
-          localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, username: data.username, kind: 'key', expiresAt: data.expiresAt }));
+          await initSession(); // le serveur a posé le cookie : on relit l'identité
           say(`Clé activée jusqu’au ${dateFr(data.expiresAt)}.`, false);
           onDone?.({ kind: 'key', expiresAt: data.expiresAt });
         } else {

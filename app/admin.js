@@ -15,13 +15,13 @@ import CANVAS_EXAMPLE from '../docs/exemples/canvas-bandeau.json';
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
-const TOKEN_KEY = 'salacv:admin';
-let token = sessionStorage.getItem(TOKEN_KEY);
+// Connecté ? Le serveur le sait par un cookie httpOnly (8 h) : aucun jeton dans la page.
+let token = false;
 
 $('theme').addEventListener('click', () => openThemePicker());
-$('logout').addEventListener('click', () => {
-  sessionStorage.removeItem(TOKEN_KEY);
-  token = null;
+$('logout').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+  token = false;
   render();
 });
 
@@ -30,7 +30,7 @@ async function api(action, body = {}) {
   try {
     res = await fetch('/api/admin', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, ...body }),
     });
   } catch {
@@ -38,8 +38,7 @@ async function api(action, body = {}) {
   }
   const data = await res.json().catch(() => ({ ok: false, error: `Réponse inattendue (HTTP ${res.status}).` }));
   if (res.status === 401 && action !== 'login') {
-    sessionStorage.removeItem(TOKEN_KEY);
-    token = null;
+    token = false;
     render();
   }
   return data;
@@ -743,4 +742,7 @@ async function render() {
 }
 
 window.addEventListener('hashchange', render);
-render();
+api('whoami').then((r) => {
+  token = Boolean(r.ok);
+  render();
+});

@@ -5,8 +5,8 @@ import { h } from './dom.js';
 import { markdown } from './markdown.js';
 import { loginPanel } from './login.js';
 import { publishQuota } from './quotabar.js';
+import { forgetSession, getSession, logout } from './session.js';
 
-const SESSION_KEY = 'salacv:session';
 const HISTORY_SENT = 6; // derniers échanges envoyés pour les demandes de suivi
 
 const SUGGESTIONS = [
@@ -25,29 +25,12 @@ const CHANGE_LABELS = {
   loisirs: 'Loisirs',
 };
 
-function read(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || 'null');
-  } catch {
-    return null;
-  }
-}
-
-function write(key, value) {
-  try {
-    if (value == null) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // stockage indisponible : la session ne survit pas au rechargement
-  }
-}
-
-async function post(url, body, token) {
+async function post(url, body) {
   let res;
   try {
     res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
   } catch {
@@ -59,7 +42,7 @@ async function post(url, body, token) {
 
 // ctx : { getState(), setState(state), onClose() }
 export function createAgentPanel(ctx) {
-  let session = read(SESSION_KEY);
+  let session = getSession(); // l'identité vient du serveur (cookie httpOnly) : aucun jeton dans la page
   let chat = []; // le fil de discussion reste en mémoire : plus rien n'est gardé dans le navigateur
   let pending = false;
 
@@ -89,7 +72,7 @@ export function createAgentPanel(ctx) {
         : "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés avec Google.",
       onDone: (r) => {
         if (r?.kind !== 'key') return; // une clé hors ligne ouvre l'app, pas l'assistant (il demande un compte)
-        session = read(SESSION_KEY);
+        session = getSession();
         render();
       },
     });
@@ -177,7 +160,7 @@ export function createAgentPanel(ctx) {
       list.append(typing);
       scrollDown();
 
-      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history }, session?.token);
+      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history });
       typing.remove();
       pending = false;
       send.disabled = false;
@@ -185,7 +168,7 @@ export function createAgentPanel(ctx) {
       publishQuota(data.quota);
       if (status === 401) {
         session = null;
-        write(SESSION_KEY, null);
+        forgetSession();
         render();
         return;
       }
@@ -212,8 +195,7 @@ export function createAgentPanel(ctx) {
         onClick: () => {
           session = null;
           chat = [];
-          write(SESSION_KEY, null);
-          render();
+          logout().then(() => location.reload());
         },
       },
       'Déconnexion',

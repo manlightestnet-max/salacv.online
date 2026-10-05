@@ -7,35 +7,24 @@ import { drawDoc } from './lib/engine.js';
 
 const PAGE = { w: 595.28, h: 841.89 };
 const GAP = { x: 120, y: 190 };
-const CAM_KEY = 'salacv:ws-cam';
 const Z = { min: 0.08, max: 3 };
 
 export function createWorkspace({ preview, canvases, engine, onSwitch, onLang, onZoom, onTemplate, onPickTemplate, onExpandTemplates, cardEl }) {
   const world = h('div', { class: 'ws-world' });
   let frames = []; // { key, label, el, host, x, y, w, h, active }
-  let cam = readCam() ?? { x: 80, y: 80, z: 0.35 };
+  let cam = { x: 80, y: 80, z: 0.35 };
   let on = false;
   let needFit = false; // à l'ouverture : cadrer le CV actif (et ne pas reprendre un ancien zoom)
   // Miniatures gardées d'un rendu à l'autre : changer de CV ne redessine que ce qui a changé
   // (pas de flash, pas de saccade).
   const thumbs = new Map(); // key -> { canvas, doc, width }
 
-  function readCam() {
-    try {
-      return JSON.parse(sessionStorage.getItem(CAM_KEY) || 'null');
-    } catch {
-      return null;
-    }
-  }
   function apply() {
     // will-change fige la résolution du calque : le CV zoomé devient flou. On ne le garde que
     // pendant le geste, puis on le retire (voir sharpen) pour que le navigateur redessine net.
     world.style.willChange = 'transform';
     world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`;
     world.style.setProperty('--wsz', cam.z); // libellés et contours gardent leur taille à l'écran
-    try {
-      sessionStorage.setItem(CAM_KEY, JSON.stringify(cam));
-    } catch {}
     onZoom?.(cam.z);
     preview.dispatchEvent(new Event('ws-camera'));
     scheduleSharpen();

@@ -5,12 +5,8 @@
 // serveur pour un compte connecté. Un visiteur non connecté n'a aucune sauvegarde : son CV vit le temps de la page.
 // Seules des préférences d'interface (thème, mode Lite/Pro, taille du panneau) restent dans le navigateur.
 import { emptyState, normalizeState } from '../state.js';
+import { forgetSession, getSession } from '../session.js';
 
-const PROJECTS_KEY = 'salacv:projects:v1'; // anciennes données locales : migrées vers le compte à la connexion, puis effacées
-const LEGACY_DRAFT_KEY = 'salacv:form:v2';
-const REF_KEY = 'salacv:ref';
-const REFERRED_KEY = 'salacv:referred-by';
-const PERSONAS_KEY = 'salacv:personas:v1';
 
 
 export function read(key) {
@@ -29,26 +25,13 @@ export function write(key, value) {
   }
 }
 
-const json = (key, fallback) => {
-  try {
-    return JSON.parse(read(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
-
 const newId = () => Math.random().toString(36).slice(2, 10);
 
 // --- Projets --------------------------------------------------------------------
 // Copie en mémoire + synchronisation avec le serveur (compte connecté seulement).
 
-const sessionToken = () => {
-  try {
-    return JSON.parse(localStorage.getItem('salacv:session') || 'null')?.token ?? null;
-  } catch {
-    return null;
-  }
-};
+// Connecté ? Le serveur le sait (cookie httpOnly) : la page n'a aucun jeton.
+const loggedIn = () => Boolean(getSession());
 
 const mem = { projects: {}, personas: {} };
 let live = false; // connecté : chaque modification part au serveur
@@ -60,10 +43,9 @@ const emit = (state) => window.dispatchEvent(new CustomEvent('salacv:save', { de
 export const isPersisted = () => live;
 
 async function call(body, { keepalive = false } = {}) {
-  const token = sessionToken();
-  if (!token) return { status: 401, data: { ok: false } };
+  if (!loggedIn()) return { status: 401, data: { ok: false } };
   try {
-    const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body), keepalive });
+    const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive });
     return { status: res.status, data: await res.json().catch(() => ({ ok: false })) };
   } catch {
     return { status: 0, data: { ok: false, error: 'Pas de connexion.' } };
@@ -79,11 +61,9 @@ async function push(kind, id, opts) {
 }
 
 function sessionExpired() {
-  // jeton refusé par le serveur : on n'est plus connecté ; on l'oublie pour que l'interface le montre
+  // session refusée par le serveur : on n'est plus connecté
   live = false;
-  try {
-    localStorage.removeItem('salacv:session');
-  } catch {}
+  forgetSession();
   emit('local');
 }
 
@@ -97,14 +77,15 @@ async function flush(opts = {}) {
     const { status, data } = await push(kind, id, opts);
     if (data.ok) dirty.delete(key);
     else if (status === 401) return sessionExpired(), false;
-    else if (status === 400 || status === 413) {
-      dirty.delete(key); // refus définitif (trop lourd, limite atteinte…) : inutile de réessayer
+    else if (status === 400 || status === 413 || status === 503) {
+      dirty.delete(key); // refus définitif (trop lourd, limite atteinte, stockage non configuré…) : inutile de réessayer
       window.dispatchEvent(new CustomEvent('salacv:save-refused', { detail: { error: data.error } }));
       ok = false;
     } else ok = false;
   }
   if (ok && !dirty.size) emit('saved');
-  else if (dirty.size) {
+  else if (!dirty.size) emit('refused');
+  else {
     emit('error');
     clearTimeout(retry);
     retry = setTimeout(() => flush(), 6000);
@@ -134,48 +115,19 @@ export async function initStore() {
   mem.projects = {};
   mem.personas = {};
   dirty.clear();
-  live = Boolean(sessionToken());
+  live = loggedIn();
   if (!live) return { live: false };
   const { status, data } = await call({ action: 'list' });
   if (status === 401) return sessionExpired(), { live: false, expired: true };
   if (!data.ok) return emit('error'), { live: true, offline: true };
+  if (data.storage === false) window.dispatchEvent(new CustomEvent('salacv:save-refused', { detail: { error: 'Le stockage des CV n’est pas encore configuré par l’administrateur : tes CV ne peuvent pas être sauvegardés.' } }));
   for (const it of data.items) {
     const rec = { ...it.data, id: it.id, createdAt: it.createdAt, updatedAt: it.updatedAt };
     if (it.kind === 'persona') mem.personas[it.id] = rec;
     else mem.projects[it.id] = rec;
   }
-  await migrateLocal();
   emit('saved');
   return { live: true };
-}
-
-// Anciennes données gardées dans ce navigateur : envoyées au compte (une seule fois), puis effacées d'ici.
-async function migrateLocal() {
-  const local = json(PROJECTS_KEY, {});
-  const localPersonas = json(PERSONAS_KEY, {});
-  const legacy = read(LEGACY_DRAFT_KEY);
-  if (legacy) {
-    try {
-      const id = newId();
-      local[id] = { id, state: normalizeState(JSON.parse(legacy)), createdAt: Date.now(), updatedAt: Date.now() };
-    } catch {}
-  }
-  const adds = [];
-  for (const p of Object.values(local)) if (p?.id && !mem.projects[p.id]) adds.push(['cv', (mem.projects[p.id] = p)]);
-  for (const p of Object.values(localPersonas)) if (p?.id && !mem.personas[p.id]) adds.push(['persona', (mem.personas[p.id] = p)]);
-  if (!adds.length && !Object.keys(local).length && !Object.keys(localPersonas).length) return;
-  let all = true;
-  for (const [kind, rec] of adds) {
-    const { data } = await push(kind, rec.id);
-    if (!data.ok) all = false;
-  }
-  if (all) {
-    for (const k of [PROJECTS_KEY, PERSONAS_KEY, LEGACY_DRAFT_KEY]) {
-      try {
-        localStorage.removeItem(k);
-      } catch {}
-    }
-  }
 }
 
 const all = () => mem.projects;
@@ -278,45 +230,29 @@ export function fromPersona(persona) {
 export const wallet = {
   // → { credits, history: [{ at, amount, reason }], loggedIn }
   async balance() {
-    const token = sessionToken();
-    if (!token) return { credits: 0, history: [], loggedIn: false };
+    if (!loggedIn()) return { credits: 0, history: [], loggedIn: false };
     try {
-      const res = await fetch('/api/credits', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}' });
+      const res = await fetch('/api/credits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
       if (!data.ok) return { credits: 0, history: [], loggedIn: false };
       return { credits: data.balance, loggedIn: data.loggedIn, history: data.history.map((h) => ({ at: h.at, amount: h.delta, reason: h.reason })) };
     } catch {
-      return { credits: 0, history: [], loggedIn: Boolean(token), offline: true };
+      return { credits: 0, history: [], loggedIn: true, offline: true };
     }
   },
 };
 
 // --- Parrainage et avis --------------------------------------------------------
 
-export function referralCode() {
-  let code = read(REF_KEY);
-  if (!code) {
-    code = Math.random().toString(36).slice(2, 8).toUpperCase();
-    write(REF_KEY, code);
-  }
-  return code;
-}
-
+// Lien à partager (sans code de parrainage : le parrainage côté serveur n'existe pas encore).
 export function inviteLink() {
-  return `${location.origin}/?ref=${referralCode()}`;
-}
-
-// Sur la landing : garde le code de l'ami qui a invité (crédité au branchement du wallet).
-export function captureReferral() {
-  const ref = new URLSearchParams(location.search).get('ref');
-  if (ref && /^[A-Z0-9]{4,12}$/.test(ref) && ref !== read(REF_KEY) && !read(REFERRED_KEY)) write(REFERRED_KEY, ref);
+  return `${location.origin}/`;
 }
 
 // Avis (note + mot) : envoyé au serveur, qui l'enregistre pour tout le monde (connecté ou non) et l'ajoute aux statistiques.
 export async function sendFeedback(stars, comment = '') {
-  const token = sessionToken();
   try {
-    const res = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ stars, comment }) });
+    const res = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stars, comment }) });
     return await res.json();
   } catch {
     return { ok: false, error: 'Pas de connexion. Ton avis n’a pas pu être envoyé.' };

@@ -91,7 +91,6 @@ button.addEventListener('click', async () => {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', idToken }) });
       const data = await res.json().catch(() => ({ ok: false }));
       if (!data.ok) return fail(data.error || 'Connexion refusée.');
-      sessionStorage.setItem('salacv:admin', data.token);
       $('auth-title').textContent = 'Connecté';
       location.replace('/admin/');
       return;
@@ -99,7 +98,6 @@ button.addEventListener('click', async () => {
     const res = await fetch('/api/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
     const data = await res.json().catch(() => ({ ok: false }));
     if (!data.ok) return fail(data.error || 'Connexion refusée. Réessaie.');
-    localStorage.setItem('salacv:session', JSON.stringify({ token: data.token, username: data.username, name: data.name, kind: 'google' }));
     $('auth-title').textContent = 'Connecté';
     location.replace(next);
   } catch (err) {

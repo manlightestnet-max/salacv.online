@@ -31,7 +31,7 @@ export async function login(payload, client, env = process.env) {
   const error = checkCredentials(username, payload?.password, env);
   if (error) return [400, { ok: false, error }];
   const token = issue(username, env);
-  if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
+  if (!token) return [503, { ok: false, error: 'Connexion indisponible : le serveur n’est pas encore configuré (clé maître manquante). Préviens l’administrateur.' }];
   if ((await recordLogin(username).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
   return [200, { ok: true, token, username }];
 }
@@ -42,7 +42,7 @@ export async function googleLogin(payload, client, env = process.env, { verifyTo
   const identity = await verifyToken(payload?.idToken, env);
   if (!identity) return [401, { ok: false, error: 'Connexion Google refusée. Réessaie.' }];
   const token = issue(identity.email, env);
-  if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
+  if (!token) return [503, { ok: false, error: 'Connexion indisponible : le serveur n’est pas encore configuré (clé maître manquante). Préviens l’administrateur.' }];
   if ((await recordLogin(identity.email, { name: identity.name }).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
   return [200, { ok: true, token, username: identity.email, name: identity.name, picture: identity.picture, kind: 'google' }];
 }
@@ -54,7 +54,7 @@ export async function keyLogin(payload, client, env = process.env, now = Date.no
   if (!body.ok) return [status, body];
   const username = `key:${body.id}`;
   const token = issue(username, env, now, (body.expiresAt - now) / 1000);
-  if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
+  if (!token) return [503, { ok: false, error: 'Connexion indisponible : le serveur n’est pas encore configuré (clé maître manquante). Préviens l’administrateur.' }];
   if ((await recordLogin(username).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Cette clé est suspendue. Contacte salacv.' }];
   return [200, { ok: true, token, username, kind: 'key', expiresAt: body.expiresAt }];
 }
@@ -119,6 +119,15 @@ async function runAi(kind, payload, token, { env, callModel, ctx }, loginMessage
 
 export const agent = (payload, token, opts = {}) => runAi('agent', payload, token, { env: process.env, ...opts }, "Connecte-toi pour utiliser l'assistant.", handle);
 export const translate = (payload, token, opts = {}) => runAi('translate', payload, token, { env: process.env, ...opts }, 'Connecte-toi pour traduire ton CV.', translateCv);
+
+// Qui suis-je ? (le navigateur ne voit jamais le jeton, il demande son identité au serveur)
+export async function me(token, { env = process.env } = {}) {
+  const username = token ? verify(token, env) : null;
+  if (!username) return [200, { ok: true, loggedIn: false }];
+  const user = await getUser(username).catch(() => null);
+  if (user?.blocked) return [200, { ok: true, loggedIn: false }];
+  return [200, { ok: true, loggedIn: true, username, name: user?.name ?? '', kind: username.startsWith('key:') ? 'key' : 'google' }];
+}
 
 // Où en est le visiteur ? (barre de progression) — rien de secret.
 export async function usage(token, { env = process.env, ctx } = {}) {

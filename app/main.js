@@ -20,11 +20,13 @@ import { STEPS, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
 import { initQuotaBar } from './quotabar.js';
+import { initSession } from './session.js';
 import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 
 const $ = (id) => document.getElementById(id);
+await initSession(); // qui est connecté ? (le serveur le sait par son cookie)
 initQuotaBar();
 const root = document.documentElement;
 let stepAi = false;
@@ -230,11 +232,7 @@ async function initEngine() {
   // Langue demandée par l'espace infini (?lang=), puis l'espace lui-même s'il était ouvert.
   const askedLang = ASKED_LANG;
   if (askedLang && askedLang !== activeLang && (project.variants?.[askedLang] || askedLang === project.state.lang)) langBar.open(askedLang);
-  let wsOn = false;
-  try {
-    wsOn = sessionStorage.getItem(WS_KEY) === '1';
-  } catch {}
-  if (wsOn && isPro()) setWorkspace(true);
+  if (isPro()) setWorkspace(true); // le choix Lite / Pro est une préférence d'affichage
 }
 
 // --- Bottom sheet (mobile) / barre de gauche (PC) ------------------------------
@@ -1087,6 +1085,7 @@ const SAVE_TEXT = {
   saved: [' · Enregistré ✓', true],
   error: [' · Échec de l’enregistrement, nouvel essai…', false],
   local: [' · Non sauvegardé : connecte-toi', false],
+  refused: [' · Non enregistré', false],
 };
 window.addEventListener('salacv:save', (e) => {
   const [text, done] = SAVE_TEXT[e.detail.state] ?? SAVE_TEXT.saved;
@@ -1190,7 +1189,6 @@ function toast(text) {
 // --- Espace infini (mode Pro) ----------------------------------------------------------
 // Tous les CV et leurs langues côte à côte ; le cadre actif est le CV en cours d'édition.
 let workspace = null;
-const WS_KEY = 'salacv:ws-on';
 
 // Mises en page des cadres inactifs, gardées tant que le CV ne change pas.
 const wsLayouts = new Map();
@@ -1537,9 +1535,6 @@ function setWorkspace(enabled) {
   }
   $('ws-toggle').setAttribute('aria-pressed', String(enabled));
   $('ws-toggle').replaceChildren({ lite: 'Lite', pro: 'Pro' }[enabled ? getPlan() : 'lite'], h('span', { class: 'pro-tag' }, 'MODE'));
-  try {
-    sessionStorage.setItem(WS_KEY, enabled ? '1' : '0');
-  } catch {}
 }
 
 $('ws-toggle').addEventListener('click', () => {
