@@ -40,6 +40,22 @@ async function requestTranslation(state, to) {
   return res.json().catch(() => ({ ok: false, error: 'Réponse inattendue du serveur.' }));
 }
 
+const online = () => navigator.onLine !== false;
+
+// Message sérieux (et non un simple toast) : ce qui s'est passé, ce qui reste possible, ce qu'on peut faire.
+function notice({ title, text, hint, actions = [] }) {
+  const d = openDialog({
+    title,
+    className: 'notice-dialog',
+    content: [h('p', { class: 'notice-text' }, text), hint && h('p', { class: 'lang-note' }, hint)],
+    footer: [
+      h('button', { type: 'button', class: actions.length ? 'btn-ghost' : 'btn-primary', 'data-autofocus': !actions.length || null, onClick: () => d.close() }, actions.length ? 'Fermer' : 'OK'),
+      ...actions.map((a, i) => h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': i === 0 || null, onClick: () => (d.close(), a.run()) }, a.label)),
+    ],
+  });
+  return d;
+}
+
 // ctx : { project, getState(), getLang(), switchTo(lang, state), save(), askLogin(), toast(text) }
 export function createLangBar(ctx) {
   const tabs = document.getElementById('lang-tabs');
@@ -52,11 +68,35 @@ export function createLangBar(ctx) {
     const { template, lang, profile, ...rest } = st ?? {};
     return JSON.stringify([rest, { ...profile, photo: '' }]);
   };
-  const stale = (lang) => {
-    const t = ctx.project.translatedFrom?.[lang];
-    const src = main() === ctx.getLang() ? ctx.getState() : ctx.project.state;
+  // doc : le CV du projet (par défaut le CV actif) ; l'original vivant est l'état en cours d'édition.
+  const stale = (lang, doc = ctx.project) => {
+    const t = doc.translatedFrom?.[lang];
+    const src = doc === ctx.project && main() === ctx.getLang() ? ctx.getState() : doc.state;
     return Boolean(t) && t !== sig(src);
   };
+
+  // Garde commune de la traduction automatique : un compte, et Internet. Retourne vrai si bloqué.
+  function blocked(retry) {
+    if (!session()?.token) {
+      notice({
+        title: 'Connexion requise',
+        text: 'La traduction automatique passe par l’assistant IA, qui demande un compte.',
+        hint: 'Pour traduire toi-même, duplique le CV depuis la liste du projet (icône Dupliquer) et modifie la copie.',
+        actions: [{ label: 'Me connecter', run: () => ctx.askLogin() }],
+      });
+      return true;
+    }
+    if (!online()) {
+      notice({
+        title: 'Pas de connexion Internet',
+        text: 'La traduction automatique a besoin d’Internet. Rien n’a été modifié : ton CV et ses versions restent disponibles et modifiables hors connexion.',
+        hint: 'Reconnecte-toi puis réessaie.',
+        actions: retry ? [{ label: 'Réessayer', run: retry }] : [],
+      });
+      return true;
+    }
+    return false;
+  }
 
   function render() {
     tabs.replaceChildren(
@@ -89,7 +129,7 @@ export function createLangBar(ctx) {
   }
 
   function refresh(lang) {
-    if (!session()?.token) return ctx.askLogin();
+    if (blocked(() => refresh(lang))) return;
     const from = main() === ctx.getLang() ? ctx.getState() : ctx.project.state;
     translateInto(lang, from);
   }
@@ -102,14 +142,22 @@ export function createLangBar(ctx) {
   }
 
   async function translateInto(lang, from) {
+    if (blocked(() => translateInto(lang, from))) return;
     busy.add(lang);
     render();
+    ctx.changed?.();
     const r = await requestTranslation(from, lang);
     busy.delete(lang);
     if (!r.ok) {
       render();
-      if (r.error?.includes('Connecte-toi')) ctx.askLogin();
-      return ctx.toast(r.error ?? 'La traduction a échoué.');
+      ctx.changed?.();
+      if (r.error?.includes('Connecte-toi')) return blocked();
+      return notice({
+        title: 'Traduction impossible',
+        text: r.error ?? 'La traduction a échoué.',
+        hint: 'Rien n’a été modifié. Tu peux réessayer, ou dupliquer le CV depuis la liste du projet et le traduire toi-même.',
+        actions: [{ label: 'Réessayer', run: () => translateInto(lang, from) }],
+      });
     }
     ctx.project.variants = { ...ctx.project.variants, [lang]: withShared(r.state, ctx.getState()) };
     ctx.project.translatedFrom = { ...ctx.project.translatedFrom, [lang]: sig(from) };
@@ -137,6 +185,7 @@ export function createLangBar(ctx) {
     }
     const logged = Boolean(session()?.token);
     const from = ctx.getState();
+    const offline = !online();
     const dialog = openDialog({
       title: 'Ajouter une langue',
       className: 'lang-dialog',
@@ -147,22 +196,16 @@ export function createLangBar(ctx) {
           { class: 'lang-note' },
           `À partir de la version ${langName(ctx.getLang())}. Les titres des sections et les niveaux de langue changent tout seuls ; ton nom et tes contacts ne bougent pas.`,
         ),
-        !logged && h('p', { class: 'lang-note' }, 'La traduction automatique passe par l’assistant : connecte-toi d’abord, ou copie le CV et traduis-le toi-même.'),
+        !logged && h('p', { class: 'lang-note' }, 'La traduction automatique passe par l’assistant : connecte-toi d’abord. Pour traduire toi-même, duplique le CV depuis la liste du projet.'),
+        logged && offline && h('p', { class: 'lang-note' }, 'Pas de connexion Internet : la traduction automatique reviendra quand tu seras en ligne.'),
       ],
       footer: [
-        h('button', { type: 'button', class: 'btn-ghost', onClick: () => (dialog.close(), copy(pick, from)) }, 'Copier sans traduire'),
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => dialog.close() }, 'Annuler'),
         logged
-          ? h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => (dialog.close(), translateInto(pick, from)) }, 'Traduire automatiquement')
+          ? h('button', { type: 'button', class: 'btn-primary', disabled: offline, title: offline ? 'Hors connexion' : null, 'data-autofocus': true, onClick: () => (dialog.close(), translateInto(pick, from)) }, 'Traduire automatiquement')
           : h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => (dialog.close(), ctx.askLogin()) }, 'Me connecter'),
       ],
     });
-  }
-
-  function copy(lang, from) {
-    ctx.project.variants = { ...ctx.project.variants, [lang]: { ...structuredClone(from), lang } };
-    ctx.save();
-    open(lang);
-    ctx.toast(`Version ${langName(lang)} créée : les titres sont traduits, à toi le contenu.`);
   }
 
   // Onglet actif touché : retraduire depuis l'original, ou supprimer cette version.
@@ -223,5 +266,5 @@ export function createLangBar(ctx) {
 
   document.getElementById('lang-add').addEventListener('click', add);
   render();
-  return { render, open, versions };
+  return { render, open, versions, refresh, add, stale, busy: (lang) => busy.has(lang), main, online };
 }

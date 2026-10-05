@@ -40,8 +40,10 @@ async function staticFile(req, res) {
   createReadStream(file).pipe(res);
 }
 
-export function createApp() {
+// extra(req, res) : routes en plus (app desktop) ; retourne vrai si la requête est prise en charge.
+export function createApp(extra) {
   return createServer((req, res) => {
+    if (extra?.(req, res)) return;
     const route = new URL(req.url, 'http://localhost').pathname.match(/^\/api\/([a-z]+)$/)?.[1];
     if (route) {
       if (!(route in ROUTES)) {

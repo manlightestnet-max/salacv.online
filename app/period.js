@@ -2,7 +2,7 @@
 // l'année (et le mois si on veut) de début, puis celle de fin, ou « En cours ».
 // Le résultat reste un texte du DSL : « 2023 — 2026 », « Juin — Sept. 2025 »,
 // « 2024 — aujourd'hui ».
-import { h } from './dom.js';
+import { h, indexField, clearInputError } from './dom.js';
 import { openDialog } from './dialog.js';
 
 export const MONTHS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'];
@@ -53,13 +53,20 @@ export function periodField(obj, key, onInput, { label = 'Période' } = {}) {
     }),
   );
   sync();
-  return h('div', { class: 'field' }, h('span', { class: 'field-label' }, label), button);
+  const root = h('div', { class: 'field' }, h('span', { class: 'field-label' }, label), button);
+  indexField(obj, key, root, button);
+  button.addEventListener('click', () => clearInputError(root));
+  return root;
 }
 
 export function openPeriodPicker(current, onPick) {
-  const thisYear = new Date().getFullYear();
+  // Date maximale = aujourd'hui, recalculée à chaque ouverture (rien n'est figé sur une année).
+  const today = new Date();
+  const thisYear = today.getFullYear();
+  const thisMonth = today.getMonth();
   const years = [];
-  for (let y = thisYear + 6; y >= 1980; y--) years.push(y);
+  for (let y = thisYear; y >= 1980; y--) years.push(y);
+  const inFuture = (y, m) => y > thisYear || (y === thisYear && m != null && m > thisMonth);
 
   const sel = parsePeriod(current);
   // Toujours dans l'ordre : début, puis fin (la pastille « Fin » permet de ne changer que la fin).
@@ -73,6 +80,7 @@ export function openPeriodPicker(current, onPick) {
   const quick = h('div', { class: 'period-quick' });
   const grid = h('div', { class: 'period-grid', role: 'listbox' });
   const preview = h('p', { class: 'period-preview', 'aria-live': 'polite' });
+  const hint = h('p', { class: 'hint' });
 
   startPill.addEventListener('click', () => go('start'));
   endPill.addEventListener('click', () => sel.start && go('end'));
@@ -114,6 +122,7 @@ export function openPeriodPicker(current, onPick) {
     endPill.disabled = !sel.start;
     monthToggle.setAttribute('aria-pressed', String(withMonth));
     preview.textContent = sel.start ? `Sur le CV : ${formatPeriod(sel)}` : 'Touche l’année de début.';
+    hint.textContent = `Dates jusqu’à ${MONTHS[thisMonth].toLowerCase()} ${thisYear}. Pour un diplôme en cours, choisis « En cours ».`;
 
     quick.replaceChildren(
       ...(slot === 'end'
@@ -132,7 +141,7 @@ export function openPeriodPicker(current, onPick) {
         h('button', { type: 'button', class: 'period-back', onClick: () => ((pendingYear = null), render()) }, `‹ ${pendingYear}`),
         ...MONTHS.map((m, i) => {
           const tooEarly = slot === 'end' && sel.start && (pendingYear < sel.start.y || (pendingYear === sel.start.y && i < (sel.start.m ?? 0)));
-          return h('button', { type: 'button', class: 'period-cell', disabled: tooEarly, onClick: () => choose({ y: pendingYear, m: i }) }, m);
+          return h('button', { type: 'button', class: 'period-cell', disabled: tooEarly || inFuture(pendingYear, i), title: inFuture(pendingYear, i) ? 'Ce mois n’est pas encore passé' : null, onClick: () => choose({ y: pendingYear, m: i }) }, m);
         }),
       );
       return;
@@ -170,7 +179,7 @@ export function openPeriodPicker(current, onPick) {
   const dialog = openDialog({
     title: 'Période',
     className: 'period-dialog',
-    content: [h('div', { class: 'slot-pills' }, startPill, endPill), quick, grid, preview],
+    content: [h('div', { class: 'slot-pills' }, startPill, endPill), quick, grid, preview, hint],
     footer: [
       h('button', { type: 'button', class: 'btn-text', onClick: () => (dialog.close(), onPick('')) }, 'Effacer'),
       h('button', { type: 'button', class: 'btn-ghost', 'data-autofocus': true, onClick: () => dialog.close() }, 'Annuler'),

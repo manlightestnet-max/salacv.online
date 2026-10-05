@@ -27,7 +27,14 @@ async function readJson(req, max) {
 const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '').split(',')[0].trim();
 
 export const ROUTES = {
-  login: (payload, req) => web.login(payload, clientIp(req)),
+  // Connexion par mot de passe (fictive) : fermée. Google et les clés KEYGEN la remplacent ;
+  // SALACV_ALLOW_PASSWORD_LOGIN=1 ne sert qu'aux essais en local.
+  login: (payload, req) =>
+    process.env.SALACV_ALLOW_PASSWORD_LOGIN === '1'
+      ? web.login(payload, clientIp(req))
+      : [410, { ok: false, error: 'La connexion par mot de passe n’existe plus : utilise Google ou une clé.' }],
+  google: (payload, req) => web.googleLogin(payload, clientIp(req)),
+  key: (payload, req) => web.keyLogin(payload, clientIp(req)),
   agent: (payload, req) => web.agent(payload, web.bearer(req.headers.authorization)),
   translate: (payload, req) => web.translate(payload, web.bearer(req.headers.authorization)),
   collect: (payload, req) => web.collectCv(payload, web.bearer(req.headers.authorization), clientIp(req)),

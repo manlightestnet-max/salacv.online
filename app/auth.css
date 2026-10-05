@@ -1,0 +1,31 @@
+/* Page de connexion Google (web, et page ouverte par l'app desktop dans le navigateur). */
+@font-face { font-family: 'Geist'; font-weight: 400; font-display: swap; src: url('../fonts/Geist_400Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Geist'; font-weight: 600; font-display: swap; src: url('../fonts/Geist_600SemiBold.ttf') format('truetype'); }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { color-scheme: light dark; }
+body {
+  min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  font: 400 15px/1.5 'Geist', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+  background: rgb(var(--canvas)); color: rgb(var(--gray-900));
+  -webkit-font-smoothing: antialiased;
+}
+.auth-card {
+  width: min(100%, 380px); display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 28px;
+  border-radius: 14px; background: rgb(var(--surface)); border: 1px solid rgb(var(--gray-300));
+}
+.auth-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: rgb(var(--accent)); color: rgb(var(--on-accent)); font-weight: 600; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.012em; }
+.auth-text { color: rgb(var(--gray-700)); }
+.auth-google {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 44px; margin-top: 4px;
+  border-radius: 8px; border: 1px solid rgb(var(--gray-400)); background: rgb(var(--surface)); color: rgb(var(--gray-900));
+  font: 600 14.5px 'Geist', system-ui, sans-serif; cursor: pointer; transition: background-color 0.15s, border-color 0.15s;
+}
+.auth-google:hover:not(:disabled) { background: rgb(var(--gray-100)); border-color: rgb(var(--gray-500)); }
+.auth-google:disabled { opacity: 0.6; cursor: default; }
+.auth-google:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+.auth-error { width: 100%; padding: 10px 12px; border-radius: 8px; background: rgb(var(--red-50)); border: 1px solid rgb(var(--red-200)); color: rgb(var(--red-700)); font-size: 13.5px; }
+.auth-error[hidden] { display: none; }
+.auth-foot { font-size: 12.5px; color: rgb(var(--gray-600)); }
+.auth-ok { color: rgb(var(--gray-900)); }

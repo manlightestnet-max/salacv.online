@@ -82,8 +82,10 @@ Aucun outil shell, fichier ou réseau : l'agent ne peut que modifier le CV reçu
 Routes (`server/agent/web.js`), identiques sur Vercel (`api/*.js`) et sur le VPS
 (`server/index.js`, site + API dans le même process Node) :
 
-- `POST /api/login` `{ username, password }` : connexion fictive (pas de base de
-  données), renvoie un jeton signé côté serveur, valable 7 jours.
+- `POST /api/google` `{ idToken }` : connexion Google (voir « Connexion » plus bas), renvoie un
+  jeton de session signé côté serveur, valable 7 jours.
+- `POST /api/key` `{ key, device }` : activation d'une clé KEYGEN **en ligne** (PC), session plafonnée à la fin de vie de la clé.
+- `POST /api/login` : ancienne connexion fictive, **fermée** (410). `SALACV_ALLOW_PASSWORD_LOGIN=1` ne sert qu'aux essais locaux.
 - `POST /api/agent` `{ state, message, history? }` avec `Authorization: Bearer <jeton>`.
 
 Variables d'environnement (Vercel → Settings → Environment Variables, ou `.env` du VPS) :
@@ -101,6 +103,44 @@ Aucune clé dans le repo, ni en clair ni encodée.
 ```bash
 npm start      # VPS : site (dist/) + API sur PORT (3000), après npm run build
 ```
+
+## Connexion : Google et clés KEYGEN
+
+**Google (web et PC)** : Firebase, même projet que LightPay et Salacope (`lightpay-a5f01`). La page
+`/auth/` (`app/auth.js`) fait la connexion Google ; le serveur vérifie le jeton avec `jose`
+(`server/accounts/firebase.js`) et ouvre une session salacv. salacv ne voit jamais de mot de passe.
+Sur PC, l'app Electron ouvre cette page **dans le navigateur du système** (Google refuse les
+fenêtres intégrées), puis reçoit le jeton sur son port local (`electron/main.cjs`, `/__desktop/callback`).
+
+À configurer (Firebase Console → Authentication) : activer le fournisseur Google ; domaines autorisés :
+`salacv.online` (et `localhost` en développement).
+
+| Variable | Où | Rôle |
+|---|---|---|
+| `VITE_FIREBASE_API_KEY` | `.env` à la racine, **au build** | Clé web du projet Firebase (publique). Sans elle, la page affiche « non configurée ». |
+| `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` | idem | Facultatives (défaut : `lightpay-a5f01.firebaseapp.com`, `lightpay-a5f01`). |
+| `FIREBASE_PROJECT_ID` | serveur | Facultative : projet attendu dans les jetons (défaut `lightpay-a5f01`). |
+| `SALACV_SESSION_SECRET` | serveur | Clé de signature des sessions (à définir en production). |
+| `SALACV_AUTH_ORIGIN` | app Electron | Page de connexion (défaut `https://salacv.online`) ; `http://localhost:5173` en développement. |
+
+**Clés KEYGEN (PC uniquement)** — deux sortes, générées avec `scripts/keygen.js` :
+
+- **Hors ligne** `SCVO-…` : autonome, signée Ed25519, vérifiée sur le PC **sans Internet**
+  (`src/license/offline.js`). Elle ne contient ni nom ni date de fin ; la durée de vie démarre à la
+  première activation et se garde sur le PC (`src/license/activation.js`, fichier chiffré de `userData`).
+  Elle ne peut pas être révoquée avant sa fin ni empêchée d'être saisie sur un autre PC.
+- **En ligne** `SCVN-…` : un code opaque, **sans rien dedans**. Le serveur garde l'empreinte, l'appareil
+  (une clé = un PC), le début et la fin ; il peut la révoquer. Elle ouvre une session (assistant, crédits).
+
+```bash
+node scripts/keygen.js init --out C:\secrets\salacv-keygen.pem   # une fois : clé privée HORS du dépôt + clé publique à coller dans src/license/public-key.js
+node scripts/keygen.js offline --count 5                            # (KEYGEN_PRIVATE_KEY_FILE ou --private <fichier>)
+node scripts/keygen.js online --count 5 --note "client X"
+node scripts/keygen.js revoke SCVN-…   ·   node scripts/keygen.js list
+```
+
+**Durée de vie : à fixer à la fin des modifications** dans `src/license/config.js`
+(`KEY_LIFETIME_DAYS`). Tant que la valeur est `null`, aucune clé ne s'active (refus explicite, on ne devine pas).
 
 ## Déploiement
 

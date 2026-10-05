@@ -1,7 +1,8 @@
 // Composants du formulaire. Chacun met à jour son propre DOM (ajout,
 // suppression, repli) au lieu de reconstruire l'étape : le focus, le scroll et
 // la saisie en cours restent en place.
-import { h } from './dom.js';
+import { h, indexField } from './dom.js';
+import { attachSuggest } from './suggest.js';
 import { loadImage, openCropper } from './crop.js';
 
 let uid = 0;
@@ -12,7 +13,7 @@ const removeBtn = (label, onClick) =>
 // Liste de valeurs courtes : on tape, Entrée (ou « Ajouter ») ajoute en bas,
 // ✕ supprime. variant 'chips' : pastilles en ligne ; 'rows' : une ligne par élément.
 // Coller plusieurs lignes ajoute chaque ligne.
-export function itemsInput({ label, list, onChange, placeholder = '', hint = '', variant = 'rows', max = Infinity, type = 'text' }) {
+export function itemsInput({ label, list, onChange, placeholder = '', hint = '', variant = 'rows', max = Infinity, type = 'text', suggest }) {
   const id = `f${++uid}`;
   const items = h('ul', { class: `items items-${variant}`, 'aria-label': label });
   const input = h('input', { id, class: 'input', type, placeholder, enterkeyhint: 'done', autocomplete: 'off' });
@@ -87,7 +88,9 @@ export function itemsInput({ label, list, onChange, placeholder = '', hint = '',
 
   items.append(...list.map(node));
   sync();
-  return h(
+  if (suggest) attachSuggest(input, suggest, { onPick: (v) => (add(v), (input.value = ''), input.focus()),
+    onPickMany: (vs) => (add(vs.join('\n')),(input.value = ''), input.focus()), exclude: () => list });
+  const root = h(
     'div',
     { class: 'field' },
     h('label', { for: id }, label),
@@ -95,6 +98,8 @@ export function itemsInput({ label, list, onChange, placeholder = '', hint = '',
     entry,
     h('p', { class: 'hint' }, hint || (variant === 'chips' ? 'Entrée pour ajouter.' : 'Entrée pour ajouter. Tu peux aussi coller une liste.')),
   );
+  indexField(list, '_', root, input);
+  return root;
 }
 
 // Choix d'une valeur parmi des pastilles (cliquer à nouveau désélectionne).
@@ -120,7 +125,7 @@ export function choicePills({ label, options, obj, key, onChange }) {
 // format du CV ; cliquer sur un résumé le rouvre.
 //   summary(item) -> [{ text, cls }]   résumé affiché quand le bloc est replié
 //   fields(item, onInput) -> nœuds     champs du bloc (construits une seule fois)
-export function accordion({ list, create, label, empty, addLabel, summary, fields, onChange }) {
+export function accordion({ list, create, label, empty, addLabel, summary, complete, fields, onChange }) {
   const wrap = h('div', { class: 'accordion' });
   const cards = [];
   let open = list.length === 1 ? 0 : -1;
@@ -128,6 +133,12 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
   function renderSummary(card) {
     const parts = summary(card.item).filter((p) => p.text);
     card.summary.replaceChildren(...(parts.length ? parts.map((p) => h('span', { class: p.cls ?? '' }, p.text)) : [h('span', { class: 'acc-empty' }, empty)]));
+    // État : « Complet » ou « À compléter », visible même replié.
+    if (complete) {
+      const done = complete(card.item);
+      card.status.textContent = done ? '✓ Complet' : 'À compléter';
+      card.status.classList.toggle('done', done);
+    }
   }
 
   function makeCard(item) {
@@ -139,14 +150,16 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
     const bodyId = `a${++uid}`;
     card.num = h('span', { class: 'acc-num' });
     card.summary = h('span', { class: 'acc-summary' });
+    card.status = h('span', { class: 'acc-status' });
     card.toggle = h(
       'button',
       { class: 'acc-toggle', type: 'button', 'aria-controls': bodyId, onClick: () => setOpen(cards.indexOf(card) === open ? -1 : cards.indexOf(card)) },
       card.num,
+      card.status,
       card.summary,
       h('span', { class: 'acc-chevron', 'aria-hidden': 'true' }, '›'),
     );
-    card.inner = h('div', { class: 'acc-inner' }, fields(item, onInput));
+    card.inner = h('div', { class: 'acc-inner' }, fields(item, onInput, { next: () => advance(card) }));
     card.body = h('div', { class: 'acc-body', id: bodyId }, card.inner);
     card.el = h(
       'div',
@@ -155,11 +168,12 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
         'div',
         { class: 'acc-head' },
         card.toggle,
-        removeBtn(`Supprimer ce bloc`, () => remove(card)),
+        h('button', { class: 'acc-remove', type: 'button', 'aria-label': 'Supprimer ce bloc', title: 'Supprimer ce bloc', onClick: () => remove(card) }, 'Supprimer'),
       ),
       card.body,
     );
     renderSummary(card);
+    indexField(item, '_card', card.el, card.toggle);
     return card;
   }
 
@@ -185,6 +199,13 @@ export function accordion({ list, create, label, empty, addLabel, summary, field
     renumber();
     setOpen(open === i ? -1 : open > i ? open - 1 : open);
     onChange();
+  }
+
+  // Bloc terminé (ex. niveau d'une langue choisi) : on le replie ; si c'est le dernier, un nouveau prend le relais.
+  function advance(card) {
+    if (complete && !complete(card.item)) return;
+    if (cards.indexOf(card) === cards.length - 1) add();
+    else setOpen(-1);
   }
 
   function add() {

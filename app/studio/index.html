@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="../tokens.css">
   <link rel="stylesheet" href="../style.css">
   <link rel="stylesheet" href="../dialog.css">
+  <link rel="stylesheet" href="../ux.css">
 </head>
 <body>
   <!-- Aperçu plein écran : la page du CV, rien d'autre. -->
@@ -30,7 +31,7 @@
     <span class="zoom-sep" aria-hidden="true"></span>
     <button id="final-view" class="zoom-btn final-btn" type="button" aria-pressed="false" title="Voir ton CV tel qu'il sera, sans le texte d'exemple en gris">Rendu final</button>
     <button id="ws-toggle" class="zoom-btn ws-btn" type="button" aria-pressed="false" title="Lite, Pro ou God mode">Lite <span class="pro-tag">MODE</span></button>
-    <span class="zoom-sep" aria-hidden="true"></span>
+    <span class="zoom-sep lang-sep" aria-hidden="true"></span>
     <!-- Versions du CV par langue, comme les feuilles d'Excel. -->
     <div id="lang-tabs" class="lang-tabs" role="tablist" aria-label="Versions du CV"></div>
     <button id="lang-add" class="zoom-btn lang-add" type="button" aria-label="Ajouter une langue" title="Ajouter une langue">+</button>
@@ -59,6 +60,9 @@
   <!-- Mode Pro : le CV sélectionné dans le projet (sélecteur) et les étapes en bouton flottant. -->
   <div id="ws-picker" class="ws-picker" hidden></div>
   <div id="step-fab" class="step-fab" hidden></div>
+
+  <!-- PC : progression des étapes, rail vertical à droite du panneau. -->
+  <nav id="rail" class="rail" aria-label="Progression"></nav>
 
   <!-- PC : séparation entre la barre de gauche et l'aperçu. -->
   <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="Largeur du formulaire" aria-valuemin="320" aria-valuemax="760" tabindex="0"></div>

@@ -2,7 +2,7 @@
 // préparation, suit sa progression étape par étape, puis télécharge lui-même son PDF
 // (et son Word s'il le veut). Ensuite : une note en étoiles, et l'invitation des amis.
 import { layoutResume } from '../src/index.js';
-import { h } from './dom.js';
+import { h, icon } from './dom.js';
 import { openDialog } from './dialog.js';
 import { toResume } from './state.js';
 import { PDF_COST, fingerprint, inviteLink, rating, saveRating, wallet } from './lib/store.js';
@@ -19,12 +19,18 @@ function save(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+// Version desktop (Electron) : une fenêtre « Enregistrer sous », puis Ouvrir / Parcourir.
+const getDesktop = () => (window.desktop?.isDesktop ? window.desktop : null);
+const dirOf = (file) => file.replace(/[\\/][^\\/]*$/, '');
+const baseOf = (file) => file.split(/[\\/]/).pop();
+
 function untilSunday(date) {
   const days = Math.ceil((date - Date.now()) / 86400000);
   return days <= 1 ? 'demain' : `dans ${days} jours`;
 }
 
 export async function openExport({ state, engine, onSpent, missing = [], onReview }) {
+  const desktop = getDesktop();
   const resume = toResume(state);
   const key = fingerprint(JSON.stringify(resume));
   const name = resume.profile.name || 'CV';
@@ -154,12 +160,17 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
   function ready() {
     const file = slug(name) || 'CV';
     body.replaceChildren(
-      h('div', { class: 'ready' }, h('span', { class: 'ready-icon', 'aria-hidden': 'true' }), h('strong', {}, 'Ton CV est prêt'), h('p', {}, 'Télécharge-le quand tu veux.')),
+      h('div', { class: 'ready' }, h('span', { class: 'ready-icon', 'aria-hidden': 'true' }), h('strong', {}, 'Ton CV est prêt'), h('p', {}, desktop ? 'Choisis où l’enregistrer.' : 'Télécharge-le quand tu veux.')),
       h(
         'div',
         { class: 'ready-files' },
-        h('button', { type: 'button', class: 'btn-primary btn-lg', 'data-autofocus': true, onClick: () => save(files.pdf, `CV-${file}.pdf`) }, 'Télécharger le PDF'),
-        files.docx && h('button', { type: 'button', class: 'btn-ghost btn-lg', onClick: () => save(files.docx, `CV-${file}.docx`) }, 'Télécharger le Word'),
+        desktop
+          ? fileRow(files.pdf, `CV-${file}.pdf`, 'PDF', true)
+          : h('button', { type: 'button', class: 'btn-primary btn-lg', 'data-autofocus': true, onClick: () => save(files.pdf, `CV-${file}.pdf`) }, 'Télécharger le PDF'),
+        files.docx &&
+          (desktop
+            ? fileRow(files.docx, `CV-${file}.docx`, 'Word', false)
+            : h('button', { type: 'button', class: 'btn-ghost btn-lg', onClick: () => save(files.docx, `CV-${file}.docx`) }, 'Télécharger le Word')),
       ),
       feedback(),
     );
@@ -167,6 +178,64 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
   }
 
   choose();
+}
+
+// Desktop : une carte par fichier, comme au choix du format. « Enregistrer… » demande où le ranger ;
+// ensuite la carte dit où il est, avec Ouvrir (le fichier) et Parcourir (son dossier).
+function fileRow(blob, filename, label, primary) {
+  const desktop = getDesktop();
+  const row = h('div', { class: 'file-row' });
+  const badge = h('span', { class: 'format-badge' }, filename.endsWith('.pdf') ? 'PDF' : 'DOCX');
+  const kind = filename.endsWith('.pdf') ? [{ name: 'PDF', extensions: ['pdf'] }] : [{ name: 'Document Word', extensions: ['docx'] }];
+
+  function ask(first) {
+    const card = h(
+      'button',
+      { type: 'button', class: 'format-card', 'aria-pressed': String(primary), 'data-autofocus': first && primary ? true : null },
+      badge,
+      h('span', { class: 'format-text' }, h('strong', {}, `Enregistrer le ${label}`), h('small', {}, 'Tu choisis le dossier')),
+      icon('download', 17),
+    );
+    const msg = h('p', { class: 'export-error', hidden: true });
+    card.addEventListener('click', async () => {
+      card.disabled = true;
+      let r;
+      try {
+        r = await desktop.saveFile(filename, await blob.arrayBuffer(), kind);
+      } catch {
+        r = { ok: false };
+      }
+      card.disabled = false;
+      if (r?.ok) return saved(r.path);
+      if (!r?.canceled) {
+        msg.textContent = 'L’enregistrement a échoué. Choisis un autre dossier.';
+        msg.hidden = false;
+      }
+    });
+    row.replaceChildren(card, msg);
+  }
+
+  function saved(path) {
+    row.replaceChildren(
+      h(
+        'div',
+        { class: 'format-card static file-done' },
+        badge,
+        h('span', { class: 'format-text' }, h('strong', {}, baseOf(path)), h('small', { title: path }, dirOf(path))),
+        h('span', { class: 'file-check', title: 'Enregistré' }, icon('check', 14)),
+      ),
+      h(
+        'div',
+        { class: 'file-actions' },
+        h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => desktop.open(path) }, 'Ouvrir'),
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => desktop.reveal(path) }, 'Parcourir'),
+        h('button', { type: 'button', class: 'btn-link file-again', onClick: () => ask(false) }, 'Enregistrer ailleurs'),
+      ),
+    );
+  }
+
+  ask(true);
+  return row;
 }
 
 // Note en étoiles puis, si l'étudiant est content, l'invitation de ses amis.

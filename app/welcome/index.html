@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>salacv — bienvenue</title>
+  <script>
+    try { var t = localStorage.getItem('salacv:theme') || 'dark'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch {}
+  </script>
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../ux.css">
+  <link rel="stylesheet" href="../welcome.css">
+</head>
+<body class="welcome">
+  <main class="welcome-card">
+    <span class="welcome-mark" aria-hidden="true">S</span>
+    <h1>Bienvenue sur salacv</h1>
+    <p class="welcome-text">Connecte-toi pour retrouver tes CV et tes crédits.</p>
+    <div id="welcome-login"></div>
+    <a id="welcome-skip" class="welcome-skip" href="/studio/" hidden>Continuer sans compte</a>
+  </main>
+  <script type="module" src="../welcome.js"></script>
+</body>
+</html>

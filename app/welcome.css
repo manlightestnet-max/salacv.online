@@ -1,0 +1,14 @@
+/* Accueil de l'app desktop : une carte centrée, mêmes tokens que le studio. */
+body.welcome { display: grid; place-items: center; padding: 24px; overflow: auto; background: rgb(var(--canvas)); }
+.welcome-card {
+  width: min(100%, 420px); display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 28px;
+  border-radius: 14px; background: rgb(var(--surface)); border: 1px solid rgb(var(--gray-300));
+  animation: fade-up 0.4s var(--ease-out) both;
+}
+.welcome-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: rgb(var(--accent)); color: rgb(var(--on-accent)); font-weight: 700; font-size: 18px; }
+.welcome-card h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.012em; }
+.welcome-text { color: rgb(var(--gray-700)); }
+#welcome-login { width: 100%; }
+.welcome-skip { align-self: center; padding: 6px 4px; font-size: 13.5px; font-weight: 500; color: rgb(var(--gray-700)); text-decoration: underline; text-underline-offset: 3px; }
+.welcome-skip:hover { color: rgb(var(--gray-900)); }
+.welcome-skip[hidden] { display: none; }

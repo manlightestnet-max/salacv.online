@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>salacv</title>
+  <style>html { background: #0b0d11; }</style>
+  <script>
+    // Entrée de l'app desktop : connecté (session Google / clé en ligne valide, ou clé hors ligne
+    // active sur ce PC) → tableau de bord ; sinon → page d'accueil (connexion).
+    (function () {
+      var go = function (logged) { location.replace(logged ? '/dashboard/' : '/welcome/'); };
+      var s = null;
+      try { s = JSON.parse(localStorage.getItem('salacv:session') || 'null'); } catch (e) {}
+      if (s && s.token && !(s.expiresAt && s.expiresAt < Date.now())) return go(true);
+      var lic = window.desktop && window.desktop.license;
+      if (!lic) return go(false);
+      lic.status().then(function (st) { go(Boolean(st && st.state === 'active')); }, function () { go(false); });
+    })();
+  </script>
+</head>
+<body></body>
+</html>

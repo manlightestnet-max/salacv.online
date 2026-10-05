@@ -10,6 +10,8 @@ import { settings } from './config.js';
 import { handle } from './run.js';
 import { translate as translateCv } from './translate.js';
 import { collect, isBlocked, recordLogin } from '../admin.js';
+import { verifyFirebaseIdToken } from '../accounts/firebase.js';
+import { activateOnlineKey } from '../accounts/keys.js';
 
 export const MAX_BODY = 64 * 1024;
 
@@ -45,6 +47,29 @@ export async function login(payload, client, env = process.env) {
   if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
   if ((await recordLogin(username).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
   return [200, { ok: true, token, username }];
+}
+
+// Connexion Google : le navigateur donne un jeton Firebase, on le vérifie ici et on ouvre une session salacv.
+export async function googleLogin(payload, client, env = process.env, { verifyToken = verifyFirebaseIdToken } = {}) {
+  if (!loginLimiter.allow(client)) return [429, { ok: false, error: 'Trop de tentatives. Attends une minute.' }];
+  const identity = await verifyToken(payload?.idToken, env);
+  if (!identity) return [401, { ok: false, error: 'Connexion Google refusée. Réessaie.' }];
+  const token = issue(identity.email, env);
+  if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
+  if ((await recordLogin(identity.email).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
+  return [200, { ok: true, token, username: identity.email, name: identity.name, picture: identity.picture, kind: 'google' }];
+}
+
+// Clé KEYGEN en ligne (PC uniquement) : la session ne dépasse jamais la fin de vie de la clé.
+export async function keyLogin(payload, client, env = process.env, now = Date.now(), { days } = {}) {
+  if (!loginLimiter.allow(client)) return [429, { ok: false, error: 'Trop de tentatives. Attends une minute.' }];
+  const [status, body] = await activateOnlineKey(payload?.key, payload?.device, { now, ...(days ? { days } : {}) });
+  if (!body.ok) return [status, body];
+  const username = `key:${body.id}`;
+  const token = issue(username, env, now, (body.expiresAt - now) / 1000);
+  if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
+  if ((await recordLogin(username).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Cette clé est suspendue. Contacte salacv.' }];
+  return [200, { ok: true, token, username, kind: 'key', expiresAt: body.expiresAt }];
 }
 
 export const bearer = (authorization) => String(authorization ?? '').replace(/^Bearer\s+/i, '').trim();

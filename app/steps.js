@@ -21,6 +21,7 @@ const EDU = {
   title: 'Formation & certifications',
   intro: 'Diplômes, formations et certifications. Sur le CV, ils sont classés du plus récent au plus ancien.',
   label: 'FORMATION',
+  suggest: ['degrees', 'schools'],
   empty: 'Nouvelle formation',
   add: 'Ajouter une formation',
   fields: { title: ['Diplôme ou certification', 'Licence en réseaux et télécommunications'], org: ['Établissement', 'ISTA Kinshasa'] },
@@ -31,6 +32,7 @@ const EXP = {
   title: 'Expérience professionnelle',
   intro: 'Stages, emplois, bénévolat. Sur le CV, ils sont classés du plus récent au plus ancien.',
   label: 'EXPÉRIENCE',
+  suggest: ['jobs', 'companies'],
   empty: 'Nouvelle expérience',
   add: 'Ajouter une expérience',
   fields: { title: ['Poste', 'Stagiaire technicienne réseaux'], org: ['Entreprise ou organisation', 'Vodacom Congo'] },
@@ -50,7 +52,7 @@ function identity(ctx) {
     head('Identité et contacts', 'Ce qui apparaît en haut de ton CV.'),
     photoInput({ profile: p, onChange: ctx.changed, shape: ctx.photoShape }),
     f('Nom complet', 'name', { placeholder: 'Grâce Mbuyi Kalala', autocomplete: 'name' }),
-    f('Profession ou domaine', 'title', { placeholder: 'Technicienne en réseaux et télécommunications' }),
+    f('Profession ou domaine', 'title', { placeholder: 'Technicienne en réseaux et télécommunications', suggest: 'jobs' }),
     f('Email', 'email', { placeholder: 'grace.mbuyi@gmail.com', type: 'email', autocomplete: 'email' }),
     itemsInput({
       label: 'Téléphones',
@@ -82,11 +84,11 @@ function summary(ctx) {
   );
 }
 
-// Résumé d'un bloc replié, au format du CV : "2023 — 2026 | Licence — ISTA".
+// Résumé d'un bloc replié : poste ou diplôme, organisation, période (une ligne chacun).
 const timelineSummary = (i) => [
-  { text: i.period.trim(), cls: 'acc-period' },
   { text: i.title.trim(), cls: 'acc-title' },
-  { text: i.org.trim() && `— ${i.org.trim()}`, cls: 'acc-org' },
+  { text: i.org.trim(), cls: 'acc-org' },
+  { text: i.period.trim(), cls: 'acc-period' },
 ];
 
 function timeline(ctx, key, copy) {
@@ -97,11 +99,12 @@ function timeline(ctx, key, copy) {
     empty: copy.empty,
     addLabel: copy.add,
     summary: timelineSummary,
+    complete: (i) => Boolean(i.period.trim() && i.title.trim() && i.org.trim()),
     onChange: ctx.changed,
     fields: (item, onInput) => [
       periodField(item, 'period', onInput),
-      field(copy.fields.title[0], item, 'title', onInput, { placeholder: copy.fields.title[1] }),
-      field(copy.fields.org[0], item, 'org', onInput, { placeholder: copy.fields.org[1] }),
+      field(copy.fields.title[0], item, 'title', onInput, { placeholder: copy.fields.title[1], suggest: copy.suggest[0] }),
+      field(copy.fields.org[0], item, 'org', onInput, { placeholder: copy.fields.org[1], suggest: copy.suggest[1] }),
       field(copy.details[0], item, 'details', onInput, { multiline: true, rows: 3, placeholder: copy.details[1], hint: 'Une ligne par élément.' }),
     ],
   });
@@ -119,6 +122,7 @@ function skills(ctx) {
       list: ctx.state.skills,
       onChange: ctx.changed,
       placeholder: 'Réseaux LAN / WAN',
+      suggest: 'skills',
     }),
   );
 }
@@ -132,12 +136,13 @@ function languages(ctx) {
     addLabel: 'Ajouter une langue',
     summary: (l) => [
       { text: l.name.trim(), cls: 'acc-title' },
-      { text: l.level && `— ${l.level}`, cls: 'acc-org' },
+      { text: l.level, cls: 'acc-org' },
     ],
+    complete: (l) => Boolean(l.name.trim() && l.level),
     onChange: ctx.changed,
-    fields: (l, onInput) => [
-      field('Langue', l, 'name', onInput, { placeholder: 'Lingala' }),
-      choicePills({ label: 'Niveau', options: LEVELS, obj: l, key: 'level', onChange: onInput }),
+    fields: (l, onInput, { next }) => [
+      field('Langue', l, 'name', onInput, { placeholder: 'Lingala', suggest: 'languages' }),
+      choicePills({ label: 'Niveau', options: LEVELS, obj: l, key: 'level', onChange: () => (onInput(), l.level && next()) }),
     ],
   });
   ctx.onAdd = list.add;
@@ -148,12 +153,40 @@ function languages(ctx) {
     h('h3', { class: 'sub' }, 'Langues'),
     list.el,
     h('h3', { class: 'sub' }, 'Loisirs'),
-    itemsInput({ label: 'Loisirs (facultatif)', list: ctx.state.hobbies, onChange: ctx.changed, variant: 'chips', placeholder: 'Football' }),
+    itemsInput({ label: 'Loisirs (facultatif)', list: ctx.state.hobbies, onChange: ctx.changed, variant: 'chips', placeholder: 'Football', suggest: 'hobbies' }),
   );
 }
 
 // Vérification en stepper vertical (façon Android) : chaque étape du formulaire, son état
 // et ce qu'il reste à faire ; toucher une étape y retourne. Générer reste toujours possible.
+// Points à corriger (todo) ou conseillés (warn), avec l'étape où les corriger.
+export function reviewIssues(st, doc) {
+  const extra = [
+    ...(st.skills.length ? [] : [{ level: 'warn', text: 'Ajoute quelques compétences (conseillé)', step: 'competences' }]),
+    ...(st.languages.some((l) => l.name.trim()) ? [] : [{ level: 'warn', text: 'Indique au moins une langue (conseillé)', step: 'langues' }]),
+  ];
+  return [...checklist(st, doc), ...extra].filter((c) => c.level !== 'ok');
+}
+
+// Pastille de l'étape Vérification : rouge si un point obligatoire manque, jaune si conseil, vert sinon.
+export function reviewStatus(st, doc) {
+  const issues = reviewIssues(st, doc);
+  const todo = issues.filter((c) => c.level === 'todo').length;
+  if (todo) return { level: 'todo', label: todo > 1 ? `${todo} erreurs` : '1 erreur' };
+  return issues.length ? { level: 'warn', label: 'À revoir' } : { level: 'ok', label: 'Prêt' };
+}
+
+// Niveau de chaque étape du formulaire : { identite: 'todo', profil: 'warn', … } ('ok' si rien à signaler).
+export function stepLevels(st, doc) {
+  const issues = reviewIssues(st, doc);
+  const out = {};
+  for (const s of STEPS) {
+    const mine = issues.filter((c) => c.step === s.id);
+    out[s.id] = mine.some((c) => c.level === 'todo') ? 'todo' : mine.length ? 'warn' : 'ok';
+  }
+  return out;
+}
+
 function review(ctx) {
   const items = checklist(ctx.state, ctx.doc());
   const st = ctx.state;

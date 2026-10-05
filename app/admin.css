@@ -37,9 +37,9 @@ body.admin { min-height: 100svh; }
   font-size: 0.88rem; color: rgb(var(--gray-700)); text-decoration: none; transition: background 0.15s, color 0.15s;
 }
 .ad-link:hover { background: rgb(var(--surface)); color: rgb(var(--gray-900)); }
-.ad-link[aria-current='true'] { background: rgb(var(--primary-500)); color: #04140d; font-weight: 500; }
+.ad-link[aria-current='true'] { background: rgb(var(--primary-500)); color: rgb(var(--on-accent)); font-weight: 500; }
 .ad-ico { flex: none; display: inline-grid; place-items: center; width: 17px; height: 17px; }
-.ad-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: grid; place-items: center; background: rgb(var(--primary-500)); color: #04140d; font: 600 0.7rem var(--font-sans); }
+.ad-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: grid; place-items: center; background: rgb(var(--primary-500)); color: rgb(var(--on-accent)); font: 600 0.7rem var(--font-sans); }
 .ad-badge[hidden] { display: none; }
 .ad-side-foot { padding-top: 0.75rem; border-top: 1px solid var(--line); }
 .ad-scrim { position: fixed; inset: 52px 0 0; z-index: 14; background: rgb(0 0 0 / 0.45); }
@@ -127,19 +127,6 @@ textarea.admin-input { resize: vertical; font-family: var(--font-mono); font-siz
 }
 @media (min-width: 900px) { .ad-scrim { display: none; } }
 
-/* --- Charte salacv : monochrome, pas de vert (comme le studio) -----------------------
-   Seule la mise en page vient de Salacope ; les couleurs restent celles de salacv. */
-body.admin {
-  --accent: var(--gray-900);
-  --on-accent: var(--canvas);
-  --primary-500: var(--gray-900);
-  --primary-600: var(--gray-900);
-}
-.ad-mark { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
-.ad-link[aria-current='true'] { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
-.ad-badge { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
-.ad-link[aria-current='true'] .ad-badge { background: rgb(var(--canvas)); color: rgb(var(--gray-900)); }
-.stat-cell .v.accent { color: rgb(var(--gray-900)); }
 .res-add { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
 .res-add .row { grid-column: 1 / -1; }
 .row-item .danger-text { flex: none; }

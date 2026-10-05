@@ -3,3 +3,6 @@ dist/
 out/
 __pycache__/
 data/
+.env
+.env.local
+release/

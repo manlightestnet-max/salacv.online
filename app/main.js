@@ -10,11 +10,12 @@ import { openDialog } from './dialog.js';
 import { openExport } from './export.js';
 import { initQuickEdit } from './quickedit.js';
 import { createLangBar } from './langs.js';
+import { langName } from '../src/i18n/index.js';
 import { openSwitcher } from './switcher.js';
 import { createWorkspace } from './workspace.js';
 import example from '../examples/etudiant.json';
-import { h } from './dom.js';
-import { STEPS } from './steps.js';
+import { h, icon, fieldIndex, setInputError } from './dom.js';
+import { STEPS, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
 import { registerTemplate } from '../src/templates/index.js';
@@ -24,6 +25,21 @@ import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } 
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
 let stepAi = false;
+let aiProposal = null; // { step, before, changed } : suggestion de l'IA en attente de Garder / Annuler
+let aiPop = null;
+// Rail ouvert (titres visibles) au chargement pendant 20 s, puis replié ; le bouton en bas le garde ouvert ou fermé.
+let railOpen = true;
+let railTimer = setTimeout(() => setRailOpen(false), 20000);
+function setRailOpen(open, manual = false) {
+  if (manual) clearTimeout(railTimer);
+  railOpen = open;
+  const rail = $('rail');
+  rail.classList.toggle('expanded', open);
+  const btn = rail.querySelector('.rail-expand');
+  btn?.setAttribute('aria-expanded', String(open));
+  btn?.setAttribute('title', open ? 'Masquer les titres' : 'Afficher les titres des étapes');
+}
+let seen = 0; // étape la plus avancée déjà ouverte (le rail ne juge que celles-là)
 const STEP_AI = {
   identite: { q: 'Comment t’appelles-tu, quel métier vises-tu, et comment te joindre ?', part: 'l’identité et les contacts (nom, profession, email, téléphones, adresse)' },
   profil: { q: 'Qui es-tu, que sais-tu faire, et que cherches-tu ?', part: 'le profil professionnel (2 à 4 phrases)' },
@@ -33,6 +49,15 @@ const STEP_AI = {
   langues: { q: 'Quelles langues parles-tu (et à quel niveau), et que fais-tu de ton temps libre ?', part: 'les langues et les loisirs' },
 };
 const preview = $('preview');
+// Rendu final impossible (pas encore de nom) : message au centre de l'aperçu, dans tous les modes.
+const finalEmpty = h(
+  'div',
+  { class: 'final-empty', role: 'status', hidden: true },
+  h('strong', {}, 'Rendu final'),
+  h('p', {}, 'Écris au moins ton nom pour voir ton CV tel qu’il sera, sans le texte d’exemple en gris.'),
+  h('button', { type: 'button', class: 'btn-primary', onClick: () => $('final-view').click() }, 'Revenir à l’aperçu'),
+);
+document.body.append(finalEmpty);
 const canvases = $('canvases');
 const sheet = $('sheet');
 const stepEl = $('step');
@@ -382,6 +407,8 @@ function closeAgent() {
 
 function goTo(i) {
   if (i < 0 || i >= STEPS.length || i === stepIndex) return;
+  // Une suggestion de l'IA attend sa réponse : ni gardée ni refusée en silence.
+  if (aiProposal && guardAiProposal()) return;
   stepIndex = i;
   renderStep();
   stepEl.scrollTop = 0;
@@ -409,6 +436,32 @@ function renderStep() {
     ),
   );
   $('stepper').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  // Rail de progression (PC) : mêmes étapes, même navigation.
+  seen = Math.max(seen, stepIndex);
+  $('rail').replaceChildren(
+    h('span', { class: 'rail-count', 'aria-hidden': 'true' }, `${stepIndex + 1}/${STEPS.length}`),
+    ...STEPS.map((s, i) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `rail-step${i === STEPS.length - 1 ? ' rail-flag' : ''}${i === stepIndex ? ' active' : ''}`,
+          'data-i': i,
+          style: `--i:${i}`,
+          'data-label': s.label,
+          'aria-label': `Étape ${i + 1} : ${s.label}`,
+          'aria-current': i === stepIndex ? 'step' : null,
+          onClick: () => goTo(i),
+        },
+        i === STEPS.length - 1 ? [FLAG_SVG(), h('span', { class: 'rail-flag-label' })] : String(i + 1),
+      ),
+    ),
+  );
+  $('rail').append(
+    h('button', { type: 'button', class: 'rail-expand', 'aria-expanded': String(railOpen), title: railOpen ? 'Masquer les titres' : 'Afficher les titres des étapes', 'aria-label': 'Afficher ou masquer les titres des étapes', onClick: () => setRailOpen(!railOpen, true) }, icon('chevrons', 16)),
+  );
+  setRailOpen(railOpen);
+  updateRailFlag();
   ctx.onAdd = null;
   // Chaque étape bascule entre Formulaire et ✦ IA, comme les fenêtres flottantes.
   const ai = STEP_AI[step.id];
@@ -423,12 +476,48 @@ function renderStep() {
     : null;
   // Changer d'étape garde la proposition en cours.
   if (aiProposal && aiProposal.step !== step.id) aiProposal = null;
-  stepEl.replaceChildren(h('div', { class: 'fade' }, tabs, ai && stepAi ? stepAiPane(ai) : [proposalBanner(), step.render(ctx)]));
+  stepEl.replaceChildren(h('div', { class: 'fade' }, tabs, ai && stepAi ? stepAiPane(ai) : step.render(ctx)));
+  mountAiProposal();
   $('step-title').textContent = step.label;
   $('progress').textContent = `${stepIndex + 1}/${STEPS.length}`;
   renderTitle();
   $('prev').hidden = stepIndex === 0;
   $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
+}
+
+// Étape Vérification du rail : un drapeau rouge (erreur), jaune (conseil) ou vert (prêt), toujours déplié.
+function FLAG_SVG() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<path d="M5 21V4m0 0h11l-2 4 2 4H5" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>';
+  return svg;
+}
+
+// Étapes déjà vues : rouge « ! » (point obligatoire manquant), jaune (conseil) ou ✓ (complet).
+// Les étapes pas encore vues restent neutres.
+function updateRailSteps() {
+  const levels = stepLevels(state, current?.doc);
+  document.querySelectorAll('.rail-step[data-i]:not(.rail-flag)').forEach((b) => {
+    const i = Number(b.dataset.i);
+    const level = i <= seen && i !== stepIndex ? levels[STEPS[i].id] : null;
+    b.dataset.level = level ?? '';
+    b.replaceChildren(level === 'ok' ? icon('check', 15) : level === 'todo' ? icon('alert', 15) : String(i + 1));
+    b.classList.toggle('done', level === 'ok');
+    b.setAttribute('aria-label', `Étape ${i + 1} : ${STEPS[i].label}${level === 'todo' ? ' (à corriger)' : level === 'warn' ? ' (conseil)' : level === 'ok' ? ' (complète)' : ''}`);
+  });
+}
+
+function updateRailFlag() {
+  updateRailSteps();
+  const flag = document.querySelector('.rail-flag');
+  if (!flag) return;
+  const { level, label } = reviewStatus(state, current?.doc);
+  flag.dataset.level = level;
+  flag.querySelector('.rail-flag-label').textContent = label;
+  flag.setAttribute('aria-label', `Vérification : ${label}`);
 }
 
 // L'IA renvoie un CV : on garde photo, modèle et langue.
@@ -447,7 +536,6 @@ function applyAiState(next) {
 // limité aux outils de cette section. Son résultat arrive d'abord comme une proposition
 // dans le formulaire : on voit, puis on garde ou on annule.
 const stepChats = {};
-let aiProposal = null; // { step, before }
 function stepAiPane(ai) {
   const stepId = STEPS[stepIndex].id;
   const chat = (stepChats[stepId] ??= []);
@@ -470,8 +558,10 @@ function stepAiPane(ai) {
     chat.push({ role: 'user', text: said }, { role: 'assistant', text: r.reply ?? '' });
     if (r.changes?.length) {
       // Proposition : visible dans le formulaire et sur le CV, rien n'est définitif.
-      aiProposal = { step: stepId, before: structuredClone(state) };
+      const before = structuredClone(state);
+      aiProposal = { step: stepId, before };
       applyAiState(r.state);
+      aiProposal.changed = changedTargets(before, state);
       stepAi = false;
     }
     renderStep();
@@ -489,15 +579,113 @@ function stepAiPane(ai) {
   );
 }
 
-function proposalBanner() {
-  if (!aiProposal || aiProposal.step !== STEPS[stepIndex].id) return null;
-  return h(
+// Champs que l'IA vient de modifier : [{ obj, key }] (la clé '_' désigne toute une liste).
+function changedTargets(before, after) {
+  const out = [];
+  const differs = (x, y) => JSON.stringify(x ?? null) !== JSON.stringify(y ?? null);
+  for (const key of Object.keys(after.profile)) {
+    if (key === 'photo') continue;
+    if (differs(before.profile[key], after.profile[key])) out.push({ obj: after.profile, key: Array.isArray(after.profile[key]) ? '_' : key, list: Array.isArray(after.profile[key]) ? after.profile[key] : null });
+  }
+  for (const k of ['education', 'experiences', 'languages']) {
+    after[k].forEach((item, i) => {
+      const old = before[k][i];
+      if (!old) return out.push({ obj: item, key: '_card' });
+      for (const key of Object.keys(item)) if (differs(old[key], item[key])) out.push({ obj: item, key });
+    });
+  }
+  for (const k of ['skills', 'hobbies']) if (differs(before[k], after[k])) out.push({ obj: after[k], key: '_' });
+  return out;
+}
+
+// Retrouve le champ d'une cible dans le formulaire affiché ; un bloc replié → le bloc entier.
+function resolveTarget(t) {
+  const target = fieldIndex.get(t.list ?? t.obj)?.[t.list ? '_' : t.key];
+  const card = fieldIndex.get(t.obj)?._card;
+  if (target?.root.isConnected && target.root.getBoundingClientRect().height > 0) return target;
+  return card?.root.isConnected ? { root: card.root, input: card.input } : null;
+}
+
+const AI_PENDING_MESSAGE = 'Veuillez accepter ou annuler la suggestion de l’IA avant de continuer.';
+
+function aiAnchor() {
+  const found = (aiProposal?.changed ?? []).map(resolveTarget).filter(Boolean);
+  // Ancrage : le dernier champ modifié, pour que la fenêtre ne recouvre aucun champ à relire.
+  return { all: found, first: found.at(-1) ?? null };
+}
+
+function removeAiPop() {
+  aiPop?.remove();
+  aiPop = null;
+  stepEl.removeEventListener('scroll', placeAiPop);
+  window.removeEventListener('resize', placeAiPop);
+}
+
+// La fenêtre se pose sous le champ concerné, alignée à son bord droit, sans sortir de l'écran.
+function placeAiPop() {
+  const { first } = aiAnchor();
+  if (!aiPop || !first) return;
+  const r = first.root.getBoundingClientRect();
+  const view = stepEl.getBoundingClientRect();
+  aiPop.hidden = r.bottom < view.top + 4 || r.top > view.bottom - 4;
+  const w = Math.min(340, innerWidth - 16);
+  aiPop.style.width = `${w}px`;
+  const hgt = aiPop.offsetHeight || 150;
+  const left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8));
+  const fitsBelow = r.bottom + 8 + hgt <= innerHeight - 8;
+  const top = fitsBelow ? r.bottom + 8 : Math.max(8, r.top - hgt - 8);
+  aiPop.style.left = `${left}px`;
+  aiPop.style.top = `${top}px`;
+  aiPop.classList.toggle('above', !fitsBelow);
+}
+
+function endAiProposal(keep) {
+  if (!keep) {
+    state = normalizeState(aiProposal.before);
+    schedule();
+  }
+  aiProposal = null;
+  removeAiPop();
+  renderStep();
+}
+
+function mountAiProposal() {
+  removeAiPop();
+  if (!aiProposal || aiProposal.step !== STEPS[stepIndex].id || stepAi) return;
+  const { all, first } = aiAnchor();
+  if (!first) return;
+  all.forEach((t) => t.root.classList.add('ai-changed'));
+  const many = all.length > 1;
+  aiPop = h(
     'div',
-    { class: 'ai-proposal' },
-    h('span', {}, '✦ Proposition de l’IA : relis ci-dessous.'),
-    h('button', { type: 'button', class: 'btn-text', onClick: () => ((state = normalizeState(aiProposal.before)), (aiProposal = null), schedule(), renderStep()) }, 'Annuler'),
-    h('button', { type: 'button', class: 'btn-primary', onClick: () => ((aiProposal = null), renderStep()) }, 'Garder'),
+    { class: 'ai-pop', role: 'dialog', 'aria-label': 'Suggestion de l’IA' },
+    h('strong', { class: 'ai-pop-title' }, '✦ Suggestion de l’IA'),
+    h('p', {}, many ? `${all.length} champs ont été remplis ou corrigés (en surbrillance). Relis-les, puis garde ou annule.` : 'Ce champ a été rempli ou corrigé. Relis-le, puis garde ou annule.'),
+    h(
+      'div',
+      { class: 'ai-pop-actions' },
+      h('button', { type: 'button', class: 'btn-ghost', onClick: () => endAiProposal(false) }, 'Annuler'),
+      h('button', { type: 'button', class: 'btn-primary', onClick: () => endAiProposal(true) }, 'Garder'),
+    ),
   );
+  document.body.append(aiPop);
+  stepEl.addEventListener('scroll', placeAiPop, { passive: true });
+  window.addEventListener('resize', placeAiPop);
+  placeAiPop();
+  requestAnimationFrame(placeAiPop); // 2e passage : la mise en page du formulaire est finie
+}
+
+// Appelé quand l'étudiant veut quitter l'étape : vrai si une suggestion attend encore.
+function guardAiProposal() {
+  const { first } = aiAnchor();
+  if (!first) {
+    aiProposal = null;
+    return false;
+  }
+  if (sheet.dataset.state !== 'expanded' && !desktop.matches) setSheet('expanded');
+  setInputError(first.root, first.input, AI_PENDING_MESSAGE);
+  placeAiPop();
+  return true;
 }
 
 // Ctrl+Entrée : ajoute un bloc dans l'étape courante (le composant place le curseur dedans).
@@ -518,14 +706,13 @@ function update() {
   if (!engine) return;
   const result = layoutResume(toResume(state, finalView ? {} : { mockup: example }), engine.fonts, { watermark: WATERMARK });
   const note = $('ghost-note');
-  if (!result.ok) {
-    // Rendu final sans nom : rien à montrer encore, on le dit.
-    if (finalView) {
-      note.textContent = 'Écris au moins ton nom pour voir le rendu final';
-      note.hidden = false;
-    }
-    return; // on garde le dernier aperçu valide
-  }
+  // Rendu final d'un CV encore vide : surtout pas l'ancien aperçu (il montre le texte d'exemple en
+  // gris) ; on le masque et on explique, avec un moyen de revenir.
+  const blank = finalView && !result.ok;
+  finalEmpty.hidden = !blank;
+  if (blank) $('ghost-note').hidden = true;
+  preview.classList.toggle('final-blank', blank);
+  if (!result.ok) return; // sinon, on garde le dernier aperçu valide
   current = result;
   // Pendant un message (toast), l'aide attend son tour.
   if (!note.classList.contains('toast')) {
@@ -533,6 +720,7 @@ function update() {
     note.hidden = !finalView && !hasGhost(result.resume);
   }
   paint(result.doc);
+  updateRailFlag();
   paintThumbs();
   langBar.render(); // ↻ quand une traduction est en retard sur l'original
   // Mode Pro : le nom du CV actif suit la profession saisie.
@@ -822,7 +1010,7 @@ project.docs ??= [];
 function curDoc() {
   return activeDoc === 'main' ? project : project.docs.find((d) => d.id === activeDoc) ?? project;
 }
-const docLabel = (d) => (d.styled && d.cvName) || normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
+const docLabel = (d) => (d === project && project.name?.trim()) || (d.styled && d.cvName) || normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
 
 // Passer à un autre CV du projet (et à l'une de ses langues), sans recharger.
 function switchDoc(id, lang, { focus = false } = {}) {
@@ -854,6 +1042,26 @@ function addDoc() {
   project.docs.push(doc);
   switchDoc(doc.id, null, { focus: true });
   toast('Nouveau CV dans le projet : écris la profession, le reste est déjà là.');
+}
+
+// Duplique un CV du projet : mêmes informations, modèle, photo et versions de langue, sous un nouveau nom.
+function duplicateDoc(d) {
+  saveCurrent(); // ce qui est en cours d'édition est d'abord enregistré dans son CV
+  const name = `${docLabel(d)} (copie)`;
+  const copy = {
+    id: Math.random().toString(36).slice(2, 9),
+    cvName: name,
+    styled: true,
+    state: structuredClone(d.state),
+    variants: structuredClone(d.variants ?? {}),
+    translatedFrom: structuredClone(d.translatedFrom ?? {}),
+  };
+  const at = d === project ? 0 : project.docs.indexOf(d) + 1;
+  project.docs.splice(at, 0, copy); // juste après l'original
+  saveProject(project);
+  pickerOpen = false;
+  switchDoc(copy.id, null, { focus: true });
+  toast(`CV dupliqué : « ${name} ». Renomme-le avec un double-clic dans la liste.`);
 }
 
 function saveCurrent() {
@@ -942,6 +1150,7 @@ const langBar = createLangBar({
     if (workspace?.on) setTimeout(wsRefresh, 120);
   },
   save: saveCurrent,
+  changed: () => workspace?.on && wsRefresh(),
   askLogin: () => openAgent(),
   toast,
 });
@@ -988,6 +1197,7 @@ function wsRows() {
       label: docLabel(d),
       template: { id: tpl.id, name: tpl.name, doc: docOf(id === activeDoc ? state : d.state) },
       picker: tplPickFor === id ? pickerDocs(id) : null,
+      ...langRow(d, id),
       frames: versions.map(([lang, st]) => {
         const active = id === activeDoc && lang === activeLang;
         return { key: `${id}:${lang}`, label: String(lang).toUpperCase(), active, pages: active ? current?.doc.pages.length ?? 1 : 1, doc: active ? null : docOf(st) };
@@ -995,6 +1205,32 @@ function wsRows() {
     };
   });
 }
+
+// Bascule de langues du conteneur d'un CV : une pastille par version, ↻ pour retraduire par l'IA.
+function langRow(d, id) {
+  const mainLang = d.state.lang;
+  const langs = [mainLang, ...Object.keys(d.variants ?? {}).filter((l) => l !== mainLang)];
+  const isActive = id === activeDoc;
+  const lang = isActive && activeLang !== mainLang ? activeLang : null; // l'original n'est pas une traduction
+  const busy = Boolean(lang && langBar.busy(lang));
+  const stale = Boolean(lang && langBar.stale(lang, d));
+  let title = 'La version originale n’est pas traduite : choisis une autre langue pour la retraduire (IA)';
+  if (lang) title = langBar.online() ? `Retraduire la version ${langName(lang)} depuis l’original (IA)${stale ? ' · l’original a changé' : ''}` : `Retraduire la version ${langName(lang)} (IA) : pas de connexion Internet`;
+  return {
+    langs: langs.map((l) => ({ lang: l, name: langName(l) + (l === mainLang ? ' · originale' : ''), active: isActive && l === activeLang, busy: isActive && langBar.busy(l) })),
+    refresh: { lang, busy, stale, title },
+  };
+}
+
+// Actions des langues d'un conteneur : on passe d'abord sur ce CV, puis on agit comme dans Lite.
+function wsLang(id, action, lang) {
+  if (id !== activeDoc) switchDoc(id);
+  if (action === 'open') langBar.open(lang);
+  else if (action === 'refresh') langBar.refresh(lang);
+  else if (action === 'add') langBar.add();
+}
+window.addEventListener('online', () => workspace?.on && wsRefresh());
+window.addEventListener('offline', () => workspace?.on && wsRefresh());
 
 function wsRefresh() {
   if (!workspace?.on) return;
@@ -1195,7 +1431,8 @@ function renderPicker() {
           return h(
             'div',
             { class: `ws-pick${id === activeDoc ? ' current' : ''}` },
-            h('strong', {}, docLabel(d)),
+            h('button', { type: 'button', class: 'ws-pick-name', title: 'Clic : aller à ce CV · double-clic : renommer', onClick: () => switchDoc(id, undefined, { focus: true }), onDblclick: (e) => renameDoc(d, e.currentTarget) }, docLabel(d)),
+            h('button', { type: 'button', class: 'ws-pick-dup', title: 'Dupliquer ce CV', 'aria-label': `Dupliquer ${docLabel(d)}`, onClick: () => duplicateDoc(d) }, icon('copy', 15)),
             h('div', { class: 'ws-pick-langs' }, langs.map((l) => h('button', { type: 'button', class: `ws-lang${id === activeDoc && l === activeLang ? ' on' : ''}`, onClick: () => ((pickerOpen = false), switchDoc(id, l, { focus: true })) }, String(l).toUpperCase()))),
           );
         }),
@@ -1203,6 +1440,34 @@ function renderPicker() {
       )
     : null;
   el.replaceChildren(button, list ?? '');
+}
+
+// Double-clic sur un nom de CV : on le renomme sur place (Entrée valide, Échap annule).
+function renameDoc(d, el) {
+  const input = h('input', { class: 'ws-pick-rename', value: docLabel(d), maxlength: 60, 'aria-label': 'Nom du CV' });
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    const name = input.value.trim();
+    if (save && name) {
+      if (d === project) project.name = name;
+      else Object.assign(d, { cvName: name, styled: true });
+      saveProject(project);
+      renderTitle();
+    }
+    renderPicker();
+    if (workspace?.on) wsRefresh();
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') finish(true);
+    else if (e.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
 }
 
 // Étapes en bouton flottant (bas droite) : un clic les déplie.
@@ -1231,7 +1496,7 @@ function setWorkspace(enabled) {
     canvases,
     engine,
     onZoom: (z) => ($('zoom-label').textContent = `${Math.round(z * 100)} %`),
-    onTemplate: (id) => openTplPicker(id),
+    onTemplate: (id) => openTplStudio(id), // plus de modèles étalés sur la carte : un clic ouvre la grande fenêtre
     onPickTemplate: pickTemplate,
     onExpandTemplates: openTplStudio,
     cardEl: tplCardEl,
@@ -1239,6 +1504,7 @@ function setWorkspace(enabled) {
       const [id, lang] = key.split(':');
       switchDoc(id, lang);
     },
+    onLang: wsLang,
   });
   root.classList.toggle('pro', enabled);
   if (enabled) {

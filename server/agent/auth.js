@@ -35,10 +35,10 @@ export function checkCredentials(username, password, env = process.env) {
   return null;
 }
 
-export function issue(username, env = process.env, now = Date.now()) {
+export function issue(username, env = process.env, now = Date.now(), ttl = TTL) {
   const key = secret(env);
   if (!key) return null;
-  const body = b64(JSON.stringify({ u: username, exp: Math.floor(now / 1000) + TTL }));
+  const body = b64(JSON.stringify({ u: username, exp: Math.floor(now / 1000) + Math.min(TTL, Math.floor(ttl)) }));
   return `${body}.${sign(key, body)}`;
 }
 

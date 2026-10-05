@@ -47,7 +47,7 @@ a { color: inherit; }
   transition: transform 0.2s var(--ease), opacity 0.2s, background 0.2s;
 }
 .btn:active { transform: scale(0.97); }
-.btn-solid { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
+.btn-solid { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
 .btn-solid:hover { opacity: 0.88; }
 .btn-xl { height: 54px; padding: 0 1.6rem; font-size: 1rem; }
 
@@ -61,7 +61,7 @@ a { color: inherit; }
   border-bottom: 1px solid rgb(var(--gray-900) / 0.06);
 }
 .brand { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 0.98rem; text-decoration: none; letter-spacing: -0.01em; }
-.brand-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: rgb(var(--gray-900)); color: rgb(var(--canvas)); font-size: 13px; }
+.brand-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: rgb(var(--accent)); color: rgb(var(--on-accent)); font-size: 13px; }
 .nav-links { display: none; gap: 1.5rem; margin-left: 1.5rem; }
 .nav-links a, .nav-mine { font-size: 0.86rem; color: rgb(var(--gray-500)); text-decoration: none; transition: color 0.15s; }
 .nav-links a:hover, .nav-mine:hover { color: rgb(var(--gray-900)); }
@@ -133,7 +133,7 @@ h2 { font-size: clamp(1.8rem, 6vw, 3.2rem); line-height: 1.04; letter-spacing: -
 .dots { display: flex; gap: 2px; }
 .dot { width: 22px; height: 22px; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
 .dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--gray-300)); transition: width 0.3s var(--ease), background 0.3s; }
-.dot[aria-pressed='true']::before { width: 16px; border-radius: 3px; background: rgb(var(--gray-900)); }
+.dot[aria-pressed='true']::before { width: 16px; border-radius: 3px; background: rgb(var(--accent)); }
 
 /* --- Histoire au défilement ---------------------------------------------------------- */
 .story { position: relative; height: 320vh; border-top: 1px solid var(--line); }
@@ -188,7 +188,7 @@ h2 { font-size: clamp(1.8rem, 6vw, 3.2rem); line-height: 1.04; letter-spacing: -
 .story-frame[data-step='2'] .story-cv { animation: settle 0.6s var(--ease); }
 @keyframes settle { from { transform: scale(0.97); } }
 .story-progress { width: min(240px, 60%); height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; }
-.story-progress span { display: block; height: 100%; width: 0; background: rgb(var(--gray-900)); }
+.story-progress span { display: block; height: 100%; width: 0; background: rgb(var(--accent)); }
 
 /* --- Ruban des modèles --------------------------------------------------------------- */
 .templates-band { padding: 5rem 0 4rem; border-top: 1px solid var(--line); overflow: hidden; }
@@ -232,7 +232,7 @@ h2 { font-size: clamp(1.8rem, 6vw, 3.2rem); line-height: 1.04; letter-spacing: -
   border: 2px solid rgb(var(--surface)); background: rgb(var(--gray-200)); font-size: 0.8rem; font-weight: 600; color: rgb(var(--gray-700));
 }
 .avatars span:first-child { margin-left: 0; }
-.avatars span:last-child { background: rgb(var(--gray-900)); color: rgb(var(--canvas)); }
+.avatars span:last-child { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
 
 /* --- Fin --------------------------------------------------------------------------- */
 .final { display: flex; flex-direction: column; align-items: center; gap: 1.25rem; padding: 5rem var(--gutter) 6rem; text-align: center; }

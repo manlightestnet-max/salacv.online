@@ -3,6 +3,7 @@
 // se mettent à jour, l'étudiant peut tout corriger à la main ensuite.
 import { h } from './dom.js';
 import { markdown } from './markdown.js';
+import { loginPanel } from './login.js';
 
 const SESSION_KEY = 'salacv:session';
 const CHAT_KEY = 'salacv:chat';
@@ -81,42 +82,17 @@ export function createAgentPanel(ctx) {
   // --- Connexion ------------------------------------------------------------
 
   function loginView() {
-    const error = h('p', { class: 'agent-error', role: 'alert', hidden: true });
-    const username = h('input', { class: 'input', id: 'agent-user', autocomplete: 'username', placeholder: 'grace.mbuyi', required: true });
-    const password = h('input', { class: 'input', id: 'agent-pass', type: 'password', autocomplete: 'current-password', placeholder: '6 caractères minimum', required: true });
-    const submit = h('button', { class: 'btn-primary btn-lg', type: 'submit' }, 'Se connecter');
-
-    const form = h(
-      'form',
-      {
-        class: 'agent-login',
-        onSubmit: async (e) => {
-          e.preventDefault();
-          submit.disabled = true;
-          submit.textContent = 'Connexion…';
-          error.hidden = true;
-          const { data } = await post('/api/login', { username: username.value.trim(), password: password.value });
-          submit.disabled = false;
-          submit.textContent = 'Se connecter';
-          if (!data.ok) {
-            error.textContent = data.error || 'Connexion impossible.';
-            error.hidden = false;
-            return;
-          }
-          session = { token: data.token, username: data.username };
-          write(SESSION_KEY, session);
-          render();
-          root.querySelector('textarea')?.focus();
-        },
+    const panel = loginPanel({
+      intro: window.desktop?.isDesktop
+        ? "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés : Google, ou une clé en ligne."
+        : "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés avec Google.",
+      onDone: (r) => {
+        if (r?.kind !== 'key') return; // une clé hors ligne ouvre l'app, pas l'assistant (il demande un compte)
+        session = read(SESSION_KEY);
+        render();
       },
-      h('div', { class: 'step-head' }, h('h2', {}, 'Connecte-toi'), h('p', {}, "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés.")),
-      h('div', { class: 'field' }, h('label', { for: 'agent-user' }, "Nom d'utilisateur"), username),
-      h('div', { class: 'field' }, h('label', { for: 'agent-pass' }, 'Mot de passe'), password),
-      error,
-      submit,
-    );
-    requestAnimationFrame(() => username.focus());
-    return h('div', { class: 'agent-inner' }, header('Connexion'), h('div', { class: 'agent-scroll' }, form));
+    });
+    return h('div', { class: 'agent-inner' }, header('Connexion'), h('div', { class: 'agent-scroll' }, h('div', { class: 'agent-login' }, h('div', { class: 'step-head' }, h('h2', {}, 'Connecte-toi')), panel)));
   }
 
   // --- Discussion -----------------------------------------------------------
