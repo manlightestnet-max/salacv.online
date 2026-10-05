@@ -5,6 +5,9 @@ import { last4, open, seal } from './crypto.js';
 
 // Réglages connus : valeur par défaut, secret ou non, public (lisible par le site sans connexion) ou non.
 export const DEFINITIONS = {
+  // Quota d'IA du visiteur non connecté (tokens, une seule fois) : par session et par adresse IP.
+  'quota.anonTokens': { default: '250000', secret: false, public: false, label: 'Visiteur : tokens IA par session' },
+  'quota.ipTokens': { default: '250000', secret: false, public: false, label: 'Visiteur : tokens IA par adresse IP' },
   // Connexion Google (Firebase) : valeurs publiques par nature, servies au site à l'exécution.
   'firebase.apiKey': { default: '', secret: false, public: true, label: 'Firebase : clé web (apiKey)' },
   'firebase.authDomain': { default: 'lightpay-a5f01.firebaseapp.com', secret: false, public: true, label: 'Firebase : authDomain' },
@@ -30,6 +33,11 @@ export async function setSetting(key, value, env = process.env) {
     'INSERT INTO settings (key, value, secret) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, secret = EXCLUDED.secret, updated_at = now()',
     [key, def.secret ? seal(text, env) : text, def.secret],
   );
+}
+
+export async function getNumberSetting(key, env = process.env) {
+  const n = Number.parseInt(await getSetting(key, env), 10);
+  return Number.isFinite(n) && n >= 0 ? n : Number.parseInt(known(key).default, 10);
 }
 
 // Pour l'interface admin : tout, les secrets masqués.

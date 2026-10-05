@@ -153,3 +153,6 @@ textarea.admin-input { resize: vertical; font-family: var(--font-mono); font-siz
 .ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; }
 .ad-form .btn-primary { align-self: flex-start; }
 select.admin-input { cursor: pointer; }
+
+.ad-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.84rem; cursor: pointer; }
+.ad-check input { width: 16px; height: 16px; accent-color: rgb(var(--accent)); }

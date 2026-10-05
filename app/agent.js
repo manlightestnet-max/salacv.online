@@ -4,9 +4,9 @@
 import { h } from './dom.js';
 import { markdown } from './markdown.js';
 import { loginPanel } from './login.js';
+import { publishQuota } from './quotabar.js';
 
 const SESSION_KEY = 'salacv:session';
-const CHAT_KEY = 'salacv:chat';
 const HISTORY_SENT = 6; // derniers échanges envoyés pour les demandes de suivi
 
 const SUGGESTIONS = [
@@ -60,13 +60,14 @@ async function post(url, body, token) {
 // ctx : { getState(), setState(state), onClose() }
 export function createAgentPanel(ctx) {
   let session = read(SESSION_KEY);
-  let chat = read(CHAT_KEY) ?? [];
+  let chat = []; // le fil de discussion reste en mémoire : plus rien n'est gardé dans le navigateur
   let pending = false;
 
   const root = h('div', { class: 'agent' });
 
   function render() {
-    root.replaceChildren(session ? chatView() : loginView());
+    // Web : l'assistant marche sans compte (clés publiques, quota). App desktop : connexion obligatoire.
+    root.replaceChildren(session || !window.desktop?.isDesktop ? chatView() : loginView());
   }
 
   function header(subtitle, action) {
@@ -121,7 +122,7 @@ export function createAgentPanel(ctx) {
 
     const intro = {
       role: 'assistant',
-      text: `Salut ${session.username} ! Écris-moi tes infos (études, stages, compétences, langues) même en vrac, ou dis-moi quoi changer. Je remplis ton CV, et tu pourras tout corriger ensuite.`,
+      text: `Salut${session ? ` ${session.username}` : ''} ! Écris-moi tes infos (études, stages, compétences, langues) même en vrac, ou dis-moi quoi changer. Je remplis ton CV, et tu pourras tout corriger ensuite.`,
     };
     list.append(bubble(intro), ...chat.map(bubble));
 
@@ -155,7 +156,6 @@ export function createAgentPanel(ctx) {
       if (!msg.error) {
         chat.push(msg);
         chat = chat.slice(-30);
-        write(CHAT_KEY, chat);
       }
       list.append(bubble(msg));
       scrollDown();
@@ -177,11 +177,12 @@ export function createAgentPanel(ctx) {
       list.append(typing);
       scrollDown();
 
-      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history }, session.token);
+      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history }, session?.token);
       typing.remove();
       pending = false;
       send.disabled = false;
 
+      publishQuota(data.quota);
       if (status === 401) {
         session = null;
         write(SESSION_KEY, null);
@@ -212,7 +213,6 @@ export function createAgentPanel(ctx) {
           session = null;
           chat = [];
           write(SESSION_KEY, null);
-          write(CHAT_KEY, null);
           render();
         },
       },
@@ -223,7 +223,7 @@ export function createAgentPanel(ctx) {
     return h(
       'div',
       { class: 'agent-inner' },
-      header(session.username, logout),
+      header(session ? session.username : 'Assistant', session ? logout : h('a', { class: 'btn-text agent-logout', href: `/auth/?next=${encodeURIComponent(location.pathname + location.search)}` }, 'Se connecter')),
       list,
       h('form', { class: 'agent-compose', onSubmit: submit }, suggestions, h('div', { class: 'agent-compose-row' }, input, send)),
     );

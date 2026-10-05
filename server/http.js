@@ -2,11 +2,13 @@
 // Node du VPS (server/index.js). Vercel = VPS : aucune différence de comportement.
 import * as web from './agent/web.js';
 import { admin, templateSettings } from './admin.js';
+import { clientIp, context } from './identity.js';
 import { configRoute } from './keys/routes.js';
 
-function send(res, status, body) {
+function send(res, status, body, headers = {}) {
   const data = JSON.stringify(body);
   res.statusCode = status;
+  for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.end(data);
@@ -25,7 +27,11 @@ async function readJson(req, max) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || 'null');
 }
 
-const clientIp = (req) => String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '').split(',')[0].trim();
+// Contexte de la requête (IP normalisée, session anonyme signée, type de client) : voir server/identity.js.
+const withCookie = async (promise, ctx) => {
+  const [status, body] = await promise;
+  return ctx.setCookie ? [status, body, { 'Set-Cookie': ctx.setCookie }] : [status, body];
+};
 
 export const ROUTES = {
   // Connexion par mot de passe (fictive) : fermée. Google et les clés KEYGEN la remplacent ;
@@ -36,8 +42,18 @@ export const ROUTES = {
       : [410, { ok: false, error: 'La connexion par mot de passe n’existe plus : utilise Google ou une clé.' }],
   google: (payload, req) => web.googleLogin(payload, clientIp(req)),
   key: (payload, req) => web.keyLogin(payload, clientIp(req)),
-  agent: (payload, req) => web.agent(payload, web.bearer(req.headers.authorization)),
-  translate: (payload, req) => web.translate(payload, web.bearer(req.headers.authorization)),
+  agent: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(web.agent(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+  },
+  translate: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(web.translate(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+  },
+  usage: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(web.usage(web.bearer(req.headers.authorization), { ctx }), ctx);
+  },
   collect: (payload, req) => web.collectCv(payload, web.bearer(req.headers.authorization), clientIp(req)),
   config: () => configRoute(),
   admin: (payload, req) => admin(payload, web.bearer(req.headers.authorization)),
@@ -61,8 +77,8 @@ export async function serve(name, req, res) {
     return send(res, 400, { ok: false, error: 'Requête invalide.' });
   }
   try {
-    const [status, body] = await ROUTES[name](payload, req);
-    send(res, status, body);
+    const [status, body, headers] = await ROUTES[name](payload, req);
+    send(res, status, body, headers);
   } catch (err) {
     console.error(`[api/${name}] ${err.name}`);
     send(res, 500, { ok: false, error: 'Erreur interne.' });

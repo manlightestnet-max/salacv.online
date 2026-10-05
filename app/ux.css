@@ -414,3 +414,31 @@ body:has(.dialog-backdrop) .ws-tools { display: none; }
 .login-license { font-size: 13px; font-weight: 600; color: rgb(var(--flag-ok)); }
 .login-license[hidden] { display: none; }
 .login-dialog { width: min(100%, 440px); }
+
+/* ===== Barre de quota du visiteur (IA gratuite) ============================================= */
+.quota-bar {
+  position: fixed; z-index: 90; top: 8px; left: calc(var(--side-space, 0px) + (100vw - var(--side-space, 0px)) / 2); transform: translateX(-50%);
+  width: min(calc(100vw - 24px), 440px); display: flex; align-items: center; gap: 12px; padding: 7px 8px 7px 14px;
+  border-radius: 12px; background: rgb(var(--surface)); border: 1px solid rgb(var(--gray-300)); color: rgb(var(--gray-900));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px -12px rgb(0 0 0 / 0.28);
+}
+.quota-bar[hidden] { display: none; }
+.quota-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.quota-msg { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.quota-meter { display: flex; align-items: center; gap: 8px; }
+.quota-track { position: relative; flex: 1; height: 6px; border-radius: 9999px; background: rgb(var(--gray-200)); overflow: hidden; }
+.quota-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 9999px; background: rgb(var(--accent)); transition: width 0.5s var(--ease-out), background-color 0.3s; }
+.quota-pct { flex: none; font: 600 11.5px var(--font-sans); color: rgb(var(--gray-700)); white-space: nowrap; }
+.quota-bar.low .quota-fill { background: rgb(var(--flag-warn)); }
+.quota-bar.out .quota-fill { background: rgb(var(--flag-todo)); }
+.quota-bar.out { border-color: rgb(var(--flag-todo)); }
+.quota-login { flex: none; display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 8px; background: rgb(var(--accent)); color: rgb(var(--on-accent)); font: 600 13px var(--font-sans); text-decoration: none; }
+.quota-login:hover { opacity: 0.92; }
+/* La barre occupe le haut du centre : les éléments qui y étaient descendent d'une marche. */
+html.has-quota .topbar { top: 72px; }
+html.has-quota.pro .ws-picker { top: 72px; }
+@media (max-width: 959px) {
+  html.has-quota .zoombar { top: calc(max(10px, env(safe-area-inset-top)) + 62px); }
+  html.has-quota .topbar { top: calc(max(10px, env(safe-area-inset-top)) + 106px); }
+}
+body:has(.dialog-backdrop) .quota-bar { z-index: 40; }

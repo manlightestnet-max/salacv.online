@@ -8,6 +8,7 @@ import { drawDoc, loadEngine } from './lib/engine.js';
 import { captureReferral } from './lib/store.js';
 import { h } from './dom.js';
 import { TEMPLATES } from './state.js';
+import { readSession } from './login.js';
 
 const $ = (id) => document.getElementById(id);
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -206,3 +207,11 @@ window.addEventListener('resize', () => {
     onScroll();
   }, 150);
 });
+
+// Liens selon la connexion : visiteur → « Connecte-toi » (le tableau de bord lui est fermé) ; connecté → « Mes CV ».
+if (readSession()) {
+  document.querySelectorAll('[data-logged]').forEach((a) => {
+    a.textContent = a.dataset.logged;
+    a.href = '/dashboard/';
+  });
+}

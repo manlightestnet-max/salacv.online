@@ -1,6 +1,7 @@
 // Tableau de bord : mes CV enregistrés, l'explorateur de formats (gratuits et premium à
 // venir) et la gestion des crédits. Les miniatures sont rendues par le vrai moteur.
 import { openThemePicker } from './lib/theme.js';
+import { readSession } from './login.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
@@ -8,6 +9,20 @@ import { drawDoc, loadEngine } from './lib/engine.js';
 import { deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
 import { openDialog } from './dialog.js';
 import { TEMPLATES, toResume } from './state.js';
+
+// Le tableau de bord est réservé aux connectés : un visiteur est renvoyé vers la connexion (sur PC, une clé hors ligne active suffit).
+async function gate() {
+  if (readSession()) return true;
+  if (window.desktop?.isDesktop) {
+    const st = await window.desktop.license.status().catch(() => null);
+    if (st?.state === 'active') return true;
+    location.replace('/welcome/');
+    return false;
+  }
+  location.replace('/auth/?next=/dashboard/');
+  return false;
+}
+if (!(await gate())) await new Promise(() => {}); // la page change : on n'affiche rien
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');

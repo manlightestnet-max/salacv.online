@@ -18,11 +18,13 @@ import { h, icon, fieldIndex, setInputError } from './dom.js';
 import { STEPS, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
+import { initQuotaBar } from './quotabar.js';
 import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 
 const $ = (id) => document.getElementById(id);
+initQuotaBar();
 const root = document.documentElement;
 let stepAi = false;
 let aiProposal = null; // { step, before, changed } : suggestion de l'IA en attente de Garder / Annuler

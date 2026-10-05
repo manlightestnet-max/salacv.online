@@ -13,6 +13,7 @@ import { collect } from '../admin.js';
 import { RateLimiter } from '../ratelimit.js';
 import { getUser, recordLogin } from '../db/users.js';
 import { keySourceFor, logUsage } from '../keys/pool.js';
+import { addAnonUsage, anonUsage } from '../quota.js';
 import { verifyFirebaseIdToken } from '../accounts/firebase.js';
 import { activateOnlineKey } from '../accounts/keys.js';
 
@@ -60,60 +61,71 @@ export async function keyLogin(payload, client, env = process.env, now = Date.no
 
 export const bearer = (authorization) => String(authorization ?? '').replace(/^Bearer\s+/i, '').trim();
 
-// Accès à l'IA : connexion valide, compte non suspendu, accès accordé (par défaut à la connexion, retirable par l'admin).
-async function aiGuard(token, env, loginMessage) {
-  const username = verify(token, env);
-  if (!username) return { error: [401, { ok: false, error: loginMessage }] };
+// Accès à l'IA. Connecté : compte non suspendu, accès accordé (par défaut à la connexion, retirable par l'admin).
+// Visiteur non connecté (web seulement) : IA « publique » limitée à 250 000 tokens, comptés par session ET par IP.
+// L'app desktop, elle, exige toujours une connexion.
+async function aiGuard(token, env, loginMessage, ctx) {
+  const username = token ? verify(token, env) : null;
+  if (token && !username) return { error: [401, { ok: false, error: loginMessage }] };
+  if (!username) {
+    if (!ctx || ctx.client === 'desktop') return { error: [401, { ok: false, error: loginMessage }] };
+    const quota = await anonUsage(ctx, env);
+    if (quota.exhausted) {
+      return { error: [403, { ok: false, code: 'QUOTA', error: 'Tu as utilisé tes crédits IA gratuits. Connecte-toi pour continuer.', quota: publicQuota(quota) }] };
+    }
+    return { anonymous: true, who: `ip:${ctx.ip}` };
+  }
   const user = await getUser(username).catch(() => null);
   if (user?.blocked) return { error: [403, { ok: false, error: 'Ce compte est suspendu.' }] };
   if (user && !user.aiAccess) return { error: [403, { ok: false, error: "Ton accès à l'assistant a été retiré. Contacte salacv." }] };
-  return { username };
+  return { username, who: username };
 }
 
-// Clés de CET utilisateur (les siennes si il en a, sinon le pool) ; si la base est indisponible, clés d'environnement.
-async function keysFor(username, env) {
+// Ce que le navigateur a le droit de savoir de son quota (jamais l'IP ni l'identifiant).
+const publicQuota = (q) => ({ percent: q.percent, remaining: q.remaining, limit: q.limitSession, exhausted: q.exhausted });
+
+// Clés pour CETTE requête ; en cas d'échec de la base : null (clés d'environnement pour un connecté, refus pour un visiteur).
+async function keysFor(username, env, anonymous) {
   try {
-    return await keySourceFor(username, env);
+    return await keySourceFor(username, env, { anonymous });
   } catch (err) {
     console.error(`[clés] ${err.message}`);
     return null;
   }
 }
 
-export async function agent(payload, token, { env = process.env, callModel } = {}) {
-  const guard = await aiGuard(token, env, "Connecte-toi pour utiliser l'assistant.");
+async function runAi(kind, payload, token, { env, callModel, ctx }, loginMessage, handler) {
+  const guard = await aiGuard(token, env, loginMessage, ctx);
   if (guard.error) return guard.error;
-  const { username } = guard;
-  if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
+  if (!agentLimiter.allow(guard.who)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
   // Plafond de requêtes simultanées : protège le quota et la mémoire, 503 au-delà.
-  if (running >= settings.concurrency) return [503, { ok: false, error: "L'assistant est très demandé. Réessaie dans un instant." }];
+  if (running >= settings.concurrency) return [503, { ok: false, error: kind === 'agent' ? "L'assistant est très demandé. Réessaie dans un instant." : 'Le service est très demandé. Réessaie dans un instant.' }];
   running++;
   try {
-    const keySource = callModel ? null : await keysFor(username, env);
-    const { status, ...result } = await handle(payload ?? {}, { env, callModel, keySource });
-    logUsage(username, keySource?.lastUsedId ?? null, 'agent', Boolean(result.ok));
+    const keySource = callModel ? null : await keysFor(guard.username, env, guard.anonymous);
+    if (guard.anonymous && !callModel && !keySource) return [503, { ok: false, error: "L'assistant est indisponible pour le moment. Réessaie dans un instant." }];
+    const { status, ...result } = await handler(payload ?? {}, { env, callModel, keySource });
+    const tokens = keySource?.tokens ?? 0;
+    logUsage(guard.who, keySource?.lastUsedId ?? null, kind, Boolean(result.ok), tokens);
+    if (guard.anonymous) {
+      await addAnonUsage(ctx, tokens).catch((err) => console.error(`[quota] ${err.message}`));
+      result.quota = publicQuota(await anonUsage(ctx, env)); // la barre de progression se met à jour avec la réponse
+    }
     return [status ?? (result.ok ? 200 : 502), result];
   } finally {
     running--;
   }
 }
 
-// Même garde-fous que l'agent : connexion, accès, limite par minute, plafond de requêtes simultanées.
-export async function translate(payload, token, { env = process.env, callModel } = {}) {
-  const guard = await aiGuard(token, env, 'Connecte-toi pour traduire ton CV.');
-  if (guard.error) return guard.error;
-  const { username } = guard;
-  if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
-  if (running >= settings.concurrency) return [503, { ok: false, error: 'Le service est très demandé. Réessaie dans un instant.' }];
-  running++;
-  try {
-    const keySource = callModel ? null : await keysFor(username, env);
-    const { status, ...result } = await translateCv(payload ?? {}, { env, callModel, keySource });
-    logUsage(username, keySource?.lastUsedId ?? null, 'translate', Boolean(result.ok));
-    return [status ?? (result.ok ? 200 : 502), result];
-  } finally {
-    running--;
-  }
+export const agent = (payload, token, opts = {}) => runAi('agent', payload, token, { env: process.env, ...opts }, "Connecte-toi pour utiliser l'assistant.", handle);
+export const translate = (payload, token, opts = {}) => runAi('translate', payload, token, { env: process.env, ...opts }, 'Connecte-toi pour traduire ton CV.', translateCv);
+
+// Où en est le visiteur ? (barre de progression) — rien de secret.
+export async function usage(token, { env = process.env, ctx } = {}) {
+  const username = token ? verify(token, env) : null;
+  if (username) return [200, { ok: true, loggedIn: true, username }];
+  if (!ctx) return [400, { ok: false, error: 'Requête invalide.' }];
+  return [200, { ok: true, loggedIn: false, desktop: ctx.client === 'desktop', quota: publicQuota(await anonUsage(ctx, env)) }];
 }
 
 // CV généré pendant la phase d'essai : conservé sans photo (annoncé avant la génération).

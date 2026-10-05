@@ -58,6 +58,17 @@ export const STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS api_keys_owner_idx ON api_keys (owner)`,
 
+  // Clés « public » : les seules que les visiteurs non connectés peuvent utiliser (voir server/quota.js).
+  `ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS public boolean NOT NULL DEFAULT false`,
+
+  // Consommation d'IA des visiteurs non connectés : une ligne par session (sid:…) et par IP (ip:…), jamais remise à zéro.
+  `CREATE TABLE IF NOT EXISTS anon_usage (
+    subject text PRIMARY KEY,
+    tokens bigint NOT NULL DEFAULT 0,
+    first_at timestamptz NOT NULL DEFAULT now(),
+    last_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
   // Journal d'usage de l'IA : sert plus tard aux quotas (rien n'est encore plafonné).
   `CREATE TABLE IF NOT EXISTS ai_usage (
     id bigserial PRIMARY KEY,
@@ -68,4 +79,5 @@ export const STATEMENTS = [
     at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS ai_usage_user_idx ON ai_usage (username, at DESC)`,
+  `ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS tokens integer NOT NULL DEFAULT 0`,
 ];

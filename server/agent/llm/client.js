@@ -9,6 +9,14 @@ export class LLMError extends Error {
   }
 }
 
+// Tokens facturés par le fournisseur (champ usage) ; à défaut, estimation à ~4 caractères par token.
+export function tokensOf(json, messages) {
+  const reported = json?.usage?.total_tokens;
+  if (Number.isFinite(reported) && reported > 0) return reported;
+  const out = json?.choices?.[0]?.message;
+  return Math.ceil((JSON.stringify(messages ?? []).length + String(out?.content ?? '').length + JSON.stringify(out?.tool_calls ?? '').length) / 4);
+}
+
 const isRateLimit = (status, detail) => status === 429 || /rate limit|quota|resource_exhausted/i.test(detail);
 
 // keySource : le pool de clés de l'utilisateur (voir server/keys/pool.js) ; sans lui, les clés d'environnement.
@@ -39,8 +47,9 @@ export async function callLLM(messages, tools, { temperature = 0.3, timeoutMs = 
       throw new LLMError(`${provider.name} injoignable (${err.name === 'TimeoutError' ? 'délai dépassé' : err.message})`);
     }
     if (res.ok) {
-      keySource?.used(next);
-      return res.json();
+      const json = await res.json();
+      keySource?.used(next, tokensOf(json, messages));
+      return json;
     }
     const detail = (await res.text().catch(() => '')).slice(0, 500);
     if (isRateLimit(res.status, detail)) {

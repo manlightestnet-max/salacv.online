@@ -148,7 +148,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     case 'addKey': {
       const owner = payload.owner ? String(payload.owner) : null;
       if (owner && !(await getUser(owner))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
-      const key = await pool.addKey({ provider: String(payload.provider ?? ''), secret: payload.key, label: payload.label, owner, createdBy: ADMIN }, env);
+      const key = await pool.addKey({ provider: String(payload.provider ?? ''), secret: payload.key, label: payload.label, owner, createdBy: ADMIN, public: payload.public === true }, env);
       await log(owner ? 'Clé IA attribuée' : 'Clé IA ajoutée au pool', `${key.provider} …${key.last4}${owner ? ` → ${owner}` : ''}`);
       return [200, { ok: true, key }];
     }
@@ -159,6 +159,10 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       await log(owner ? 'Clé IA attribuée' : 'Clé IA remise dans le pool', `${key.provider} …${key.last4}${owner ? ` → ${owner}` : ''}`);
       return [200, { ok: true, key }];
     }
+    case 'setKeyPublic':
+      await pool.setKeyPublic(Number(payload.id), payload.public !== false);
+      await log(payload.public === false ? 'Clé IA retirée du public' : 'Clé IA rendue publique', `#${Number(payload.id)}`);
+      return [200, { ok: true }];
     case 'setKeyDisabled':
       await pool.setKeyDisabled(Number(payload.id), payload.disabled !== false, 'désactivée par l’admin');
       await log(payload.disabled === false ? 'Clé IA réactivée' : 'Clé IA désactivée', `#${Number(payload.id)}`);
@@ -172,6 +176,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     case 'setSetting': {
       const key = String(payload.key ?? '');
       if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
+      if (key.startsWith('quota.') && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
       await setSetting(key, payload.value, env);
       await log('Réglage modifié', DEFINITIONS[key].secret ? `${key} (secret)` : `${key} = ${String(payload.value).slice(0, 80)}`);
       return [200, { ok: true, settings: await listSettings(env) }];

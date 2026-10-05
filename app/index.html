@@ -23,7 +23,7 @@
       <a href="#modeles">Modèles</a>
       <a href="#amis">Amis</a>
     </nav>
-    <a class="nav-mine" href="/dashboard/">Mes CV</a>
+    <a class="nav-mine" href="/auth/?next=/dashboard/" data-logged="Mes CV" data-anon="Connecte-toi">Connecte-toi</a>
     <a class="btn btn-solid nav-cta" href="/studio/?new">Créer mon CV</a>
   </header>
 
@@ -39,7 +39,7 @@
           <input id="name" class="name-input" name="name" type="text" autocomplete="name" enterkeyhint="go" maxlength="60" placeholder="Ton nom complet" spellcheck="false">
           <button class="btn btn-solid name-go" type="submit">Entrer <span aria-hidden="true">→</span></button>
         </form>
-        <p class="micro reveal">5 crédits offerts chaque semaine · aucune carte</p>
+        <p class="micro reveal">Essaie gratuitement, sans compte · connecte-toi pour sauvegarder et retirer le filigrane</p>
       </div>
 
       <div class="hero-stage reveal" aria-label="Aperçu de ton CV">
@@ -72,7 +72,7 @@
           <article class="story-step" data-step="2">
             <span class="step-num mono">03 / 03</span>
             <h2>Tu prépares ton PDF.</h2>
-            <p>Un PDF vectoriel net, sans filigrane, et une version Word si tu veux la modifier. Tu le télécharges quand il est prêt.</p>
+            <p>Un PDF vectoriel net et une version Word si tu veux la modifier. Connecté, sans filigrane ; sans compte, tu l'essaies avec filigrane. Tu le télécharges quand il est prêt.</p>
           </article>
         </div>
         <div class="story-visual" aria-hidden="true">
@@ -109,7 +109,7 @@
         <p class="mono label">// Avec tes amis</p>
         <h2>Ton CV est fini ?<br><span class="h1-dim">Fais venir ta promo.</span></h2>
         <div class="friends-grid">
-          <div class="perk"><span class="perk-num">5</span><p>crédits offerts chaque semaine, rechargés le dimanche.</p></div>
+          <div class="perk"><span class="perk-num">✓</span><p>connecte-toi : tes CV sont sauvegardés et ton PDF sort sans filigrane.</p></div>
           <div class="perk"><span class="perk-num">+</span><p>des crédits bonus pour toi et ton ami quand il crée son CV avec ton lien.</p></div>
           <div class="perk"><span class="perk-num perk-stars" aria-label="Note">★</span><p>ta note après chaque CV nous aide à améliorer salacv pour tout le monde.</p></div>
         </div>
@@ -120,7 +120,7 @@
     <section class="final">
       <h2 class="reveal">Prêt ?</h2>
       <a class="btn btn-solid btn-xl reveal" href="/studio/?new">Créer mon CV maintenant <span aria-hidden="true">→</span></a>
-      <a class="final-link reveal" href="/dashboard/">J'ai déjà un CV · Mes projets</a>
+      <a class="final-link reveal" href="/auth/?next=/dashboard/" data-logged="J'ai déjà un CV · Mes projets" data-anon="Connecte-toi pour retrouver tes CV">Connecte-toi pour retrouver tes CV</a>
     </section>
   </main>
 

@@ -155,7 +155,8 @@ test('serveur Node (VPS) : mêmes routes que Vercel, site servi par le même pro
   try {
     const page = await fetch(`${base}/`);
     assert.ok([200, 404].includes(page.status) || page.ok);
-    const bad = await fetch(`${base}/api/agent`, { method: 'POST', body: '{"message":"x"}' });
+    // l'app desktop exige une connexion ; un visiteur web sans clé « public » reçoit un 503 propre (jamais un plantage)
+    const bad = await fetch(`${base}/api/agent`, { method: 'POST', headers: { 'X-Salacv-Client': 'desktop' }, body: '{"message":"x"}' });
     assert.equal(bad.status, 401);
     const notJson = await fetch(`${base}/api/login`, { method: 'POST', body: 'pas du json' });
     assert.equal(notJson.status, 400);

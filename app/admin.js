@@ -539,6 +539,18 @@ async function keysView() {
     const d = openDialog({ title: 'Impossible', content: h('p', { class: 'dialog-text' }, text), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
   };
 
+  const quotaFields = ['quota.anonTokens', 'quota.ipTokens'].map((k) => ({ k, input: h('input', { class: 'admin-input', type: 'number', min: 0, step: 1000, value: setting(k).value, 'aria-label': setting(k).label }) }));
+  const quotaCard = card(
+    'Quota IA des visiteurs non connectés',
+    null,
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Tokens gratuits, UNE SEULE FOIS (jamais remis à zéro), comptés côté serveur par session ET par adresse IP : le plus bas des deux bloque. Seules les clés étiquetées « public » servent aux visiteurs. Attention : une IP partagée (cybercafé, université, réseau mobile) cumule les visiteurs.'),
+      ...quotaFields.map(({ k, input }) => h('label', { class: 'ad-label' }, setting(k).label, input)),
+      h('button', { type: 'button', class: 'btn-primary', onClick: async () => { for (const { k, input } of quotaFields) { const res = await api('setSetting', { key: k, value: input.value }); if (!res.ok) return notice2(res.error); } render(); } }, 'Enregistrer les quotas'),
+    ),
+  );
   const fbFields = ['firebase.apiKey', 'firebase.authDomain', 'firebase.projectId'].map((k) => ({ k, input: h('input', { class: 'admin-input', value: setting(k).value, placeholder: setting(k).label, 'aria-label': setting(k).label }) }));
   const settingsCard = card(
     'Connexion Google (Firebase)',
@@ -557,6 +569,9 @@ async function keysView() {
   const secret = h('input', { class: 'admin-input', type: 'password', autocomplete: 'off', placeholder: 'Clé d’API (ne sera plus jamais affichée)', 'aria-label': 'Clé d’API' });
   const label = h('input', { class: 'admin-input', placeholder: 'Nom (facultatif)', maxlength: 60, 'aria-label': 'Nom' });
   const owner = h('select', { class: 'admin-input', 'aria-label': 'Destinataire' }, h('option', { value: '' }, 'Pool partagé (tous les utilisateurs sans clé)'), r.users.map((u) => h('option', { value: u }, `Attribuer à ${u}`)));
+  const pub = h('input', { type: 'checkbox', id: 'key-public' });
+  const pubLabel = h('label', { class: 'ad-check', for: 'key-public' }, pub, h('span', {}, 'Public : utilisable par les visiteurs non connectés (dans leur quota)'));
+  owner.addEventListener('change', () => { pub.disabled = Boolean(owner.value); if (owner.value) pub.checked = false; });
   const error = h('p', { class: 'admin-notice error', hidden: true });
   const addCard = card(
     'Ajouter une clé',
@@ -566,6 +581,7 @@ async function keysView() {
       { class: 'ad-form' },
       h('div', { class: 'ad-grid' }, provider, label, owner),
       secret,
+      pubLabel,
       error,
       h(
         'button',
@@ -574,7 +590,7 @@ async function keysView() {
           class: 'btn-primary',
           onClick: async () => {
             error.hidden = true;
-            const res = await api('addKey', { provider: provider.value, key: secret.value, label: label.value, owner: owner.value || null });
+            const res = await api('addKey', { provider: provider.value, key: secret.value, label: label.value, owner: owner.value || null, public: pub.checked });
             secret.value = '';
             if (!res.ok) return (error.textContent = res.error), (error.hidden = false);
             render();
@@ -615,9 +631,10 @@ async function keysView() {
       h(
         'div',
         { class: 'row-main' },
-        h('strong', {}, `${k.provider} …${k.last4}`, k.label && h('span', { class: 'tag' }, k.label), k.disabled && h('span', { class: 'tag danger' }, 'Désactivée'), k.exhaustedToday && h('span', { class: 'tag' }, 'Épuisée aujourd’hui')),
+        h('strong', {}, `${k.provider} …${k.last4}`, k.label && h('span', { class: 'tag' }, k.label), k.public && h('span', { class: 'tag' }, 'Public'), k.disabled && h('span', { class: 'tag danger' }, 'Désactivée'), k.exhaustedToday && h('span', { class: 'tag' }, 'Épuisée aujourd’hui')),
         h('small', {}, `${k.owner ? `Attribuée à ${k.owner}` : 'Pool partagé'}${k.disabledReason ? ` · ${k.disabledReason}` : ''}`),
       ),
+      !k.owner && h('button', { type: 'button', class: 'btn-ghost', onClick: async () => { const res = await api('setKeyPublic', { id: k.id, public: !k.public }); res.ok ? render() : notice2(res.error); } }, k.public ? 'Retirer du public' : 'Rendre public'),
       h('button', { type: 'button', class: 'btn-ghost', onClick: () => assign(k) }, 'Attribuer'),
       h('button', { type: 'button', class: 'btn-ghost', onClick: async () => { const res = await api('setKeyDisabled', { id: k.id, disabled: !k.disabled }); res.ok ? render() : notice2(res.error); } }, k.disabled ? 'Réactiver' : 'Désactiver'),
       h('button', { type: 'button', class: 'btn-ghost danger-btn', onClick: () => remove(k) }, 'Supprimer'),
@@ -626,8 +643,9 @@ async function keysView() {
   const pool = r.keys.filter((k) => !k.owner).length;
   return page(
     'Clés IA',
-    'Les clés servent à tous les clients, en rotation : première clé utilisable, mise de côté sur quota (429) ou si elle est refusée. Un client à qui tu attribues des clés n’utilise que celles-là.',
+    'Les clés servent aux clients connectés, en rotation ; celles étiquetées « Public » servent aussi aux visiteurs non connectés, dans leur quota : première clé utilisable, mise de côté sur quota (429) ou si elle est refusée. Un client à qui tu attribues des clés n’utilise que celles-là.',
     null,
+    quotaCard,
     settingsCard,
     addCard,
     card(`${r.keys.length} clé${r.keys.length > 1 ? 's' : ''} · ${pool} dans le pool`, null, rowsOf(rows, 'Aucune clé enregistrée. Sans clé, l’assistant utilise les clés d’environnement du serveur, s’il y en a.')),

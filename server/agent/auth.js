@@ -12,6 +12,7 @@ import { allKeys } from './llm/providers.js';
 export const TTL = 7 * 24 * 3600;
 const USERNAME = /^[\p{L}\p{N}._@-]{3,40}$/u;
 
+export const signingSecret = (env) => secret(env);
 function secret(env) {
   if (env.SALACV_SESSION_SECRET) return Buffer.from(env.SALACV_SESSION_SECRET);
   const keys = allKeys(env).sort();
