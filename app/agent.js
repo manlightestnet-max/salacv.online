@@ -71,7 +71,7 @@ export function createAgentPanel(ctx) {
         ? "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés : Google, ou une clé en ligne."
         : "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés avec Google.",
       onDone: (r) => {
-        if (r?.kind !== 'key') return; // une clé hors ligne ouvre l'app, pas l'assistant (il demande un compte)
+        if (r?.kind === 'offline') return; // une clé hors ligne ouvre l'app, pas l'assistant (il demande un compte)
         session = getSession();
         render();
       },

@@ -194,17 +194,28 @@ function desktopRoutes(req, res) {
       const { idToken, state } = await readSmallJson(req);
       const expires = pendingGoogle.get(String(state));
       pendingGoogle.delete(String(state)); // usage unique
-      if (!expires || expires < Date.now()) return reply(400, { ok: false, error: 'Cette connexion a expiré. Relance-la depuis l’app.' });
+      if (!expires || expires < Date.now()) {
+        console.warn('[google] retour refusé : connexion inconnue ou expirée (app relancée ou lien trop ancien)');
+        return reply(400, { ok: false, error: 'Cette connexion a expiré. Relance-la depuis l’app.' });
+      }
       const { status, body } = await callBackend('/api/google', { idToken });
-      if (!body.ok) return reply(status, body);
+      if (!body.ok || !body.token) {
+        console.warn(`[google] backend ${status} : ${body.error ?? 'pas de jeton dans la réponse'}`);
+        return reply(status >= 400 ? status : 502, body.ok ? { ok: false, error: 'Réponse inattendue du serveur.' } : body);
+      }
       sessionVault.write(body.token, body.expiresAt);
+      // La page ouverte (accueil, studio…) décide quoi faire de la nouvelle session (voir app/login.js).
       if (mainWindow && !mainWindow.isDestroyed()) {
-        await mainWindow.webContents.executeJavaScript(`location.replace('/dashboard/'); true`);
+        mainWindow.webContents.send('desktop:signed-in');
+        if (mainWindow.isMinimized()) mainWindow.restore();
         mainWindow.show();
         mainWindow.focus();
       }
       reply(200, { ok: true });
-    })().catch(() => reply(400, { ok: false, error: 'Requête invalide.' }));
+    })().catch((err) => {
+      console.warn(`[google] retour invalide : ${err?.message ?? err}`);
+      reply(400, { ok: false, error: 'Requête invalide.' });
+    });
     return true;
   }
   return false;

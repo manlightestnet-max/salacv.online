@@ -15,5 +15,11 @@ contextBridge.exposeInMainWorld('desktop', {
     clear: () => ipcRenderer.invoke('desktop:license', { action: 'clear' }),
   },
   googleStart: () => ipcRenderer.invoke('desktop:google-start'),
+  // Connexion Google terminée dans le navigateur : appelé une fois le jeton rangé dans le coffre. Retourne de quoi se désabonner.
+  onSignedIn: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on('desktop:signed-in', listener);
+    return () => ipcRenderer.removeListener('desktop:signed-in', listener);
+  },
   reveal: (path) => ipcRenderer.invoke('desktop:reveal', path),
 });

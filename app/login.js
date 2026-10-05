@@ -39,11 +39,36 @@ export function loginPanel({ onDone, intro } = {}) {
     try {
       await pc.googleStart();
       say('Termine la connexion dans ton navigateur : l’app s’ouvrira toute seule ensuite.', false);
+      waitForGoogle();
     } catch {
       say('Impossible d’ouvrir le navigateur. Réessaie.');
     }
     setTimeout(() => (google.disabled = false), 4000);
   });
+
+  // PC : la connexion se termine dans le navigateur du système. L'app est prévenue par le processus principal
+  // (jeton rangé dans le coffre) ; à défaut, on redemande l'identité au serveur quand l'app reprend la main.
+  let signedIn = false;
+  async function checkGoogle() {
+    if (signedIn || !(await initSession())) return;
+    signedIn = true;
+    stopWaiting();
+    say('Connecté.', false);
+    onDone?.({ kind: 'google' });
+  }
+  let stopWaiting = () => {};
+  function waitForGoogle() {
+    stopWaiting();
+    const timer = setInterval(checkGoogle, 4000);
+    const until = setTimeout(() => stopWaiting(), 10 * 60 * 1000); // le lien de connexion expire après 10 min
+    window.addEventListener('focus', checkGoogle);
+    stopWaiting = () => {
+      clearInterval(timer);
+      clearTimeout(until);
+      window.removeEventListener('focus', checkGoogle);
+    };
+  }
+  pc?.onSignedIn?.(checkGoogle);
 
   const parts = [intro && h('p', { class: 'login-intro' }, intro), google];
 
