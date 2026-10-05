@@ -11,6 +11,7 @@ const desktop = params.get('desktop') === '1';
 const APP_PORTS = [47831, 47832, 47833, 47834]; // les seuls ports sur lesquels l'app desktop écoute
 const port = Number(params.get('port'));
 const state = params.get('state') ?? '';
+const adminMode = params.get('admin') === '1'; // connexion de l'administrateur (UID comparé côté serveur)
 
 // Retour limité à une page du site (jamais une adresse externe).
 const next = (() => {
@@ -50,6 +51,7 @@ const fail = (message, lock = false) => {
   button.disabled = lock;
 };
 
+if (adminMode) $('auth-text').textContent = 'Administration : connecte-toi avec le compte Google de l’administrateur.';
 if (desktop) {
   $('auth-text').textContent = 'Connecte-toi avec Google, puis reviens dans l’app salacv : elle s’ouvrira toute seule.';
   if (!APP_PORTS.includes(port) || !/^[0-9a-f]{32}$/.test(state)) {
@@ -83,6 +85,15 @@ button.addEventListener('click', async () => {
       $('auth-title').textContent = 'Retour vers l’app…';
       // Navigation de premier niveau vers le port local : le jeton reste dans le fragment (jamais envoyé au réseau).
       location.replace(`http://127.0.0.1:${port}/__desktop/callback#idToken=${encodeURIComponent(idToken)}&state=${encodeURIComponent(state)}`);
+      return;
+    }
+    if (adminMode) {
+      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'login', idToken }) });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (!data.ok) return fail(data.error || 'Connexion refusée.');
+      sessionStorage.setItem('salacv:admin', data.token);
+      $('auth-title').textContent = 'Connecté';
+      location.replace('/admin/');
       return;
     }
     const res = await fetch('/api/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });

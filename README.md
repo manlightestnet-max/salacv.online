@@ -99,7 +99,7 @@ Seuls ces secrets de **démarrage** restent en variables d'environnement (Vercel
 | `DATABASE_URL` | Connexion **Neon** (Postgres). Sans elle, une base locale PGlite est utilisée (dossier `data/pg`) : développement seulement. |
 | `SALACV_MASTER_KEY` | Clé maître (32 octets en base64) qui chiffre les clés d'API enregistrées en base. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **À sauvegarder** : sans elle, les clés enregistrées sont illisibles. |
 | `SALACV_SESSION_SECRET` | Clé de signature des sessions. |
-| `SALACV_ADMIN_PASSWORD` | Mot de passe de l'interface admin. |
+| `SALACV_ADMIN_UID` | **UID Firebase** du compte Google de l'administrateur (plusieurs UID séparés par des virgules). L'admin se connecte **uniquement avec Google** : le serveur compare l'UID du compte à cette valeur secrète. Où le trouver : Firebase Console → Authentication → Utilisateurs → colonne « UID ». |
 | `AGENT_RATE_PER_MINUTE`, `AGENT_CONCURRENCY`, `AGENT_TIMEOUT`, `AGENT_MAX_ITERATIONS` | Facultatives : limites (6/min par utilisateur, 8 requêtes simultanées, 25 s par appel au modèle, 8 tours). |
 
 Les clés d'environnement (`OLLAMA_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`…) ne servent plus que de **secours**

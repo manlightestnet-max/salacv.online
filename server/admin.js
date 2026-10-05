@@ -3,8 +3,9 @@
 //
 //   POST /api/admin { action, ... }   (Authorization: Bearer <jeton admin> sauf pour « login »)
 //
-// Accès : mot de passe SALACV_ADMIN_PASSWORD (variable d'environnement). Sans elle, l'admin
-// est fermée. Le jeton admin a l'utilisateur réservé « #admin » (impossible pour un étudiant).
+// Accès : UNIQUEMENT par compte Google. Le navigateur donne un jeton Firebase, le serveur le vérifie puis compare
+// l'identifiant Firebase (UID) du compte à SALACV_ADMIN_UID (secret d'environnement ; plusieurs UID séparés par des
+// virgules). Sans cette variable, l'admin est fermée. Le jeton admin a l'utilisateur réservé « #admin ».
 import { timingSafeEqual } from 'node:crypto';
 import { issue, verify } from './agent/auth.js';
 import { SKILLS } from './agent/skills/index.js';
@@ -12,6 +13,8 @@ import { store } from './store.js';
 import { getUser, listUsers, setAiAccess, setBlocked, userStats } from './db/users.js';
 import * as pool from './keys/pool.js';
 import { SecretsError } from './crypto.js';
+import { verifyFirebaseIdToken } from './accounts/firebase.js';
+import { RateLimiter } from './ratelimit.js';
 import { listSettings, setSetting, DEFINITIONS } from './settings.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
@@ -57,25 +60,42 @@ const log = (title, detail = '') => store().push('journal', { at: Date.now(), ti
 
 // --- Route ------------------------------------------------------------------------------
 
-export async function admin(payload, token, env = process.env) {
+export async function admin(payload, token, env = process.env, opts = {}) {
   try {
-    return await adminRoute(payload, token, env);
+    return await adminRoute(payload, token, env, opts);
   } catch (err) {
     if (err instanceof pool.KeyError || err instanceof SecretsError) return [400, { ok: false, error: err.message }];
     throw err;
   }
 }
 
-async function adminRoute(payload, token, env) {
+const ADMIN_TTL = 8 * 3600; // une session admin dure 8 heures
+const adminLoginLimiter = new RateLimiter(10);
+
+// Les UID Firebase autorisés (SALACV_ADMIN_UID), comparés en temps constant.
+const isAdminUid = (uid, env) =>
+  String(env.SALACV_ADMIN_UID ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .reduce((found, allowed) => same(uid, allowed) || found, false);
+
+async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdToken } = {}) {
   const action = String(payload?.action ?? '');
   if (action === 'login') {
-    if (!env.SALACV_ADMIN_PASSWORD) return [503, { ok: false, error: 'Admin fermée : définis SALACV_ADMIN_PASSWORD.' }];
-    if (!same(payload.password ?? '', env.SALACV_ADMIN_PASSWORD)) return [401, { ok: false, error: 'Mot de passe incorrect.' }];
-    const t = issue(ADMIN, env);
-    if (t) await log('Connexion admin');
-    return t ? [200, { ok: true, token: t }] : [503, { ok: false, error: 'Clé de signature absente (OLLAMA_API_KEY ou SALACV_SESSION_SECRET).' }];
+    if (!String(env.SALACV_ADMIN_UID ?? '').trim()) return [503, { ok: false, error: 'Admin fermée : définis SALACV_ADMIN_UID (l’UID Firebase de l’administrateur).' }];
+    if (!adminLoginLimiter.allow('admin')) return [429, { ok: false, error: 'Trop de tentatives. Attends une minute.' }];
+    const identity = await verifyToken(payload.idToken, env);
+    if (!identity) return [401, { ok: false, error: 'Connexion Google refusée. Réessaie.' }];
+    if (!isAdminUid(identity.uid, env)) {
+      await log('Tentative de connexion admin refusée', identity.email).catch(() => {});
+      return [403, { ok: false, error: 'Ce compte Google n’est pas administrateur.' }];
+    }
+    const t = issue(ADMIN, env, Date.now(), ADMIN_TTL);
+    if (t) await log('Connexion admin', identity.email);
+    return t ? [200, { ok: true, token: t, email: identity.email }] : [503, { ok: false, error: 'Clé de signature absente (SALACV_SESSION_SECRET).' }];
   }
-  if (!env.SALACV_ADMIN_PASSWORD || verify(token, env) !== ADMIN) return [401, { ok: false, error: 'Connexion admin requise.' }];
+  if (!String(env.SALACV_ADMIN_UID ?? '').trim() || verify(token, env) !== ADMIN) return [401, { ok: false, error: 'Connexion admin requise.' }];
 
   const s = store(env);
   switch (action) {

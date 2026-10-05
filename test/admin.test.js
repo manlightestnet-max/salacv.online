@@ -8,17 +8,25 @@ import { findSkill, setExtraSkills } from '../server/agent/skills/index.js';
 
 await memoryDb(); // base PGlite en mémoire : comptes, clés, réglages
 memoryStore();
-const ENV = { OLLAMA_API_KEY: 'k-test-1234567890', SALACV_ADMIN_PASSWORD: 'admin-pass-1' };
+const ENV = { OLLAMA_API_KEY: 'k-test-1234567890', SALACV_ADMIN_UID: 'uid-admin-1' };
+// Connexion admin : jeton Google vérifié (injecté ici : pas de réseau) puis UID comparé à SALACV_ADMIN_UID.
+const asUid = (uid) => ({ verifyToken: async () => (uid ? { uid, email: `${uid}@example.com`, name: '' } : null) });
 
 async function login() {
-  const [code, body] = await admin({ action: 'login', password: 'admin-pass-1' }, '', ENV);
+  const [code, body] = await admin({ action: 'login', idToken: 'x' }, '', ENV, asUid('uid-admin-1'));
   assert.equal(code, 200);
   return body.token;
 }
 
-test('admin : fermée sans mot de passe, refus sans jeton ou avec un jeton étudiant', async () => {
-  assert.equal((await admin({ action: 'login', password: 'x' }, '', { OLLAMA_API_KEY: 'k' }))[0], 503);
-  assert.equal((await admin({ action: 'login', password: 'mauvais' }, '', ENV))[0], 401);
+test('admin : Google seulement — fermée sans SALACV_ADMIN_UID, refus d’un autre compte, d’un jeton invalide ou d’un mot de passe', async () => {
+  assert.equal((await admin({ action: 'login', idToken: 'x' }, '', { OLLAMA_API_KEY: 'k' }, asUid('uid-admin-1')))[0], 503);
+  assert.equal((await admin({ action: 'login', idToken: 'x' }, '', ENV, asUid('un-autre-compte')))[0], 403); // compte Google valide mais pas administrateur
+  assert.equal((await admin({ action: 'login', idToken: 'x' }, '', ENV, asUid(null)))[0], 401); // jeton refusé
+  assert.equal((await admin({ action: 'login', password: 'admin-pass-1' }, '', ENV))[0], 401); // plus de mot de passe
+  // plusieurs administrateurs
+  const two = { ...ENV, SALACV_ADMIN_UID: 'uid-a, uid-admin-1' };
+  assert.equal((await admin({ action: 'login', idToken: 'x' }, '', two, asUid('uid-admin-1')))[0], 200);
+  assert.equal((await admin({ action: 'login', idToken: 'x' }, '', two, asUid('uid-admin')))[0], 403); // pas de correspondance partielle
   assert.equal((await admin({ action: 'users' }, '', ENV))[0], 401);
   const [, student] = await web.login({ username: 'grace', password: 'secret123' }, 'ip-a', ENV);
   assert.equal((await admin({ action: 'users' }, student.token, ENV))[0], 401);

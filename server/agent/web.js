@@ -10,6 +10,7 @@ import { settings } from './config.js';
 import { handle } from './run.js';
 import { translate as translateCv } from './translate.js';
 import { collect } from '../admin.js';
+import { RateLimiter } from '../ratelimit.js';
 import { getUser, recordLogin } from '../db/users.js';
 import { keySourceFor, logUsage } from '../keys/pool.js';
 import { verifyFirebaseIdToken } from '../accounts/firebase.js';
@@ -17,24 +18,7 @@ import { activateOnlineKey } from '../accounts/keys.js';
 
 export const MAX_BODY = 64 * 1024;
 
-// Fenêtre glissante d'une minute par clé (mémoire du process).
-export class RateLimiter {
-  constructor(perMinute) {
-    this.perMinute = perMinute;
-    this.hits = new Map();
-  }
-
-  allow(who, now = Date.now()) {
-    const recent = (this.hits.get(who) ?? []).filter((t) => now - t < 60_000);
-    if (recent.length >= this.perMinute) {
-      this.hits.set(who, recent);
-      return false;
-    }
-    recent.push(now);
-    this.hits.set(who, recent);
-    return true;
-  }
-}
+export { RateLimiter };
 
 export const loginLimiter = new RateLimiter(10);
 export const agentLimiter = new RateLimiter(settings.ratePerMinute);

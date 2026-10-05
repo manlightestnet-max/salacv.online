@@ -62,28 +62,15 @@ const fold = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 
 // --- Connexion -------------------------------------------------------------------------
 function loginView() {
-  const input = h('input', { class: 'admin-input', type: 'password', placeholder: 'Mot de passe admin', autocomplete: 'current-password', 'aria-label': 'Mot de passe admin' });
+  const params = new URLSearchParams(location.search);
   const error = h('p', { class: 'admin-error', 'aria-live': 'polite' });
-  const form = h(
-    'form',
-    { class: 'panel admin-login' },
-    h('strong', {}, 'Administration'),
-    h('p', {}, 'Accès réservé. Le mot de passe est défini côté serveur (SALACV_ADMIN_PASSWORD).'),
-    input,
-    error,
-    h('button', { class: 'btn-primary', type: 'submit' }, 'Entrer'),
+  if (params.get('denied')) error.textContent = 'Ce compte Google n’est pas administrateur.';
+  const google = h('button', { class: 'btn-primary', type: 'button', onClick: () => (location.href = '/auth/?admin=1') }, 'Se connecter avec Google');
+  return h(
+    'section',
+    { class: 'admin-center' },
+    h('div', { class: 'panel admin-login' }, h('strong', {}, 'Administration'), h('p', {}, 'Accès réservé : connecte-toi avec le compte Google de l’administrateur. Le serveur compare l’identifiant Firebase du compte à celui qu’il garde secret.'), error, google),
   );
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const r = await api('login', { password: input.value });
-    if (!r.ok) return (error.textContent = r.error);
-    token = r.token;
-    sessionStorage.setItem(TOKEN_KEY, token);
-    location.hash = '#apercu';
-    render();
-  });
-  requestAnimationFrame(() => input.focus());
-  return h('section', { class: 'admin-center' }, form);
 }
 
 // --- Aperçu -----------------------------------------------------------------------------

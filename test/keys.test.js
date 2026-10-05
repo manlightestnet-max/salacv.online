@@ -18,7 +18,8 @@ import * as web from '../server/agent/web.js';
 await memoryDb();
 memoryStore();
 
-const ENV = { SALACV_MASTER_KEY: randomBytes(32).toString('base64'), SALACV_SESSION_SECRET: 'secret-de-session-pour-les-tests', SALACV_ADMIN_PASSWORD: 'admin-pass-1' };
+const ENV = { SALACV_MASTER_KEY: randomBytes(32).toString('base64'), SALACV_SESSION_SECRET: 'secret-de-session-pour-les-tests', SALACV_ADMIN_UID: 'uid-admin-1' };
+const adminLogin = async () => (await admin({ action: 'login', idToken: 'x' }, '', ENV, { verifyToken: async () => ({ uid: 'uid-admin-1', email: 'admin@example.com', name: '' }) }))[1].token;
 const token = (username) => issue(username, ENV);
 const SK = (n) => `sk-test-${String(n).padStart(2, '0')}-abcdefghijklmnop`; // clés factices, jamais de vraie clé
 
@@ -149,7 +150,7 @@ test('pool vide : les clés d’environnement servent de secours (démarrage, d�
 
 test('admin : clés du pool et attribution depuis son interface, sans jamais montrer un secret', async () => {
   await query('DELETE FROM api_keys');
-  const adm = (await admin({ action: 'login', password: 'admin-pass-1' }, '', ENV))[1].token;
+  const adm = await adminLogin();
   assert.equal((await admin({ action: 'keys' }, '', ENV))[0], 401);
   assert.equal((await admin({ action: 'keys' }, token('ines@example.com'), ENV))[0], 401); // un utilisateur n'est pas admin
   const [st, added] = await admin({ action: 'addKey', provider: 'ollama', key: SK(70), label: 'principale' }, adm, ENV);
@@ -174,7 +175,7 @@ test('admin : clés du pool et attribution depuis son interface, sans jamais mon
 });
 
 test('réglages : secrets chiffrés et masqués, valeurs publiques servies au site sans connexion', async () => {
-  const adm = (await admin({ action: 'login', password: 'admin-pass-1' }, '', ENV))[1].token;
+  const adm = await adminLogin();
   assert.equal((await admin({ action: 'setSetting', key: 'inconnu', value: 'x' }, adm, ENV))[0], 400);
   await setSetting('firebase.apiKey', 'AIzaFAUXpourTest', ENV);
   assert.equal(await getSetting('firebase.apiKey', ENV), 'AIzaFAUXpourTest');
