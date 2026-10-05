@@ -9,6 +9,10 @@ import { timingSafeEqual } from 'node:crypto';
 import { issue, verify } from './agent/auth.js';
 import { SKILLS } from './agent/skills/index.js';
 import { store } from './store.js';
+import { getUser, listUsers, setAiAccess, setBlocked, userStats } from './db/users.js';
+import * as pool from './keys/pool.js';
+import { SecretsError } from './crypto.js';
+import { listSettings, setSetting, DEFINITIONS } from './settings.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -29,22 +33,6 @@ const same = (a, b) => {
 };
 
 // --- Utilisateurs ---------------------------------------------------------------------
-
-export async function recordLogin(username) {
-  const s = store();
-  const users = await s.get('users', {});
-  const now = Date.now();
-  const u = (users[username] ??= { first: now, logins: 0 });
-  if (u.blocked) return { blocked: true };
-  u.last = now;
-  u.logins += 1;
-  await s.set('users', users);
-  return { blocked: false };
-}
-
-export async function isBlocked(username) {
-  return Boolean((await store().get('users', {}))[username]?.blocked);
-}
 
 // --- CV de la phase d'essai --------------------------------------------------------------
 // Conservés sans photo, pour améliorer l'application (annoncé à l'étudiant avant de générer).
@@ -70,6 +58,15 @@ const log = (title, detail = '') => store().push('journal', { at: Date.now(), ti
 // --- Route ------------------------------------------------------------------------------
 
 export async function admin(payload, token, env = process.env) {
+  try {
+    return await adminRoute(payload, token, env);
+  } catch (err) {
+    if (err instanceof pool.KeyError || err instanceof SecretsError) return [400, { ok: false, error: err.message }];
+    throw err;
+  }
+}
+
+async function adminRoute(payload, token, env) {
   const action = String(payload?.action ?? '');
   if (action === 'login') {
     if (!env.SALACV_ADMIN_PASSWORD) return [503, { ok: false, error: 'Admin fermée : définis SALACV_ADMIN_PASSWORD.' }];
@@ -83,7 +80,7 @@ export async function admin(payload, token, env = process.env) {
   const s = store(env);
   switch (action) {
     case 'overview': {
-      const users = Object.values(await s.get('users', {}));
+      const stats = await userStats();
       const cvs = await s.range('cvs', MAX_CVS);
       const resources = await loadResources(s);
       const week = Date.now() - 7 * 86400000;
@@ -93,10 +90,10 @@ export async function admin(payload, token, env = process.env) {
         {
           ok: true,
           durable: s.durable,
-          users: users.length,
-          blocked: users.filter((u) => u.blocked).length,
-          active7: users.filter((u) => (u.last ?? 0) >= week).length,
-          new7: users.filter((u) => u.first >= week).length,
+          users: stats.users,
+          blocked: stats.blocked,
+          active7: stats.active7,
+          new7: stats.new7,
           cvs: cvs.length,
           cvsToday: cvs.filter((c) => c.at >= today).length,
           cvs7: cvs.filter((c) => c.at >= week).length,
@@ -108,20 +105,56 @@ export async function admin(payload, token, env = process.env) {
     }
     case 'journal':
       return [200, { ok: true, journal: await s.range('journal', MAX_JOURNAL) }];
-    case 'users': {
-      const users = await s.get('users', {});
-      return [200, { ok: true, users: Object.entries(users).map(([username, u]) => ({ username, ...u })).sort((a, b) => (b.last ?? 0) - (a.last ?? 0)) }];
-    }
+    case 'users':
+      return [200, { ok: true, users: await listUsers() }];
     case 'block':
     case 'unblock': {
-      const users = await s.get('users', {});
       const name = String(payload.username ?? '');
-      if (!users[name]) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
-      users[name].blocked = action === 'block';
-      users[name].reason = action === 'block' ? String(payload.reason ?? '').slice(0, 200) : undefined;
-      await s.set('users', users);
-      await log(action === 'block' ? 'Compte bloqué' : 'Compte débloqué', name + (users[name].reason ? ` · ${users[name].reason}` : ''));
+      if (!(await setBlocked(name, action === 'block', payload.reason))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
+      await log(action === 'block' ? 'Compte bloqué' : 'Compte débloqué', name + (action === 'block' && payload.reason ? ` · ${String(payload.reason).slice(0, 200)}` : ''));
       return [200, { ok: true }];
+    }
+    // Accès à l'IA : accordé à la connexion, retirable (ou rendu) ici.
+    case 'setAi': {
+      const name = String(payload.username ?? '');
+      if (!(await setAiAccess(name, payload.allowed !== false))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
+      await log(payload.allowed === false ? 'Accès IA retiré' : 'Accès IA accordé', name);
+      return [200, { ok: true }];
+    }
+
+    // --- Clés des fournisseurs IA : pool partagé, attribution à un utilisateur, réglages -------
+    case 'keys':
+      return [200, { ok: true, keys: await pool.listKeys(), providers: pool.providers(), settings: await listSettings(env), users: (await listUsers()).map((u) => u.username) }];
+    case 'addKey': {
+      const owner = payload.owner ? String(payload.owner) : null;
+      if (owner && !(await getUser(owner))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
+      const key = await pool.addKey({ provider: String(payload.provider ?? ''), secret: payload.key, label: payload.label, owner, createdBy: ADMIN }, env);
+      await log(owner ? 'Clé IA attribuée' : 'Clé IA ajoutée au pool', `${key.provider} …${key.last4}${owner ? ` → ${owner}` : ''}`);
+      return [200, { ok: true, key }];
+    }
+    case 'assignKey': {
+      const owner = payload.username ? String(payload.username) : null;
+      if (owner && !(await getUser(owner))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
+      const key = await pool.assignKey(Number(payload.id), owner);
+      await log(owner ? 'Clé IA attribuée' : 'Clé IA remise dans le pool', `${key.provider} …${key.last4}${owner ? ` → ${owner}` : ''}`);
+      return [200, { ok: true, key }];
+    }
+    case 'setKeyDisabled':
+      await pool.setKeyDisabled(Number(payload.id), payload.disabled !== false, 'désactivée par l’admin');
+      await log(payload.disabled === false ? 'Clé IA réactivée' : 'Clé IA désactivée', `#${Number(payload.id)}`);
+      return [200, { ok: true }];
+    case 'deleteKey':
+      await pool.deleteKey(Number(payload.id));
+      await log('Clé IA supprimée', `#${Number(payload.id)}`);
+      return [200, { ok: true }];
+    case 'settings':
+      return [200, { ok: true, settings: await listSettings(env) }];
+    case 'setSetting': {
+      const key = String(payload.key ?? '');
+      if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
+      await setSetting(key, payload.value, env);
+      await log('Réglage modifié', DEFINITIONS[key].secret ? `${key} (secret)` : `${key} = ${String(payload.value).slice(0, 80)}`);
+      return [200, { ok: true, settings: await listSettings(env) }];
     }
     case 'cvs':
       return [200, { ok: true, cvs: await s.range('cvs', Math.min(Number(payload.limit) || 200, MAX_CVS)) }];

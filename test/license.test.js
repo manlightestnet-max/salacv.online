@@ -10,7 +10,9 @@ import { verifyFirebaseIdToken } from '../server/accounts/firebase.js';
 import { googleLogin, keyLogin, loginLimiter } from '../server/agent/web.js';
 import { verify } from '../server/agent/auth.js';
 import { memoryStore } from '../server/store.js';
+import { memoryDb } from '../server/db/index.js';
 
+await memoryDb();
 const s = memoryStore();
 const ENV = { OLLAMA_API_KEY: 'cle-de-test-abcdef123456' };
 const DAY = 86400000;

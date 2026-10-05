@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { memoryStore } from '../server/store.js';
+import { memoryDb } from '../server/db/index.js';
 import { admin, checkResources, collect, templateSettings } from '../server/admin.js';
 import * as web from '../server/agent/web.js';
 import { findSkill, setExtraSkills } from '../server/agent/skills/index.js';
 
+await memoryDb(); // base PGlite en mémoire : comptes, clés, réglages
 memoryStore();
 const ENV = { OLLAMA_API_KEY: 'k-test-1234567890', SALACV_ADMIN_PASSWORD: 'admin-pass-1' };
 

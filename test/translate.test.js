@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import { translate, parseTranslations } from '../server/agent/translate.js';
 import { csvToLabels } from '../scripts/i18n.js';
 import { memoryStore } from '../server/store.js';
+import { memoryDb } from '../server/db/index.js';
 
+await memoryDb(); // base PGlite en mémoire : comptes, clés, réglages
 memoryStore();
 import { label } from '../src/i18n/index.js';
 

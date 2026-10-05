@@ -79,7 +79,7 @@ architecture que l'agent Ivy : un outil = un fichier (`tools/`), boucle jusqu'à
 `final_answer`, rotation des clés et bascule de fournisseur sur 429, skills.
 Aucun outil shell, fichier ou réseau : l'agent ne peut que modifier le CV reçu.
 
-Routes (`server/agent/web.js`), identiques sur Vercel (`api/*.js`) et sur le VPS
+Routes (`server/http.js`), identiques sur Vercel (`api/*.js`) et sur le VPS
 (`server/index.js`, site + API dans le même process Node) :
 
 - `POST /api/google` `{ idToken }` : connexion Google (voir « Connexion » plus bas), renvoie un
@@ -87,18 +87,42 @@ Routes (`server/agent/web.js`), identiques sur Vercel (`api/*.js`) et sur le VPS
 - `POST /api/key` `{ key, device }` : activation d'une clé KEYGEN **en ligne** (PC), session plafonnée à la fin de vie de la clé.
 - `POST /api/login` : ancienne connexion fictive, **fermée** (410). `SALACV_ALLOW_PASSWORD_LOGIN=1` ne sert qu'aux essais locaux.
 - `POST /api/agent` `{ state, message, history? }` avec `Authorization: Bearer <jeton>`.
+- `POST /api/config` : valeurs publiques du site (Firebase), sans secret.
 
-Variables d'environnement (Vercel → Settings → Environment Variables, ou `.env` du VPS) :
+**Configuration : presque tout se règle dans l'interface admin** (`/admin/`, onglet « Clés IA ») : clés des
+fournisseurs (Ollama, Gemini, Groq), attribution de clés aux clients, configuration Firebase. Rien de tout ça n'est en variable d'environnement.
+
+Seuls ces secrets de **démarrage** restent en variables d'environnement (Vercel → Settings → Environment Variables, ou `.env` du VPS) :
 
 | Variable | Rôle |
 |---|---|
-| `OLLAMA_API_KEY` | **La seule obligatoire.** Clé du modèle (`gemma4:31b-cloud`). Plusieurs clés : `OLLAMA_API_KEYS=a,b`. Secours : `GEMINI_API_KEY`, `GROQ_API_KEY`. |
-| `OLLAMA_MODEL`, `OLLAMA_BASE_URL` | Changer de modèle ou d'URL sans toucher au code. |
-| `SALACV_DEMO_PASSWORD` | Facultatif : seul ce mot de passe ouvre une session (réserver l'assistant aux testeurs). |
-| `SALACV_SESSION_SECRET` | Facultatif : clé de signature des sessions (sinon dérivée de la clé du modèle). |
-| `AGENT_RATE_PER_MINUTE`, `AGENT_CONCURRENCY`, `AGENT_TIMEOUT`, `AGENT_MAX_ITERATIONS` | Limites (6/min par utilisateur, 8 requêtes simultanées, 25 s par appel au modèle, 8 tours). |
+| `DATABASE_URL` | Connexion **Neon** (Postgres). Sans elle, une base locale PGlite est utilisée (dossier `data/pg`) : développement seulement. |
+| `SALACV_MASTER_KEY` | Clé maître (32 octets en base64) qui chiffre les clés d'API enregistrées en base. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **À sauvegarder** : sans elle, les clés enregistrées sont illisibles. |
+| `SALACV_SESSION_SECRET` | Clé de signature des sessions. |
+| `SALACV_ADMIN_PASSWORD` | Mot de passe de l'interface admin. |
+| `AGENT_RATE_PER_MINUTE`, `AGENT_CONCURRENCY`, `AGENT_TIMEOUT`, `AGENT_MAX_ITERATIONS` | Facultatives : limites (6/min par utilisateur, 8 requêtes simultanées, 25 s par appel au modèle, 8 tours). |
 
-Aucune clé dans le repo, ni en clair ni encodée.
+Les clés d'environnement (`OLLAMA_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`…) ne servent plus que de **secours**
+(développement, ou pool partagé encore vide).
+
+### Clés IA, rotation et accès
+
+salacv fournit l'IA (Ollama Cloud, avec Gemini et Groq en secours) : **les clients n'ont jamais de clé à gérer ni à voir.**
+Tout se règle par l'admin, dans l'onglet « Clés IA » :
+
+- **Pool** : l'admin ajoute autant de clés qu'il veut ; elles servent à tous les clients, en rotation.
+- **Attribution** : l'admin peut attribuer une ou plusieurs clés à un client précis. **Un client qui a des clés attribuées ne
+  consomme que celles-là, jamais le pool.**
+- **Rotation** : première clé utilisable (ordre des fournisseurs) ; sur 429 elle est mise de côté pour la journée (en base,
+  donc pour toutes les instances) ; sur 401/403 elle est désactivée.
+- **Accès à l'IA** : il faut être connecté (Google ou clé en ligne). L'accès est accordé à la connexion ; l'admin peut le
+  retirer par utilisateur. Chaque appel est noté (`ai_usage`) pour les **quotas**, pas encore appliqués.
+- Les clés sont chiffrées (AES-256-GCM) et **ne sont jamais renvoyées** : l'interface n'affiche que les 4 derniers caractères.
+
+### App desktop
+
+Client léger : l'interface est servie localement, mais tout `/api/*` part vers le backend en ligne
+(`SALACV_AUTH_ORIGIN`). Aucun secret, clé ni base de données ne vit sur le PC.
 
 ```bash
 npm start      # VPS : site (dist/) + API sur PORT (3000), après npm run build
@@ -113,15 +137,14 @@ Sur PC, l'app Electron ouvre cette page **dans le navigateur du système** (Goog
 fenêtres intégrées), puis reçoit le jeton sur son port local (`electron/main.cjs`, `/__desktop/callback`).
 
 À configurer (Firebase Console → Authentication) : activer le fournisseur Google ; domaines autorisés :
-`salacv.online` (et `localhost` en développement).
+`smlab-theta.vercel.app` (et `localhost` en développement ; ajouter `salacv.online` quand le domaine sera acheté).
 
 | Variable | Où | Rôle |
 |---|---|---|
-| `VITE_FIREBASE_API_KEY` | `.env` à la racine, **au build** | Clé web du projet Firebase (publique). Sans elle, la page affiche « non configurée ». |
-| `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` | idem | Facultatives (défaut : `lightpay-a5f01.firebaseapp.com`, `lightpay-a5f01`). |
+| Admin → Clés IA → « Connexion Google (Firebase) » | interface admin | Clé web (`apiKey`), `authDomain`, `projectId`. Lues par le site **à l'exécution** (rien à redéployer). Sans clé, la page affiche « non configurée ». |
 | `FIREBASE_PROJECT_ID` | serveur | Facultative : projet attendu dans les jetons (défaut `lightpay-a5f01`). |
-| `SALACV_SESSION_SECRET` | serveur | Clé de signature des sessions (à définir en production). |
-| `SALACV_AUTH_ORIGIN` | app Electron | Page de connexion (défaut `https://salacv.online`) ; `http://localhost:5173` en développement. |
+| `VITE_FIREBASE_*` | `.env`, au build | Secours si l'admin n'a rien renseigné. |
+| `SALACV_AUTH_ORIGIN` | app Electron | Page de connexion et backend (défaut `https://smlab-theta.vercel.app`) ; `http://localhost:5173` en développement. |
 
 **Clés KEYGEN (PC uniquement)** — deux sortes, générées avec `scripts/keygen.js` :
 

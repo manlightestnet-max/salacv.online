@@ -17,7 +17,7 @@ let mainWindow = null;
 
 // Page de connexion Google (hébergée avec le site) : elle s'ouvre dans le navigateur du PC, car Google
 // refuse la connexion dans une fenêtre intégrée d'Electron.
-const AUTH_ORIGIN = (process.env.SALACV_AUTH_ORIGIN || 'https://salacv.online').replace(/\/$/, '');
+const AUTH_ORIGIN = (process.env.SALACV_AUTH_ORIGIN || 'https://smlab-theta.vercel.app').replace(/\/$/, '');
 const saved = new Set(); // seuls les fichiers enregistrés par l'app peuvent être ouverts ou montrés
 
 // Seule notre propre page peut appeler ces fonctions.
@@ -65,6 +65,45 @@ function getLicense() {
   return licensePromise;
 }
 
+// --- Backend en ligne --------------------------------------------------------------------------
+// L'app desktop est un client léger : l'interface est servie ici, mais TOUT /api/* part vers le
+// backend en ligne (Vercel + Neon). Aucun secret, aucune clé, aucune base ne vit sur le PC.
+const BACKEND_TIMEOUT_MS = 75_000;
+const UNREACHABLE = { ok: false, error: 'Le serveur salacv est injoignable. Vérifie ta connexion Internet puis réessaie.' };
+
+async function callBackend(apiPath, payload, headers = {}) {
+  try {
+    const res = await fetch(`${AUTH_ORIGIN}${apiPath}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Salacv-Client': 'desktop', ...headers },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS),
+    });
+    return { status: res.status, body: await res.json().catch(() => ({ ok: false, error: 'Réponse inattendue du serveur.' })) };
+  } catch {
+    return { status: 503, body: UNREACHABLE };
+  }
+}
+
+// Relaie une requête /api/<route> de la page (JSON, jeton d'autorisation) vers le backend.
+async function relayApi(req, res) {
+  const send = (status, body) => {
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(body));
+  };
+  if (req.method !== 'POST') return send(405, { ok: false, error: 'Méthode non autorisée.' });
+  if (!/^\/api\/[a-z]+$/.test(new URL(req.url, 'http://127.0.0.1').pathname)) return send(404, { ok: false, error: 'Route inconnue.' });
+  let payload;
+  try {
+    payload = await readSmallJson(req, 2 * 1024 * 1024);
+  } catch {
+    return send(400, { ok: false, error: 'Requête invalide.' });
+  }
+  const auth = req.headers.authorization ? { Authorization: String(req.headers.authorization) } : {};
+  const { status, body } = await callBackend(new URL(req.url, 'http://127.0.0.1').pathname, payload, auth);
+  send(status, body);
+}
+
 // Retour de Google : le navigateur arrive sur /__desktop/callback#idToken=…&state=…, la page renvoie le jeton
 // ici (même origine), on le vérifie avec le serveur local et on ouvre la session dans la fenêtre de l'app.
 const pendingGoogle = new Map(); // state → expiration
@@ -100,6 +139,10 @@ fetch('/__desktop/token', { method: 'POST', headers: { 'Content-Type': 'applicat
 // Brancher sur le serveur local (createApp(extra)). Retourne vrai si la requête est à nous.
 function desktopRoutes(req, res) {
   const url = new URL(req.url, 'http://127.0.0.1');
+  if (url.pathname.startsWith('/api/')) {
+    relayApi(req, res);
+    return true;
+  }
   if (req.method === 'GET' && url.pathname === '/__desktop/callback') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
     res.end(CALLBACK_PAGE);
@@ -116,8 +159,7 @@ function desktopRoutes(req, res) {
       const expires = pendingGoogle.get(String(state));
       pendingGoogle.delete(String(state)); // usage unique
       if (!expires || expires < Date.now()) return reply(400, { ok: false, error: 'Cette connexion a expiré. Relance-la depuis l’app.' });
-      const web = await import(pathToFileURL(path.join(__dirname, '../server/agent/web.js')).href);
-      const [status, body] = await web.googleLogin({ idToken }, '127.0.0.1');
+      const { status, body } = await callBackend('/api/google', { idToken });
       if (!body.ok) return reply(status, body);
       const session = { token: body.token, username: body.username, name: body.name, kind: 'google' };
       if (mainWindow && !mainWindow.isDestroyed()) {

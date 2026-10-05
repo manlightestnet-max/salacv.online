@@ -144,3 +144,12 @@ textarea.admin-input { resize: vertical; font-family: var(--font-mono); font-siz
 .skill-share { display: flex; flex-direction: column; gap: 12px; }
 .skill-text { max-height: 320px; overflow: auto; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: rgb(var(--gray-900) / 0.03); font: 12px/1.55 var(--font-mono); white-space: pre-wrap; }
 .admin-hint { margin: 0; font-size: 13px; color: rgb(var(--gray-500)); }
+
+/* Clés IA : formulaires */
+.ad-form { display: flex; flex-direction: column; gap: 0.7rem; padding: 1rem 1.2rem; border-top: 1px solid var(--line); }
+.ad-form:first-of-type { border-top: 0; }
+.ad-label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.84rem; font-weight: 600; }
+.ad-label small { font-weight: 400; color: rgb(var(--gray-600)); }
+.ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; }
+.ad-form .btn-primary { align-self: flex-start; }
+select.admin-input { cursor: pointer; }

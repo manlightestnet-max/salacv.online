@@ -12,7 +12,9 @@ import * as web from '../server/agent/web.js';
 import { redact } from '../server/agent/secrets.js';
 import { createApp } from '../server/index.js';
 import { memoryStore } from '../server/store.js';
+import { memoryDb } from '../server/db/index.js';
 
+await memoryDb(); // base PGlite en mémoire : comptes, clés, réglages
 memoryStore(); // pas d'écriture disque pendant les tests
 
 const ENV = { OLLAMA_API_KEY: 'cle-de-test-abcdef123456' };

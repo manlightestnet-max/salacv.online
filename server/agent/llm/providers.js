@@ -27,7 +27,7 @@ export function markExhausted(key) {
 }
 
 // URL et modèle surchargeables sans toucher au code : <NOM>_BASE_URL, <NOM>_MODEL.
-function resolve(provider, env) {
+export function resolveProvider(provider, env) {
   const prefix = provider.name.toUpperCase();
   return { ...provider, baseUrl: env[`${prefix}_BASE_URL`] || provider.baseUrl, model: env[`${prefix}_MODEL`] || provider.model };
 }
@@ -37,7 +37,7 @@ export function nextKey(env = process.env) {
   const day = today();
   for (const provider of PROVIDERS) {
     const key = keysFor(provider.name, env).find((k) => exhausted.get(k) !== day);
-    if (key) return { provider: resolve(provider, env), key };
+    if (key) return { provider: resolveProvider(provider, env), key };
   }
   return null;
 }

@@ -52,14 +52,14 @@ export function parseTranslations(content, count) {
 }
 
 // payload = { state, to }. callModel injectable pour les tests.
-export async function translate(payload, { callModel, env = process.env } = {}) {
+export async function translate(payload, { callModel, env = process.env, keySource = null } = {}) {
   const to = String(payload?.to ?? '');
   if (!TARGETS[to]) return { ok: false, status: 400, error: 'Langue non prise en charge.' };
   const state = normalize(payload?.state);
   const list = fields(state);
   if (!list.length) return { ok: true, state: { ...compact(state), lang: to } };
 
-  callModel ??= (msgs) => callLLM(msgs, [], { temperature: 0.2, timeoutMs: settings.llmTimeoutMs * 2, env });
+  callModel ??= (msgs) => callLLM(msgs, [], { temperature: 0.2, timeoutMs: settings.llmTimeoutMs * 2, env, keySource });
   let out = null;
   try {
     // Une seconde chance si la réponse est mal formée.
@@ -68,8 +68,8 @@ export async function translate(payload, { callModel, env = process.env } = {}) 
       out = parseTranslations(res?.choices?.[0]?.message?.content, list.length);
     }
   } catch (err) {
-    console.error(`[traduction] ${redact(err.message, allKeys(env))}`);
-    if (err instanceof LLMError || err.name === 'TimeoutError') return { ok: false, status: 503, error: 'La traduction est indisponible pour le moment. Réessaie dans un instant.' };
+    console.error(`[traduction] ${redact(err.message, [...(keySource?.secrets() ?? []), ...allKeys(env)])}`);
+    if (err instanceof LLMError || err.name === 'TimeoutError') return { ok: false, status: 503, error: err.userMessage ?? 'La traduction est indisponible pour le moment. Réessaie dans un instant.' };
     return { ok: false, status: 502, error: 'La traduction a échoué. Réessaie.' };
   }
   if (!out) return { ok: false, status: 502, error: 'La traduction a échoué. Réessaie.' };

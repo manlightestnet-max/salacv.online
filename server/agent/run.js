@@ -43,7 +43,7 @@ export function scopedTools(scope) {
 }
 
 // payload = { state, message, history?, scope? }. callModel est injectable (tests sans réseau).
-export async function handle(payload, { callModel, env = process.env } = {}) {
+export async function handle(payload, { callModel, env = process.env, keySource = null } = {}) {
   const message = String(payload?.message ?? '').trim();
   if (!message) return { ok: false, status: 400, error: 'Message vide.' };
 
@@ -55,8 +55,8 @@ export async function handle(payload, { callModel, env = process.env } = {}) {
     ? `[Section en cours : ${SCOPES[scope].label}. Tu ne modifies que cette section. S'il manque une information importante, pose UNE question courte au lieu d'inventer. Tes modifications sont une PROPOSITION : l'utilisateur la voit dans son formulaire et choisit de la garder ou non. Dans ta réponse, dis « Je te propose… » et invite-le à relire puis garder ; ne dis jamais « c'est fait » ni « j'ai ajouté ».]\n\n${message}`
     : message;
   const messages = build(run.state, said, payload.history);
-  const secrets = allKeys(env);
-  callModel ??= (msgs, sp) => callLLM(msgs, sp, { temperature: settings.temperature, timeoutMs: settings.llmTimeoutMs, env });
+  const secrets = [...(keySource?.secrets() ?? []), ...allKeys(env)];
+  callModel ??= (msgs, sp) => callLLM(msgs, sp, { temperature: settings.temperature, timeoutMs: settings.llmTimeoutMs, env, keySource });
 
   let reply;
   try {
@@ -64,7 +64,7 @@ export async function handle(payload, { callModel, env = process.env } = {}) {
   } catch (err) {
     console.error(`[LLM] ${redact(err.message, secrets)}`);
     if (err instanceof LLMError || err.name === 'TimeoutError') {
-      return { ok: false, status: 503, error: "L'assistant est indisponible pour le moment. Réessaie dans un instant." };
+      return { ok: false, status: 503, error: err.userMessage ?? "L'assistant est indisponible pour le moment. Réessaie dans un instant." };
     }
     return { ok: false, status: 502, error: "L'assistant a rencontré un problème. Réessaie." };
   }

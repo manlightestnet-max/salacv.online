@@ -18,31 +18,50 @@ const next = (() => {
   return n.startsWith('/') && !n.startsWith('//') ? n : '/dashboard/';
 })();
 
-const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'lightpay-a5f01.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'lightpay-a5f01',
-};
+// Configuration Firebase : réglée par l'admin dans son interface (lue ici à l'exécution, rien à redéployer) ;
+// à défaut, les variables VITE_FIREBASE_* du build.
+async function loadConfig() {
+  const fallback = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'lightpay-a5f01.firebaseapp.com',
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'lightpay-a5f01',
+  };
+  try {
+    const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const { ok, config } = await res.json();
+    if (!ok || !config) return fallback;
+    return {
+      apiKey: config['firebase.apiKey'] || fallback.apiKey,
+      authDomain: config['firebase.authDomain'] || fallback.authDomain,
+      projectId: config['firebase.projectId'] || fallback.projectId,
+    };
+  } catch {
+    return fallback;
+  }
+}
+let config = { apiKey: '' };
 
 const button = $('auth-google');
 const error = $('auth-error');
-const fail = (message) => {
+// lock : erreur bloquante (lien invalide, configuration absente) → le bouton reste désactivé.
+const fail = (message, lock = false) => {
   error.textContent = message;
   error.hidden = false;
-  button.disabled = false;
+  button.disabled = lock;
 };
 
 if (desktop) {
   $('auth-text').textContent = 'Connecte-toi avec Google, puis reviens dans l’app salacv : elle s’ouvrira toute seule.';
   if (!APP_PORTS.includes(port) || !/^[0-9a-f]{32}$/.test(state)) {
-    button.disabled = true;
-    fail('Lien invalide. Relance la connexion depuis l’app salacv.');
+    fail('Lien invalide. Relance la connexion depuis l’app salacv.', true);
   }
 }
-if (!config.apiKey) {
-  button.disabled = true;
-  fail('La connexion Google n’est pas encore configurée (VITE_FIREBASE_API_KEY manquante).');
-}
+button.disabled = true;
+loadConfig().then((c) => {
+  config = c;
+  if (!c.apiKey) return fail('La connexion Google n’est pas encore configurée : l’administrateur doit renseigner la clé Firebase.', true);
+  if (!desktop || (APP_PORTS.includes(port) && /^[0-9a-f]{32}$/.test(state))) button.disabled = false;
+});
 
 const FRIENDLY = {
   'auth/popup-closed-by-user': 'La fenêtre Google a été fermée avant la fin. Réessaie.',

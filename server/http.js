@@ -2,6 +2,7 @@
 // Node du VPS (server/index.js). Vercel = VPS : aucune différence de comportement.
 import * as web from './agent/web.js';
 import { admin, templateSettings } from './admin.js';
+import { configRoute } from './keys/routes.js';
 
 function send(res, status, body) {
   const data = JSON.stringify(body);
@@ -38,6 +39,7 @@ export const ROUTES = {
   agent: (payload, req) => web.agent(payload, web.bearer(req.headers.authorization)),
   translate: (payload, req) => web.translate(payload, web.bearer(req.headers.authorization)),
   collect: (payload, req) => web.collectCv(payload, web.bearer(req.headers.authorization), clientIp(req)),
+  config: () => configRoute(),
   admin: (payload, req) => admin(payload, web.bearer(req.headers.authorization)),
   // Public : réglages des modèles (disponibles, pour qui), lus par le studio.
   templates: () => templateSettings(),

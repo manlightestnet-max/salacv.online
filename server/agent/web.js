@@ -9,7 +9,9 @@ import { checkCredentials, issue, verify } from './auth.js';
 import { settings } from './config.js';
 import { handle } from './run.js';
 import { translate as translateCv } from './translate.js';
-import { collect, isBlocked, recordLogin } from '../admin.js';
+import { collect } from '../admin.js';
+import { getUser, recordLogin } from '../db/users.js';
+import { keySourceFor, logUsage } from '../keys/pool.js';
 import { verifyFirebaseIdToken } from '../accounts/firebase.js';
 import { activateOnlineKey } from '../accounts/keys.js';
 
@@ -56,7 +58,7 @@ export async function googleLogin(payload, client, env = process.env, { verifyTo
   if (!identity) return [401, { ok: false, error: 'Connexion Google refusée. Réessaie.' }];
   const token = issue(identity.email, env);
   if (!token) return [503, { ok: false, error: "L'assistant n'est pas encore configuré." }];
-  if ((await recordLogin(identity.email).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
+  if ((await recordLogin(identity.email, { name: identity.name }).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
   return [200, { ok: true, token, username: identity.email, name: identity.name, picture: identity.picture, kind: 'google' }];
 }
 
@@ -74,32 +76,56 @@ export async function keyLogin(payload, client, env = process.env, now = Date.no
 
 export const bearer = (authorization) => String(authorization ?? '').replace(/^Bearer\s+/i, '').trim();
 
-export async function agent(payload, token, { env = process.env, callModel } = {}) {
+// Accès à l'IA : connexion valide, compte non suspendu, accès accordé (par défaut à la connexion, retirable par l'admin).
+async function aiGuard(token, env, loginMessage) {
   const username = verify(token, env);
-  if (!username) return [401, { ok: false, error: "Connecte-toi pour utiliser l'assistant." }];
-  if (await isBlocked(username).catch(() => false)) return [403, { ok: false, error: 'Ce compte est suspendu.' }];
+  if (!username) return { error: [401, { ok: false, error: loginMessage }] };
+  const user = await getUser(username).catch(() => null);
+  if (user?.blocked) return { error: [403, { ok: false, error: 'Ce compte est suspendu.' }] };
+  if (user && !user.aiAccess) return { error: [403, { ok: false, error: "Ton accès à l'assistant a été retiré. Contacte salacv." }] };
+  return { username };
+}
+
+// Clés de CET utilisateur (les siennes si il en a, sinon le pool) ; si la base est indisponible, clés d'environnement.
+async function keysFor(username, env) {
+  try {
+    return await keySourceFor(username, env);
+  } catch (err) {
+    console.error(`[clés] ${err.message}`);
+    return null;
+  }
+}
+
+export async function agent(payload, token, { env = process.env, callModel } = {}) {
+  const guard = await aiGuard(token, env, "Connecte-toi pour utiliser l'assistant.");
+  if (guard.error) return guard.error;
+  const { username } = guard;
   if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
   // Plafond de requêtes simultanées : protège le quota et la mémoire, 503 au-delà.
   if (running >= settings.concurrency) return [503, { ok: false, error: "L'assistant est très demandé. Réessaie dans un instant." }];
   running++;
   try {
-    const { status, ...result } = await handle(payload ?? {}, { env, callModel });
+    const keySource = callModel ? null : await keysFor(username, env);
+    const { status, ...result } = await handle(payload ?? {}, { env, callModel, keySource });
+    logUsage(username, keySource?.lastUsedId ?? null, 'agent', Boolean(result.ok));
     return [status ?? (result.ok ? 200 : 502), result];
   } finally {
     running--;
   }
 }
 
-// Même garde-fous que l'agent : connexion, limite par minute, plafond de requêtes simultanées.
+// Même garde-fous que l'agent : connexion, accès, limite par minute, plafond de requêtes simultanées.
 export async function translate(payload, token, { env = process.env, callModel } = {}) {
-  const username = verify(token, env);
-  if (!username) return [401, { ok: false, error: 'Connecte-toi pour traduire ton CV.' }];
-  if (await isBlocked(username).catch(() => false)) return [403, { ok: false, error: 'Ce compte est suspendu.' }];
+  const guard = await aiGuard(token, env, 'Connecte-toi pour traduire ton CV.');
+  if (guard.error) return guard.error;
+  const { username } = guard;
   if (!agentLimiter.allow(username)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
   if (running >= settings.concurrency) return [503, { ok: false, error: 'Le service est très demandé. Réessaie dans un instant.' }];
   running++;
   try {
-    const { status, ...result } = await translateCv(payload ?? {}, { env, callModel });
+    const keySource = callModel ? null : await keysFor(username, env);
+    const { status, ...result } = await translateCv(payload ?? {}, { env, callModel, keySource });
+    logUsage(username, keySource?.lastUsedId ?? null, 'translate', Boolean(result.ok));
     return [status ?? (result.ok ? 200 : 502), result];
   } finally {
     running--;

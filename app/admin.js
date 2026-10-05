@@ -163,6 +163,10 @@ async function usersView() {
       ],
     });
   }
+  async function setAi(u, allowed) {
+    const res = await api('setAi', { username: u.username, allowed });
+    if (res.ok) render();
+  }
   const rows = r.users.map((u) =>
     h(
       'div',
@@ -171,10 +175,11 @@ async function usersView() {
       h(
         'div',
         { class: 'row-main' },
-        h('strong', {}, u.username, u.blocked && h('span', { class: 'tag danger' }, 'Bloqué')),
+        h('strong', {}, u.username, u.blocked && h('span', { class: 'tag danger' }, 'Bloqué'), !u.aiAccess && h('span', { class: 'tag danger' }, 'IA retirée')),
         h('small', {}, `${u.logins} connexion${u.logins > 1 ? 's' : ''} · depuis le ${new Date(u.first).toLocaleDateString('fr-FR')}${u.reason ? ` · ${u.reason}` : ''}`),
       ),
       h('span', { class: 'row-meta' }, u.last ? relativeDate(u.last) : '—'),
+      h('button', { type: 'button', class: 'btn-ghost', title: u.aiAccess ? 'Retirer l’accès à l’assistant et à la traduction' : 'Rendre l’accès à l’assistant', onClick: () => setAi(u, !u.aiAccess) }, u.aiAccess ? 'Retirer l’IA' : 'Rendre l’IA'),
       h('button', { type: 'button', class: u.blocked ? 'btn-ghost' : 'btn-ghost danger-btn', onClick: () => (u.blocked ? setBlocked(u, false) : confirmBlock(u)) }, u.blocked ? 'Débloquer' : 'Bloquer'),
     ),
   );
@@ -529,6 +534,119 @@ async function skillsView() {
   );
 }
 
+
+// --- Clés IA : pool partagé, attribution, réglages ------------------------------------------------
+// Aucune clé n'est jamais affichée après son enregistrement : seulement les 4 derniers caractères.
+async function keysView() {
+  const r = await api('keys');
+  if (!r.ok) return page('Clés IA', null, null, notice(r.error, 'error'));
+  const setting = (key) => r.settings.find((s) => s.key === key);
+
+  async function saveSetting(key, value, done) {
+    const res = await api('setSetting', { key, value });
+    if (!res.ok) return notice2(res.error);
+    done?.();
+    render();
+  }
+  const notice2 = (text) => {
+    const d = openDialog({ title: 'Impossible', content: h('p', { class: 'dialog-text' }, text), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
+  };
+
+  const fbFields = ['firebase.apiKey', 'firebase.authDomain', 'firebase.projectId'].map((k) => ({ k, input: h('input', { class: 'admin-input', value: setting(k).value, placeholder: setting(k).label, 'aria-label': setting(k).label }) }));
+  const settingsCard = card(
+    'Connexion Google (Firebase)',
+    null,
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Valeurs publiques par nature : le site les lit à l’ouverture, rien à redéployer.'),
+      ...fbFields.map(({ k, input }) => h('label', { class: 'ad-label' }, setting(k).label, input)),
+      h('button', { type: 'button', class: 'btn-primary', onClick: async () => { for (const { k, input } of fbFields) await api('setSetting', { key: k, value: input.value.trim() }); render(); } }, 'Enregistrer Firebase'),
+    ),
+  );
+
+  // Ajouter une clé
+  const provider = h('select', { class: 'admin-input', 'aria-label': 'Fournisseur' }, r.providers.map((p) => h('option', { value: p }, p)));
+  const secret = h('input', { class: 'admin-input', type: 'password', autocomplete: 'off', placeholder: 'Clé d’API (ne sera plus jamais affichée)', 'aria-label': 'Clé d’API' });
+  const label = h('input', { class: 'admin-input', placeholder: 'Nom (facultatif)', maxlength: 60, 'aria-label': 'Nom' });
+  const owner = h('select', { class: 'admin-input', 'aria-label': 'Destinataire' }, h('option', { value: '' }, 'Pool partagé (tous les utilisateurs sans clé)'), r.users.map((u) => h('option', { value: u }, `Attribuer à ${u}`)));
+  const error = h('p', { class: 'admin-notice error', hidden: true });
+  const addCard = card(
+    'Ajouter une clé',
+    null,
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('div', { class: 'ad-grid' }, provider, label, owner),
+      secret,
+      error,
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn-primary',
+          onClick: async () => {
+            error.hidden = true;
+            const res = await api('addKey', { provider: provider.value, key: secret.value, label: label.value, owner: owner.value || null });
+            secret.value = '';
+            if (!res.ok) return (error.textContent = res.error), (error.hidden = false);
+            render();
+          },
+        },
+        'Ajouter',
+      ),
+    ),
+  );
+
+  // Liste
+  function assign(k) {
+    const pick = h('select', { class: 'admin-input' }, h('option', { value: '' }, 'Pool partagé'), r.users.map((u) => h('option', { value: u, selected: u === k.owner || null }, u)));
+    const d = openDialog({
+      title: `Attribuer la clé ${k.provider} …${k.last4}`,
+      content: [h('p', { class: 'dialog-text' }, 'Une clé attribuée ne sert qu’à ce client : dès qu’il a des clés attribuées, il ne consomme jamais le pool partagé.'), pick],
+      footer: [
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler'),
+        h('button', { type: 'button', class: 'btn-primary', onClick: async () => { const res = await api('assignKey', { id: k.id, username: pick.value || null }); d.close(); res.ok ? render() : notice2(res.error); } }, 'Attribuer'),
+      ],
+    });
+  }
+  function remove(k) {
+    const d = openDialog({
+      title: `Supprimer la clé ${k.provider} …${k.last4} ?`,
+      content: h('p', { class: 'dialog-text' }, 'La clé est effacée de la base. Elle ne pourra pas être récupérée.'),
+      footer: [
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler'),
+        h('button', { type: 'button', class: 'btn-primary danger-fill', onClick: async () => { const res = await api('deleteKey', { id: k.id }); d.close(); res.ok ? render() : notice2(res.error); } }, 'Supprimer'),
+      ],
+    });
+  }
+  const rows = r.keys.map((k) =>
+    h(
+      'div',
+      { class: `row-item${k.disabled ? ' blocked' : ''}` },
+      h('span', { class: 'avatar', 'aria-hidden': 'true' }, k.provider[0].toUpperCase()),
+      h(
+        'div',
+        { class: 'row-main' },
+        h('strong', {}, `${k.provider} …${k.last4}`, k.label && h('span', { class: 'tag' }, k.label), k.disabled && h('span', { class: 'tag danger' }, 'Désactivée'), k.exhaustedToday && h('span', { class: 'tag' }, 'Épuisée aujourd’hui')),
+        h('small', {}, `${k.owner ? `Attribuée à ${k.owner}` : 'Pool partagé'}${k.disabledReason ? ` · ${k.disabledReason}` : ''}`),
+      ),
+      h('button', { type: 'button', class: 'btn-ghost', onClick: () => assign(k) }, 'Attribuer'),
+      h('button', { type: 'button', class: 'btn-ghost', onClick: async () => { const res = await api('setKeyDisabled', { id: k.id, disabled: !k.disabled }); res.ok ? render() : notice2(res.error); } }, k.disabled ? 'Réactiver' : 'Désactiver'),
+      h('button', { type: 'button', class: 'btn-ghost danger-btn', onClick: () => remove(k) }, 'Supprimer'),
+    ),
+  );
+  const pool = r.keys.filter((k) => !k.owner).length;
+  return page(
+    'Clés IA',
+    'Les clés servent à tous les clients, en rotation : première clé utilisable, mise de côté sur quota (429) ou si elle est refusée. Un client à qui tu attribues des clés n’utilise que celles-là.',
+    null,
+    settingsCard,
+    addCard,
+    card(`${r.keys.length} clé${r.keys.length > 1 ? 's' : ''} · ${pool} dans le pool`, null, rowsOf(rows, 'Aucune clé enregistrée. Sans clé, l’assistant utilise les clés d’environnement du serveur, s’il y en a.')),
+  );
+}
+
 // --- Icônes de la barre latérale --------------------------------------------------------------
 const ICON_PATHS = {
   explore: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
@@ -538,6 +656,7 @@ const ICON_PATHS = {
   box: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
   spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
   log: '<path d="M8 4h11v16H8z"/><path d="M5 4v16M11 8h5M11 12h5M11 16h3"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3M14 9l2 2"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>',
 };
 document.querySelectorAll('.ad-ico').forEach((el) => {
@@ -576,7 +695,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Navigation ----------------------------------------------------------------------------
-const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, journal: journalView };
+const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);
