@@ -80,12 +80,19 @@ async function overviewView() {
   if (!o.ok) return page('Aperçu', null, null, notice(o.error, 'error'));
   lastOverview = o;
   syncBadge();
+  const setup = await api('setup');
+  const setupCard = setup.ok && card(
+    'Configuration',
+    h('span', { class: setup.checks.every((c) => c.ok || c.optional) ? 'tag' : 'tag danger' }, setup.checks.every((c) => c.ok || c.optional) ? 'Tout est prêt' : 'À compléter'),
+    rowsOf(setup.checks.map((c) => h('div', { class: `row-item${c.ok || c.optional ? '' : ' blocked'}` }, h('span', { class: 'avatar', 'aria-hidden': 'true' }, c.ok ? '✓' : c.optional ? '–' : '!'), h('div', { class: 'row-main' }, h('strong', {}, c.label, c.optional && h('span', { class: 'tag' }, 'facultatif')), h('small', {}, c.detail))), ), ''),
+  );
   const res = o.resources ? Object.values(o.resources).reduce((a, b) => a + b, 0) : 0;
   const journal = o.journal.map(journalRow);
   return page(
     'Aperçu',
     null,
     null,
+    setupCard,
     !o.durable && notice('Stockage temporaire : sur Vercel, ajoute UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN pour garder les données. Sur le VPS, tout est gardé dans data/.', 'warn'),
     card(
       'Utilisateurs et comptes',
@@ -551,6 +558,21 @@ async function keysView() {
       h('button', { type: 'button', class: 'btn-primary', onClick: async () => { for (const { k, input } of quotaFields) { const res = await api('setSetting', { key: k, value: input.value }); if (!res.ok) return notice2(res.error); } render(); } }, 'Enregistrer les quotas'),
     ),
   );
+  const r2Fields = ['r2.accountId', 'r2.accessKeyId', 'r2.secretAccessKey', 'r2.bucket'].map((k) => {
+    const s = setting(k);
+    return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
+  });
+  const r2Card = card(
+    'Stockage R2 (CV et PDF des clients)',
+    h('span', { class: r.r2 ? 'tag' : 'tag danger' }, r.r2 ? 'Configuré' : 'Non configuré'),
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Les CV des comptes connectés (et leurs PDF payés) sont écrits sur Cloudflare R2. Les clés d’accès sont chiffrées en base et ne s’affichent plus jamais. Tant que R2 n’est pas configuré, les CV sont gardés dans la base.'),
+      ...r2Fields.map(({ k, input }) => h('label', { class: 'ad-label' }, setting(k).label, input)),
+      h('button', { type: 'button', class: 'btn-primary', onClick: async () => { for (const { k, secret, input } of r2Fields) { if (secret && !input.value) continue; const res = await api('setSetting', { key: k, value: input.value.trim() }); if (!res.ok) return notice2(res.error); } render(); } }, 'Enregistrer R2'),
+    ),
+  );
   const fbFields = ['firebase.apiKey', 'firebase.authDomain', 'firebase.projectId'].map((k) => ({ k, input: h('input', { class: 'admin-input', value: setting(k).value, placeholder: setting(k).label, 'aria-label': setting(k).label }) }));
   const settingsCard = card(
     'Connexion Google (Firebase)',
@@ -646,6 +668,7 @@ async function keysView() {
     'Les clés servent aux clients connectés, en rotation ; celles étiquetées « Public » servent aussi aux visiteurs non connectés, dans leur quota : première clé utilisable, mise de côté sur quota (429) ou si elle est refusée. Un client à qui tu attribues des clés n’utilise que celles-là.',
     null,
     quotaCard,
+    r2Card,
     settingsCard,
     addCard,
     card(`${r.keys.length} clé${r.keys.length > 1 ? 's' : ''} · ${pool} dans le pool`, null, rowsOf(rows, 'Aucune clé enregistrée. Sans clé, l’assistant utilise les clés d’environnement du serveur, s’il y en a.')),

@@ -98,7 +98,7 @@ Seuls ces secrets de **démarrage** restent en variables d'environnement (Vercel
 |---|---|
 | `DATABASE_URL` | Connexion **Neon** (Postgres). Sans elle, une base locale PGlite est utilisée (dossier `data/pg`) : développement seulement. |
 | `SALACV_MASTER_KEY` | Clé maître (32 octets en base64) qui chiffre les clés d'API enregistrées en base. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. **À sauvegarder** : sans elle, les clés enregistrées sont illisibles. |
-| `SALACV_SESSION_SECRET` | Clé de signature des sessions. |
+| `SALACV_SESSION_SECRET` | **Facultative** : sans elle, la clé de signature des sessions est dérivée de `SALACV_MASTER_KEY`. |
 | `SALACV_ADMIN_UID` | **UID Firebase** du compte Google de l'administrateur (plusieurs UID séparés par des virgules). L'admin se connecte **uniquement avec Google** : le serveur compare l'UID du compte à cette valeur secrète. Où le trouver : Firebase Console → Authentication → Utilisateurs → colonne « UID ». |
 | `AGENT_RATE_PER_MINUTE`, `AGENT_CONCURRENCY`, `AGENT_TIMEOUT`, `AGENT_MAX_ITERATIONS` | Facultatives : limites (6/min par utilisateur, 8 requêtes simultanées, 25 s par appel au modèle, 8 tours). |
 
@@ -118,6 +118,24 @@ Tout se règle par l'admin, dans l'onglet « Clés IA » :
 - **Accès à l'IA** : il faut être connecté (Google ou clé en ligne). L'accès est accordé à la connexion ; l'admin peut le
   retirer par utilisateur. Chaque appel est noté (`ai_usage`) pour les **quotas**, pas encore appliqués.
 - Les clés sont chiffrées (AES-256-GCM) et **ne sont jamais renvoyées** : l'interface n'affiche que les 4 derniers caractères.
+
+### Visiteurs, crédits, génération et sauvegarde
+
+- **Visiteur non connecté (web)** : il essaie l'éditeur et l'assistant sans compte. L'IA utilise uniquement les clés étiquetées
+  « Public » et un quota de **250 000 tokens, une seule fois**, par session ET par IP (réglable dans l'admin). Il est reconnu par
+  son IP (IPv6 réduite au /64) et un cookie signé : effacer le navigateur ne remet rien à zéro. Il n'a **aucune sauvegarde** et
+  **zéro crédit** ; le tableau de bord lui est fermé.
+- **Génération du CV côté serveur** (`/api/render`) : le serveur décide des droits. Visiteur ou compte sans crédit → **PDF avec
+  filigrane, Word bloqué**. Compte avec crédit → PDF propre + Word, **1 crédit par version** (re-télécharger la même version est
+  gratuit). Débit atomique en base, registre `credit_ledger`, jamais de solde négatif ni de double débit.
+- **Cadeau d'inscription** (admin → Clés IA) : crédits offerts à la première connexion ; 3 par défaut, 0 pour le désactiver.
+- **Sauvegarde des CV** (`/api/projects`) : sur **R2** (admin → Clés IA → Stockage R2), sinon dans la base. Le navigateur ne garde
+  plus rien (seulement thème, mode Lite/Pro…). Les anciennes données locales sont envoyées au compte à la première connexion.
+  Les PDF payés des clients sont aussi gardés sur R2. Les clés d'objet ne contiennent jamais d'e-mail.
+- **Avis** (`/api/feedback`) : note + mot de n'importe quel utilisateur, un par personne, 5 nouveaux par IP et par jour ; ils
+  alimentent les statistiques de la landing (`/api/stats` : note moyenne, CV préparés — rien n'est affiché sans donnée réelle).
+- **Mode Pro** : « Générer » ouvre une fenêtre pour choisir, CV par CV (et par langue), PDF et/ou Word.
+- **Vercel** : une seule fonction (`api/[route].js`) sert toutes les routes (la formule gratuite limite le nombre de fonctions).
 
 ### App desktop
 

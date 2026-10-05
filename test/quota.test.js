@@ -174,3 +174,19 @@ test('admin : plafonds de quota réglables, clé rendue publique depuis l’inte
   assert.equal(u.limitSession, 250000);
   await setSetting('quota.ipTokens', '250000', ENV);
 });
+
+test('sessions : la clé de signature est dérivée de SALACV_MASTER_KEY (aucune variable de plus), sans casser le reste', async () => {
+  const { issue, verify, signingSecret } = await import('../server/agent/auth.js');
+  const master = { SALACV_MASTER_KEY: randomBytes(32).toString('base64') };
+  const token = issue('zoe@example.com', master);
+  assert.ok(token, 'une session peut être signée avec la seule clé maître');
+  assert.equal(verify(token, master), 'zoe@example.com');
+  // une autre clé maître ne valide pas ce jeton
+  assert.equal(verify(token, { SALACV_MASTER_KEY: randomBytes(32).toString('base64') }), null);
+  // la clé de signature n'est pas la clé maître elle-même
+  assert.notDeepEqual(signingSecret(master), Buffer.from(master.SALACV_MASTER_KEY, 'base64'));
+  // la variable explicite garde la priorité ; sans rien, pas de session
+  assert.notDeepEqual(signingSecret({ ...master, SALACV_SESSION_SECRET: 'explicite-0123456789' }), signingSecret(master));
+  assert.equal(issue('zoe@example.com', {}), null);
+  assert.equal(issue('zoe@example.com', { SALACV_MASTER_KEY: 'trop-court' }), null);
+});

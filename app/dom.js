@@ -23,6 +23,7 @@ const ICONS = {
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   alert: '<path d="M12 6.5v7"/><path d="M12 17.6v.1"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
   download: '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 017.5 4H16"/>',
 };

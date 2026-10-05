@@ -1,11 +1,12 @@
-// « Préparer mon CV » : jamais de téléchargement direct. L'étudiant lance la
-// préparation, suit sa progression étape par étape, puis télécharge lui-même son PDF
-// (et son Word s'il le veut). Ensuite : une note en étoiles, et l'invitation des amis.
-import { layoutResume } from '../src/index.js';
+// « Préparer mon CV » : jamais de téléchargement direct. Le CV est GÉNÉRÉ PAR LE SERVEUR, qui décide des droits :
+//   • visiteur non connecté, ou compte sans crédit → PDF avec filigrane, Word bloqué ;
+//   • compte avec crédit → PDF propre et Word (1 crédit par version, re-télécharger la même version est gratuit).
+// L'étudiant suit la préparation étape par étape, puis télécharge lui-même ses fichiers. Ensuite : une note en étoiles.
 import { h, icon } from './dom.js';
 import { openDialog } from './dialog.js';
 import { toResume } from './state.js';
-import { PDF_COST, fingerprint, inviteLink, rating, saveRating, wallet } from './lib/store.js';
+import { inviteLink, sendFeedback } from './lib/store.js';
+import { readSession } from './login.js';
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -24,34 +25,63 @@ const getDesktop = () => (window.desktop?.isDesktop ? window.desktop : null);
 const dirOf = (file) => file.replace(/[\\/][^\\/]*$/, '');
 const baseOf = (file) => file.split(/[\\/]/).pop();
 
-function untilSunday(date) {
-  const days = Math.ceil((date - Date.now()) / 86400000);
-  return days <= 1 ? 'demain' : `dans ${days} jours`;
+const toBlob = (base64, type) => new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type });
+const MIME = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+
+// Appel du serveur de génération (avec le jeton s'il y en a un).
+async function callRender(payload) {
+  const session = readSession();
+  try {
+    const res = await fetch('/api/render', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session.token}` } : {}) }, body: JSON.stringify(payload) });
+    return { status: res.status, data: await res.json().catch(() => ({ ok: false, error: 'Réponse inattendue du serveur.' })) };
+  } catch {
+    return { status: 0, data: { ok: false, error: 'Pas de connexion Internet. Vérifie ton réseau puis réessaie.' } };
+  }
 }
 
-export async function openExport({ state, engine, onSpent, missing = [], onReview }) {
+export async function openExport({ state, onSpent, missing = [], onReview }) {
   const desktop = getDesktop();
   const resume = toResume(state);
-  const key = fingerprint(JSON.stringify(resume));
   const name = resume.profile.name || 'CV';
   let withWord = false;
-  const files = {};
 
   const body = h('div', { class: 'export' });
   const foot = h('div', { class: 'export-foot' });
   const dialog = openDialog({ title: 'Préparer mon CV', className: 'export-dialog', content: body, footer: foot });
+  const cancel = h('button', { type: 'button', class: 'btn-ghost', onClick: () => dialog.close() }, 'Annuler');
+  const here = `/auth/?next=${encodeURIComponent(location.pathname + location.search)}`;
 
-  // --- 1. Choix du format et coût ------------------------------------------------
+  function failure(message, retry) {
+    body.replaceChildren(h('p', { class: 'export-error' }, message));
+    foot.replaceChildren(h('button', { type: 'button', class: 'btn-ghost', onClick: () => dialog.close() }, 'Fermer'), retry && h('button', { type: 'button', class: 'btn-primary', onClick: retry }, 'Réessayer'));
+  }
+
+  // --- 1. Droits (annoncés par le serveur) et choix du format -------------------------------------
   async function choose() {
-    const [{ credits, nextReset }, paid] = await Promise.all([wallet.balance(), wallet.isPaid(key)]);
-    const enough = paid || credits >= PDF_COST;
-    const wordToggle = h(
-      'button',
-      { type: 'button', class: 'format-card', 'aria-pressed': String(withWord), onClick: () => wordToggle.setAttribute('aria-pressed', String((withWord = !withWord))) },
-      h('span', { class: 'format-badge' }, 'DOCX'),
-      h('span', { class: 'format-text' }, h('strong', {}, 'Aussi en Word'), h('small', {}, 'Une version modifiable, une colonne')),
-      h('span', { class: 'format-check', 'aria-hidden': 'true' }),
-    );
+    body.replaceChildren(h('p', { class: 'hint' }, 'Vérification de tes droits…'));
+    foot.replaceChildren(cancel);
+    const { data: info } = await callRender({ state, dryRun: true });
+    if (!info.ok) return failure(info.error || 'Impossible de vérifier tes droits.', choose);
+    const watermark = info.entitlement === 'watermark';
+
+    const wordCard = info.wordAllowed
+      ? h(
+          'button',
+          { type: 'button', class: 'format-card', 'aria-pressed': String(withWord), onClick: () => wordToggle.setAttribute('aria-pressed', String((withWord = !withWord))) },
+          h('span', { class: 'format-badge' }, 'DOCX'),
+          h('span', { class: 'format-text' }, h('strong', {}, 'Aussi en Word'), h('small', {}, 'Une version modifiable, une colonne')),
+          h('span', { class: 'format-check', 'aria-hidden': 'true' }),
+        )
+      : h(
+          'div',
+          { class: 'format-card locked', 'aria-disabled': 'true' },
+          h('span', { class: 'format-badge' }, 'DOCX'),
+          h('span', { class: 'format-text' }, h('strong', {}, 'Word (verrouillé)'), h('small', {}, info.loggedIn ? 'Réservé aux CV débloqués avec un crédit' : 'Réservé aux comptes connectés')),
+          icon('lock', 16),
+        );
+    const wordToggle = wordCard;
+    withWord = info.wordAllowed ? withWord : false;
+
     // La vérification conseille sans bloquer : on rappelle ce qui manque, on laisse générer.
     const advice =
       missing.length > 0 &&
@@ -62,41 +92,44 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
         h('ul', {}, missing.map((m) => h('li', {}, m.text))),
         onReview && h('button', { type: 'button', class: 'btn-text', onClick: () => (dialog.close(), onReview()) }, 'Vérifier d’abord'),
       );
+
+    const cost = watermark
+      ? h(
+          'div',
+          { class: 'cost empty' },
+          h('span', {}, h('strong', {}, 'PDF avec filigrane. '), info.reason),
+          info.loggedIn ? h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits') : h('a', { class: 'cost-link', href: here }, 'Se connecter'),
+        )
+      : h(
+          'div',
+          { class: 'cost' },
+          info.cost > 0 ? h('span', {}, h('strong', {}, `${info.cost} crédit`), ` · il t'en restera ${info.balance - info.cost}`) : h('span', {}, 'Cette version est déjà préparée : ', h('strong', {}, 'gratuit')),
+          h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits'),
+        );
+
     body.replaceChildren(
       advice || '',
       h(
         'div',
         { class: 'format-card static', 'aria-pressed': 'true' },
         h('span', { class: 'format-badge' }, 'PDF'),
-        h('span', { class: 'format-text' }, h('strong', {}, 'PDF haute qualité'), h('small', {}, 'Vectoriel, sans filigrane, prêt à envoyer')),
+        h('span', { class: 'format-text' }, h('strong', {}, watermark ? 'PDF avec filigrane' : 'PDF haute qualité'), h('small', {}, watermark ? 'Vectoriel, avec le filigrane « salacv.online »' : 'Vectoriel, sans filigrane, prêt à envoyer')),
         h('span', { class: 'format-check', 'aria-hidden': 'true' }),
       ),
-      wordToggle,
-      h(
-        'div',
-        { class: `cost ${enough ? '' : 'empty'}` },
-        paid
-          ? h('span', {}, 'Cette version est déjà préparée : ', h('strong', {}, 'gratuit'))
-          : enough
-            ? h('span', {}, h('strong', {}, `${PDF_COST} crédit`), ` · il t'en restera ${credits - PDF_COST}`)
-            : h('span', {}, h('strong', {}, 'Plus de crédit cette semaine.'), ` Ils reviennent dimanche (${untilSunday(nextReset)}).`),
-        h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits'),
-      ),
+      wordCard,
+      cost,
+      h('p', { class: 'trial-note' }, 'Phase d’essai : les CV générés sont conservés (sans photo) et utilisés pour améliorer salacv.'),
     );
-    body.append(h('p', { class: 'trial-note' }, 'Phase d’essai : les CV générés sont conservés (sans photo) et utilisés pour améliorer salacv.'));
-    foot.replaceChildren(
-      h('button', { type: 'button', class: 'btn-ghost', onClick: () => dialog.close() }, 'Annuler'),
-      h('button', { type: 'button', class: 'btn-primary', disabled: !enough, 'data-autofocus': true, onClick: prepare }, 'Préparer mon PDF'),
-    );
+    foot.replaceChildren(cancel, h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => prepare(watermark) }, watermark ? 'Préparer mon PDF avec filigrane' : 'Préparer mon PDF'));
   }
 
-  // --- 2. Progression ------------------------------------------------------------
-  async function prepare() {
+  // --- 2. Génération par le serveur, avec progression -----------------------------------------------
+  async function prepare(watermark) {
     const steps = [
       ['check', 'Vérification de tes informations'],
       ['layout', 'Mise en page'],
       ['fonts', 'Intégration des polices'],
-      ['pdf', 'Génération du PDF vectoriel'],
+      ['pdf', watermark ? 'Génération du PDF (avec filigrane)' : 'Génération du PDF vectoriel'],
       ...(withWord ? [['word', 'Création du document Word']] : []),
       ['done', 'Finalisation'],
     ];
@@ -122,33 +155,21 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
     };
 
     try {
-      let layout;
+      const pending = callRender({ state, formats: withWord ? ['pdf', 'docx'] : ['pdf'] }); // le serveur travaille pendant que les étapes défilent
       await advance(async () => {
         if (!resume.profile.name) throw new Error('Ton nom manque.');
       });
-      await advance(async () => {
-        layout = layoutResume(resume, engine.fonts);
-        if (!layout.ok) throw new Error('La mise en page a échoué.');
-      });
-      const { renderPdf } = await advance(() => import('../src/render/pdf.js'));
-      await advance(async () => {
-        const bytes = await renderPdf(layout.doc, engine.fonts, { title: `CV — ${name}`, author: name });
-        files.pdf = new Blob([bytes], { type: 'application/pdf' });
-      });
-      if (withWord) {
-        await advance(async () => {
-          const { renderDocx } = await import('../src/render/docx.js');
-          files.docx = await renderDocx(layout.resume);
-        });
-      }
+      await advance(() => pause(0));
+      await advance(() => pause(0));
+      const { data } = await advance(() => pending); // l'étape « PDF » attend le serveur
+      if (!data.ok) throw new Error(data.error || 'La préparation a échoué.');
+      if (withWord) await advance(() => pause(0));
       await advance(async () => {
         // Phase d'essai : le CV (sans photo) est conservé pour améliorer salacv (annoncé plus haut).
         shareForTrial(resume);
-        const spent = await wallet.spend(PDF_COST, { reason: `CV ${name}`, key });
-        if (!spent.ok) throw new Error('Plus de crédit disponible.');
-        onSpent?.(spent.credits);
+        if (data.balance != null) onSpent?.(data.balance);
       });
-      ready();
+      ready(data);
     } catch (err) {
       rows[i]?.classList.replace('active', 'failed');
       body.append(h('p', { class: 'export-error' }, err.message || 'La préparation a échoué.', ' Aucun crédit n’a été utilisé.'));
@@ -156,22 +177,31 @@ export async function openExport({ state, engine, onSpent, missing = [], onRevie
     }
   }
 
-  // --- 3. Prêt : l'étudiant télécharge lui-même ------------------------------------
-  function ready() {
+  // --- 3. Prêt : l'étudiant télécharge lui-même ---------------------------------------------------
+  function ready(data) {
     const file = slug(name) || 'CV';
+    const wm = data.files.pdf.watermarked;
+    const pdfBlob = toBlob(data.files.pdf.base64, MIME.pdf);
+    const docxBlob = data.files.docx ? toBlob(data.files.docx.base64, MIME.docx) : null;
+    const pdfLabel = wm ? 'PDF (avec filigrane)' : 'PDF';
     body.replaceChildren(
-      h('div', { class: 'ready' }, h('span', { class: 'ready-icon', 'aria-hidden': 'true' }), h('strong', {}, 'Ton CV est prêt'), h('p', {}, desktop ? 'Choisis où l’enregistrer.' : 'Télécharge-le quand tu veux.')),
+      h('div', { class: 'ready' }, h('span', { class: 'ready-icon', 'aria-hidden': 'true' }), h('strong', {}, wm ? 'Ton CV est prêt (avec filigrane)' : 'Ton CV est prêt'), h('p', {}, desktop ? 'Choisis où l’enregistrer.' : 'Télécharge-le quand tu veux.')),
       h(
         'div',
         { class: 'ready-files' },
         desktop
-          ? fileRow(files.pdf, `CV-${file}.pdf`, 'PDF', true)
-          : h('button', { type: 'button', class: 'btn-primary btn-lg', 'data-autofocus': true, onClick: () => save(files.pdf, `CV-${file}.pdf`) }, 'Télécharger le PDF'),
-        files.docx &&
-          (desktop
-            ? fileRow(files.docx, `CV-${file}.docx`, 'Word', false)
-            : h('button', { type: 'button', class: 'btn-ghost btn-lg', onClick: () => save(files.docx, `CV-${file}.docx`) }, 'Télécharger le Word')),
+          ? fileRow(pdfBlob, `CV-${file}.pdf`, pdfLabel, true)
+          : h('button', { type: 'button', class: 'btn-primary btn-lg', 'data-autofocus': true, onClick: () => save(pdfBlob, `CV-${file}.pdf`) }, `Télécharger le PDF${wm ? ' (avec filigrane)' : ''}`),
+        docxBlob && (desktop ? fileRow(docxBlob, `CV-${file}.docx`, 'Word', false) : h('button', { type: 'button', class: 'btn-ghost btn-lg', onClick: () => save(docxBlob, `CV-${file}.docx`) }, 'Télécharger le Word')),
+        data.blocked?.docx && h('p', { class: 'hint locked-note' }, icon('lock', 14), ` ${data.blocked.docx}`),
       ),
+      wm &&
+        h(
+          'div',
+          { class: 'cost empty' },
+          h('span', {}, data.reason),
+          data.loggedIn ? h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits') : h('a', { class: 'cost-link', href: here }, 'Se connecter'),
+        ),
       feedback(),
     );
     foot.replaceChildren(h('button', { type: 'button', class: 'btn-text', onClick: () => dialog.close() }, 'Fermer'));
@@ -241,7 +271,7 @@ function fileRow(blob, filename, label, primary) {
 // Note en étoiles puis, si l'étudiant est content, l'invitation de ses amis.
 function feedback() {
   const box = h('section', { class: 'feedback' });
-  const previous = rating();
+  const previous = null; // l'avis est gardé par le serveur (un par personne, modifiable) : on repart d'un écran neuf
 
   function stars(value = 0) {
     const row = h('div', { class: 'stars', role: 'radiogroup', 'aria-label': 'Ta note' });
@@ -262,14 +292,14 @@ function feedback() {
   }
 
   function rate(n) {
-    saveRating(n);
+    sendFeedback(n);
     if (n >= 4) return invite(n);
     const text = h('textarea', { class: 'input', rows: 3, placeholder: 'Qu’est-ce qui t’a gêné ?' });
     box.replaceChildren(
       h('strong', {}, 'Merci. Qu’est-ce qu’on peut améliorer ?'),
       stars(n),
       text,
-      h('button', { type: 'button', class: 'btn-ghost', onClick: () => (saveRating(n, text.value.trim()), invite(n)) }, 'Envoyer'),
+      h('button', { type: 'button', class: 'btn-ghost', onClick: () => (sendFeedback(n, text.value.trim()), invite(n)) }, 'Envoyer'),
     );
     text.focus();
   }
@@ -289,7 +319,7 @@ function feedback() {
     box.replaceChildren(
       h('strong', {}, n >= 4 ? 'Merci ! Fais-en profiter tes amis' : 'Merci pour ton avis'),
       stars(n),
-      h('p', { class: 'hint' }, 'Chaque ami qui crée son CV avec ton lien vous rapporte des crédits bonus, à toi et à lui.'),
+      h('p', { class: 'hint' }, 'Un CV propre, en quelques minutes : partage salacv avec ta promo.'),
       h(
         'div',
         { class: 'invite-actions' },
@@ -317,3 +347,5 @@ function shareForTrial(resume) {
     keepalive: true,
   }).catch(() => {}); // hors ligne : la génération ne dépend jamais de cet envoi
 }
+
+export { callRender, toBlob, MIME, save, slug, getDesktop, fileRow, shareForTrial };

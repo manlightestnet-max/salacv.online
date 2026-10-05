@@ -13,10 +13,26 @@ export const TTL = 7 * 24 * 3600;
 const USERNAME = /^[\p{L}\p{N}._@-]{3,40}$/u;
 
 export const signingSecret = (env) => secret(env);
+
+// Clé de signature des sessions, par ordre de préférence :
+//   1. SALACV_SESSION_SECRET, si elle est définie (facultative) ;
+//   2. dérivée de SALACV_MASTER_KEY (la clé qui chiffre déjà les secrets de l'admin) : AUCUNE variable de plus à définir ;
+//   3. (développement, ancien comportement) dérivée de la première clé d'API de l'environnement.
 function secret(env) {
   if (env.SALACV_SESSION_SECRET) return Buffer.from(env.SALACV_SESSION_SECRET);
+  if (env.SALACV_MASTER_KEY) {
+    const master = Buffer.from(env.SALACV_MASTER_KEY, 'base64');
+    if (master.length === 32) return createHmac('sha256', master).update('salacv:session-signing:v1').digest();
+  }
   const keys = allKeys(env).sort();
   return keys.length ? createHash('sha256').update(`salacv-session:${keys[0]}`).digest() : null;
+}
+
+let warned = false;
+function warnNoKey() {
+  if (warned) return;
+  warned = true;
+  console.error('[config] Aucune clé de signature des sessions : définis SALACV_MASTER_KEY (32 octets en base64) dans les variables du serveur.');
 }
 
 const b64 = (buf) => Buffer.from(buf).toString('base64url');
@@ -38,6 +54,7 @@ export function checkCredentials(username, password, env = process.env) {
 
 export function issue(username, env = process.env, now = Date.now(), ttl = TTL) {
   const key = secret(env);
+  if (!key) warnNoKey();
   if (!key) return null;
   const body = b64(JSON.stringify({ u: username, exp: Math.floor(now / 1000) + Math.min(TTL, Math.floor(ttl)) }));
   return `${body}.${sign(key, body)}`;

@@ -215,3 +215,19 @@ if (readSession()) {
     a.href = '/dashboard/';
   });
 }
+
+// Statistiques réelles (avis et CV générés, calculés par le serveur) : rien n'est affiché tant qu'il n'y a rien.
+fetch('/api/stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+  .then((r) => r.json())
+  .then((s) => {
+    if (!s.ok) return;
+    const parts = [];
+    if (s.rating) parts.push(`★ ${String(s.rating.average).replace('.', ',')} · ${s.rating.count} avis`);
+    if (s.cvs > 0) parts.push(`${s.cvs.toLocaleString('fr-FR')} CV préparé${s.cvs > 1 ? 's' : ''}`);
+    const el = document.getElementById('stats');
+    if (parts.length && el) {
+      el.textContent = parts.join(' · ');
+      el.hidden = false;
+    }
+  })
+  .catch(() => {});

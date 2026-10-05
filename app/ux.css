@@ -442,3 +442,25 @@ html.has-quota.pro .ws-picker { top: 72px; }
   html.has-quota .topbar { top: calc(max(10px, env(safe-area-inset-top)) + 106px); }
 }
 body:has(.dialog-backdrop) .quota-bar { z-index: 40; }
+
+/* Export : Word verrouillé, note sous les fichiers */
+.format-card.locked { opacity: 0.75; cursor: not-allowed; border-style: dashed; }
+.format-card.locked > .ico { flex: none; color: rgb(var(--gray-700)); }
+.locked-note { display: flex; align-items: center; gap: 0.35rem; margin-top: 0.1rem; }
+
+/* Export de plusieurs CV (mode Pro) */
+.multi-dialog { width: min(100%, 560px); }
+.multi-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; max-height: 44dvh; overflow-y: auto; }
+.multi-row { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.7rem; border: 1px solid rgb(var(--gray-300)); border-radius: var(--radius-md); background: rgb(var(--raised)); }
+.multi-row.off { opacity: 0.65; }
+.multi-name { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; }
+.multi-name strong { font-size: 14px; font-weight: 600; }
+.multi-name small { flex-basis: 100%; font-size: 12.5px; color: rgb(var(--gray-600)); }
+.multi-lang { padding: 0 7px; border-radius: 6px; border: 1px solid rgb(var(--gray-400)); font: 600 11px var(--font-mono); color: rgb(var(--gray-700)); }
+.multi-opt { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 13.5px; font-weight: 500; cursor: pointer; }
+.multi-opt.locked { color: rgb(var(--gray-600)); cursor: not-allowed; }
+.multi-opt input { width: 16px; height: 16px; accent-color: rgb(var(--accent)); }
+.multi-status { font-size: 13px; color: rgb(var(--gray-700)); }
+.multi-status.bad { color: rgb(var(--flag-todo)); }
+.multi-files { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
+.multi-row.done { align-items: flex-start; }

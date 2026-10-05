@@ -1,19 +1,17 @@
-// Données locales de l'utilisateur : projets (CV enregistrés), crédits, parrainage, avis.
-// Tout est dans le navigateur pour l'instant. Le wallet est derrière une interface
-// asynchrone (balance / spend) : le jour où le wallet interne est branché, seul cet
-// objet change, les pages ne bougent pas.
+// Données de l'utilisateur : projets (CV), personnalités, crédits, avis, parrainage.
+//
+// Les CV et les personnalités ne sont PLUS gardés dans le navigateur : ils vivent sur le serveur (R2 / base), liés au
+// compte. Ici, une copie en mémoire (l'API reste synchrone pour le reste de l'application), synchronisée avec le
+// serveur pour un compte connecté. Un visiteur non connecté n'a aucune sauvegarde : son CV vit le temps de la page.
+// Seules des préférences d'interface (thème, mode Lite/Pro, taille du panneau) restent dans le navigateur.
 import { emptyState, normalizeState } from '../state.js';
 
-const PROJECTS_KEY = 'salacv:projects:v1';
+const PROJECTS_KEY = 'salacv:projects:v1'; // anciennes données locales : migrées vers le compte à la connexion, puis effacées
 const LEGACY_DRAFT_KEY = 'salacv:form:v2';
-const WALLET_KEY = 'salacv:wallet:v1';
 const REF_KEY = 'salacv:ref';
 const REFERRED_KEY = 'salacv:referred-by';
-const RATING_KEY = 'salacv:rating';
 const PERSONAS_KEY = 'salacv:personas:v1';
 
-export const WEEKLY_CREDITS = 5;
-export const PDF_COST = 1;
 
 export function read(key) {
   try {
@@ -41,24 +39,146 @@ const json = (key, fallback) => {
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 
-// --- Projets -------------------------------------------------------------------
+// --- Projets --------------------------------------------------------------------
+// Copie en mémoire + synchronisation avec le serveur (compte connecté seulement).
 
-function all() {
-  const projects = json(PROJECTS_KEY, {});
-  // Ancien brouillon unique (avant le dashboard) : devient le premier projet.
+const sessionToken = () => {
+  try {
+    return JSON.parse(localStorage.getItem('salacv:session') || 'null')?.token ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const mem = { projects: {}, personas: {} };
+let live = false; // connecté : chaque modification part au serveur
+const dirty = new Map(); // « cv:id » | « persona:id » → { kind, id }
+let timer = null;
+let retry = null;
+
+const emit = (state) => window.dispatchEvent(new CustomEvent('salacv:save', { detail: { state } }));
+export const isPersisted = () => live;
+
+async function call(body, { keepalive = false } = {}) {
+  const token = sessionToken();
+  if (!token) return { status: 401, data: { ok: false } };
+  try {
+    const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body), keepalive });
+    return { status: res.status, data: await res.json().catch(() => ({ ok: false })) };
+  } catch {
+    return { status: 0, data: { ok: false, error: 'Pas de connexion.' } };
+  }
+}
+
+const recordOf = (kind, id) => (kind === 'persona' ? mem.personas[id] : mem.projects[id]);
+
+async function push(kind, id, opts) {
+  const rec = recordOf(kind, id);
+  if (!rec) return { status: 200, data: { ok: true } };
+  return call({ action: 'save', id, kind, createdAt: rec.createdAt, data: rec }, opts);
+}
+
+function sessionExpired() {
+  // jeton refusé par le serveur : on n'est plus connecté ; on l'oublie pour que l'interface le montre
+  live = false;
+  try {
+    localStorage.removeItem('salacv:session');
+  } catch {}
+  emit('local');
+}
+
+async function flush(opts = {}) {
+  clearTimeout(timer);
+  timer = null;
+  if (!live || !dirty.size) return true;
+  emit('saving');
+  let ok = true;
+  for (const [key, { kind, id }] of [...dirty]) {
+    const { status, data } = await push(kind, id, opts);
+    if (data.ok) dirty.delete(key);
+    else if (status === 401) return sessionExpired(), false;
+    else if (status === 400 || status === 413) {
+      dirty.delete(key); // refus définitif (trop lourd, limite atteinte…) : inutile de réessayer
+      window.dispatchEvent(new CustomEvent('salacv:save-refused', { detail: { error: data.error } }));
+      ok = false;
+    } else ok = false;
+  }
+  if (ok && !dirty.size) emit('saved');
+  else if (dirty.size) {
+    emit('error');
+    clearTimeout(retry);
+    retry = setTimeout(() => flush(), 6000);
+  }
+  return ok;
+}
+
+function schedule(kind, id) {
+  if (!live) return emit('local');
+  dirty.set(`${kind}:${id}`, { kind, id });
+  emit('saving');
+  clearTimeout(timer);
+  timer = setTimeout(() => flush(), 1000);
+}
+
+// Quitter la page : on envoie ce qui reste (keepalive limité à ~64 Ko : au-delà, envoi normal).
+const flushOnLeave = () => {
+  if (!live || !dirty.size) return;
+  const small = [...dirty.values()].every(({ kind, id }) => JSON.stringify(recordOf(kind, id) ?? {}).length < 55_000);
+  flush({ keepalive: small });
+};
+window.addEventListener('pagehide', flushOnLeave);
+document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flushOnLeave());
+
+// À appeler au démarrage de chaque page (avant d'utiliser les projets).
+export async function initStore() {
+  mem.projects = {};
+  mem.personas = {};
+  dirty.clear();
+  live = Boolean(sessionToken());
+  if (!live) return { live: false };
+  const { status, data } = await call({ action: 'list' });
+  if (status === 401) return sessionExpired(), { live: false, expired: true };
+  if (!data.ok) return emit('error'), { live: true, offline: true };
+  for (const it of data.items) {
+    const rec = { ...it.data, id: it.id, createdAt: it.createdAt, updatedAt: it.updatedAt };
+    if (it.kind === 'persona') mem.personas[it.id] = rec;
+    else mem.projects[it.id] = rec;
+  }
+  await migrateLocal();
+  emit('saved');
+  return { live: true };
+}
+
+// Anciennes données gardées dans ce navigateur : envoyées au compte (une seule fois), puis effacées d'ici.
+async function migrateLocal() {
+  const local = json(PROJECTS_KEY, {});
+  const localPersonas = json(PERSONAS_KEY, {});
   const legacy = read(LEGACY_DRAFT_KEY);
   if (legacy) {
     try {
       const id = newId();
-      projects[id] = { id, state: normalizeState(JSON.parse(legacy)), createdAt: Date.now(), updatedAt: Date.now() };
-      write(PROJECTS_KEY, JSON.stringify(projects));
-    } catch {}
-    try {
-      localStorage.removeItem(LEGACY_DRAFT_KEY);
+      local[id] = { id, state: normalizeState(JSON.parse(legacy)), createdAt: Date.now(), updatedAt: Date.now() };
     } catch {}
   }
-  return projects;
+  const adds = [];
+  for (const p of Object.values(local)) if (p?.id && !mem.projects[p.id]) adds.push(['cv', (mem.projects[p.id] = p)]);
+  for (const p of Object.values(localPersonas)) if (p?.id && !mem.personas[p.id]) adds.push(['persona', (mem.personas[p.id] = p)]);
+  if (!adds.length && !Object.keys(local).length && !Object.keys(localPersonas).length) return;
+  let all = true;
+  for (const [kind, rec] of adds) {
+    const { data } = await push(kind, rec.id);
+    if (!data.ok) all = false;
+  }
+  if (all) {
+    for (const k of [PROJECTS_KEY, PERSONAS_KEY, LEGACY_DRAFT_KEY]) {
+      try {
+        localStorage.removeItem(k);
+      } catch {}
+    }
+  }
 }
+
+const all = () => mem.projects;
 
 export function listProjects() {
   return Object.values(all())
@@ -82,15 +202,14 @@ export function createProject(patch = {}) {
 }
 
 export function saveProject(project) {
-  const projects = all();
-  projects[project.id] = { ...project, updatedAt: Date.now() };
-  write(PROJECTS_KEY, JSON.stringify(projects));
+  mem.projects[project.id] = { ...project, updatedAt: Date.now() };
+  schedule('cv', project.id);
 }
 
 export function deleteProject(id) {
-  const projects = all();
-  delete projects[id];
-  write(PROJECTS_KEY, JSON.stringify(projects));
+  delete mem.projects[id];
+  dirty.delete(`cv:${id}`);
+  if (live) call({ action: 'delete', id });
 }
 
 export function duplicateProject(id) {
@@ -124,25 +243,24 @@ export const setPro = (on) => setPlan(on ? 'pro' : 'lite');
 // seulement la profession et le profil (technicien ici, médecin là).
 
 export function listPersonas() {
-  return Object.values(json(PERSONAS_KEY, {})).sort((a, b) => b.updatedAt - a.updatedAt);
+  return Object.values(mem.personas).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export function getPersona(id) {
-  return json(PERSONAS_KEY, {})[id] ?? null;
+  return mem.personas[id] ?? null;
 }
 
 export function savePersona({ id, name, state }) {
-  const all = json(PERSONAS_KEY, {});
-  const persona = { id: id ?? newId(), name: name?.trim() || state.profile.name.trim() || 'Ma personnalité', state: normalizeState(structuredClone(state)), createdAt: all[id]?.createdAt ?? Date.now(), updatedAt: Date.now() };
-  all[persona.id] = persona;
-  write(PERSONAS_KEY, JSON.stringify(all));
+  const persona = { id: id ?? newId(), name: name?.trim() || state.profile.name.trim() || 'Ma personnalité', state: normalizeState(structuredClone(state)), createdAt: mem.personas[id]?.createdAt ?? Date.now(), updatedAt: Date.now() };
+  mem.personas[persona.id] = persona;
+  schedule('persona', persona.id);
   return persona;
 }
 
 export function deletePersona(id) {
-  const all = json(PERSONAS_KEY, {});
-  delete all[id];
-  write(PERSONAS_KEY, JSON.stringify(all));
+  delete mem.personas[id];
+  dirty.delete(`persona:${id}`);
+  if (live) call({ action: 'delete', id });
 }
 
 // Nouveau CV depuis une personnalité : tout est repris, sauf la profession et le profil.
@@ -154,62 +272,24 @@ export function fromPersona(persona) {
 }
 
 // --- Crédits -------------------------------------------------------------------
-// Les crédits repartent à WEEKLY_CREDITS chaque dimanche à 00:00 (heure locale).
-
-export function lastSunday(now = new Date()) {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay());
-  return d;
-}
-
-export function nextReset(now = new Date()) {
-  const d = lastSunday(now);
-  d.setDate(d.getDate() + 7);
-  return d;
-}
-
-function walletState() {
-  const w = json(WALLET_KEY, null);
-  const sunday = lastSunday().getTime();
-  if (!w || w.resetAt < sunday) {
-    const fresh = { credits: WEEKLY_CREDITS, resetAt: sunday, history: w?.history ?? [], paid: w?.paid ?? {} };
-    write(WALLET_KEY, JSON.stringify(fresh));
-    return fresh;
-  }
-  return w;
-}
+// Les crédits vivent sur le serveur (base de données), liés au compte : rien n'est gardé dans le navigateur,
+// donc rien à modifier à la main. Visiteur non connecté : zéro crédit.
 
 export const wallet = {
+  // → { credits, history: [{ at, amount, reason }], loggedIn }
   async balance() {
-    const w = walletState();
-    return { credits: w.credits, weekly: WEEKLY_CREDITS, nextReset: nextReset(), history: w.history.slice(-20).reverse() };
-  },
-  // Déjà payé : le même contenu se re-télécharge sans débiter (clé = empreinte du CV).
-  async isPaid(key) {
-    return Boolean(walletState().paid[key]);
-  },
-  async spend(amount, { reason, key }) {
-    const w = walletState();
-    if (key && w.paid[key]) return { ok: true, credits: w.credits, free: true };
-    if (w.credits < amount) return { ok: false, credits: w.credits };
-    w.credits -= amount;
-    w.history.push({ at: Date.now(), amount: -amount, reason });
-    if (key) w.paid[key] = Date.now();
-    // Les empreintes anciennes ne servent plus : on n'en garde que 50.
-    const keys = Object.keys(w.paid);
-    if (keys.length > 50) for (const k of keys.sort((a, b) => w.paid[a] - w.paid[b]).slice(0, keys.length - 50)) delete w.paid[k];
-    write(WALLET_KEY, JSON.stringify(w));
-    return { ok: true, credits: w.credits };
+    const token = sessionToken();
+    if (!token) return { credits: 0, history: [], loggedIn: false };
+    try {
+      const res = await fetch('/api/credits', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}' });
+      const data = await res.json();
+      if (!data.ok) return { credits: 0, history: [], loggedIn: false };
+      return { credits: data.balance, loggedIn: data.loggedIn, history: data.history.map((h) => ({ at: h.at, amount: h.delta, reason: h.reason })) };
+    } catch {
+      return { credits: 0, history: [], loggedIn: Boolean(token), offline: true };
+    }
   },
 };
-
-// Empreinte d'un texte (FNV-1a) : identifie une version de CV déjà payée.
-export function fingerprint(text) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
-  return (h >>> 0).toString(36);
-}
 
 // --- Parrainage et avis --------------------------------------------------------
 
@@ -232,12 +312,15 @@ export function captureReferral() {
   if (ref && /^[A-Z0-9]{4,12}$/.test(ref) && ref !== read(REF_KEY) && !read(REFERRED_KEY)) write(REFERRED_KEY, ref);
 }
 
-export function rating() {
-  return json(RATING_KEY, null);
-}
-
-export function saveRating(stars, comment = '') {
-  write(RATING_KEY, JSON.stringify({ stars, comment, at: Date.now() }));
+// Avis (note + mot) : envoyé au serveur, qui l'enregistre pour tout le monde (connecté ou non) et l'ajoute aux statistiques.
+export async function sendFeedback(stars, comment = '') {
+  const token = sessionToken();
+  try {
+    const res = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ stars, comment }) });
+    return await res.json();
+  } catch {
+    return { ok: false, error: 'Pas de connexion. Ton avis n’a pas pu être envoyé.' };
+  }
 }
 
 export function relativeDate(ts) {

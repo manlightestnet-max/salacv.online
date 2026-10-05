@@ -5,9 +5,10 @@
 import { syncBrowserBar, toggleTheme } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { createProject, getPlan, getProject, isPro, setPlan, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
+import { createProject, getPlan, initStore, isPersisted, getProject, isPro, setPlan, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
 import { openDialog } from './dialog.js';
 import { openExport } from './export.js';
+import { openMultiExport } from './export-multi.js';
 import { initQuickEdit } from './quickedit.js';
 import { createLangBar } from './langs.js';
 import { langName } from '../src/i18n/index.js';
@@ -73,6 +74,8 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
+// Les CV du compte (R2 / base) sont chargés avant tout : plus rien n'est lu dans le navigateur.
+await initStore();
 const project = openProject();
 project.variants ??= {};
 let state = project.state;
@@ -1077,16 +1080,29 @@ function saveCurrent() {
 
 // Sauvegarde automatique (à chaque modification) : on la montre, discrètement.
 let savedTimer;
-function flashSaved() {
+// L'indicateur d'enregistrement suit ce que fait VRAIMENT la synchronisation (lib/store.js).
+function flashSaved() {}
+const SAVE_TEXT = {
+  saving: [' · Enregistrement…', false],
+  saved: [' · Enregistré ✓', true],
+  error: [' · Échec de l’enregistrement, nouvel essai…', false],
+  local: [' · Non sauvegardé : connecte-toi', false],
+};
+window.addEventListener('salacv:save', (e) => {
+  const [text, done] = SAVE_TEXT[e.detail.state] ?? SAVE_TEXT.saved;
   const el = $('saved');
-  el.textContent = ' · Enregistrement…';
-  el.classList.remove('done');
-  clearTimeout(savedTimer);
-  savedTimer = setTimeout(() => {
-    el.textContent = ' · Enregistré ✓';
-    el.classList.add('done');
-  }, 450);
-}
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle('done', done);
+});
+window.addEventListener('salacv:save-refused', (e) => toast(e.detail?.error || 'Ce CV n’a pas pu être enregistré.'));
+// Visiteur non connecté : rien n'est sauvegardé, on prévient avant de quitter une page qui contient un CV.
+window.addEventListener('beforeunload', (e) => {
+  if (!isPersisted() && state?.profile?.name?.trim()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // Titre du CV en haut à gauche : un clic pour le renommer.
 function renderTitle() {
@@ -1582,8 +1598,27 @@ function openProject() {
 // Jamais de téléchargement direct : la préparation (progression, crédit) puis le fichier.
 // Disponible à tout moment : la vérification conseille, elle ne bloque pas. Seul le nom
 // est indispensable (le CV n'existe pas sans).
+// Mode Pro : tous les CV du projet (et leurs langues) à exporter ensemble. Le CV en cours d'édition vient de l'état vivant.
+function exportItems() {
+  saveCurrent();
+  const items = [];
+  for (const d of [project, ...project.docs]) {
+    const id = d === project ? 'main' : d.id;
+    const versions = [[d.state.lang, d.state], ...Object.entries(d.variants ?? {}).filter(([l]) => l !== d.state.lang)];
+    for (const [lang, st] of versions) {
+      const live = id === activeDoc && lang === activeLang;
+      items.push({ key: `${id}:${lang}`, label: docLabel(d), lang, state: normalizeState(live ? state : st) });
+    }
+  }
+  return items;
+}
+
 function download() {
-  if (!engine) return;
+  // Pro avec plusieurs CV : une fenêtre pour choisir, CV par CV, les formats à préparer.
+  if (workspace?.on) {
+    const items = exportItems();
+    if (items.length > 1) return openMultiExport({ items });
+  }
   if (!state.profile.name.trim()) {
     toast('Écris d’abord ton nom : il est obligatoire sur le CV.');
     ctx.goToStep('identite');
@@ -1591,7 +1626,7 @@ function download() {
     return;
   }
   const missing = checklist(state, current?.doc).filter((c) => c.level !== 'ok');
-  openExport({ state, engine, missing, onReview: () => (goTo(STEPS.length - 1), setSheet('expanded')) });
+  openExport({ state, missing, onReview: () => (goTo(STEPS.length - 1), setSheet('expanded')) });
 }
 
 // PC : la molette fait défiler les bandes horizontales (étapes, modèles) ; on peut aussi les glisser.

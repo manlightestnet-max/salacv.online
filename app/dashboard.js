@@ -6,7 +6,7 @@ import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
+import { initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
 import { openDialog } from './dialog.js';
 import { TEMPLATES, toResume } from './state.js';
 
@@ -23,6 +23,7 @@ async function gate() {
   return false;
 }
 if (!(await gate())) await new Promise(() => {}); // la page change : on n'affiche rien
+await initStore(); // les CV et personnalités du compte, depuis le serveur
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');
@@ -207,9 +208,7 @@ function explorerView() {
 
 // --- Crédits ----------------------------------------------------------------------
 async function creditsView() {
-  const { credits, weekly, nextReset, history } = await wallet.balance();
-  const days = Math.max(0, Math.ceil((nextReset - Date.now()) / 86400000));
-  const ratio = Math.min(1, credits / weekly);
+  const { credits, history, offline } = await wallet.balance();
   const link = inviteLink();
   const copy = h('button', { type: 'button', class: 'btn-ghost' }, 'Copier mon lien');
   copy.addEventListener('click', async () => {
@@ -224,31 +223,28 @@ async function creditsView() {
   return h(
     'section',
     {},
-    header('Crédits', 'Un crédit prépare un CV en PDF (et Word). Re-télécharger la même version est gratuit.'),
+    header('Crédits', 'Un crédit prépare un CV en PDF sans filigrane (et Word). Re-télécharger la même version est gratuit.'),
+    offline && h('p', { class: 'empty' }, 'Impossible de joindre le serveur : le solde affiché peut être inexact.'),
     h(
       'div',
       { class: 'credit-grid' },
       h(
         'div',
         { class: 'panel balance' },
-        h(
-          'div',
-          { class: 'ring', style: `--r:${ratio}` },
-          h('div', { class: 'ring-in' }, h('strong', {}, String(credits)), h('small', {}, `sur ${weekly}`)),
-        ),
+        h('div', { class: 'ring', style: `--r:${credits > 0 ? 1 : 0}` }, h('div', { class: 'ring-in' }, h('strong', {}, String(credits)), h('small', {}, credits > 1 ? 'crédits' : 'crédit'))),
         h(
           'div',
           { class: 'balance-text' },
-          h('strong', {}, credits ? `${credits} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit cette semaine'),
-          h('p', {}, `Recharge à ${weekly} crédits dimanche${days ? ` · dans ${days} jour${days > 1 ? 's' : ''}` : ''}.`),
-          h('p', { class: 'mono' }, nextReset.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })),
+          h('strong', {}, credits ? `${credits} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit'),
+          h('p', {}, credits ? 'Chaque nouvelle version de ton CV en utilise un.' : 'Sans crédit, ton PDF sort avec filigrane et le Word est bloqué.'),
+          h('p', { class: 'mono' }, 'L’achat de crédits arrive bientôt.'),
         ),
       ),
       h(
         'div',
         { class: 'panel invite' },
-        h('strong', {}, 'Invite tes amis'),
-        h('p', {}, 'Chaque ami qui crée son CV avec ton lien vous rapporte des crédits bonus, à toi et à lui.'),
+        h('strong', {}, 'Parle de salacv à tes amis'),
+        h('p', {}, 'Un CV propre, en quelques minutes.'),
         h('code', { class: 'link' }, link.replace(/^https?:\/\//, '')),
         h('div', { class: 'row' }, h('a', { class: 'btn-primary', href: `https://wa.me/?text=${encodeURIComponent(message)}`, target: '_blank', rel: 'noopener' }, 'WhatsApp'), copy),
       ),
@@ -258,7 +254,7 @@ async function creditsView() {
         h('strong', {}, 'Historique'),
         history.length
           ? h('ul', {}, history.map((x) => h('li', {}, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${x.amount}`))))
-          : h('p', { class: 'empty' }, 'Aucune dépense pour l’instant.'),
+          : h('p', { class: 'empty' }, 'Aucune opération pour l’instant.'),
       ),
     ),
   );

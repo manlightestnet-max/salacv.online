@@ -69,6 +69,64 @@ export const STATEMENTS = [
     last_at timestamptz NOT NULL DEFAULT now()
   )`,
 
+  // Crédits : solde par compte + registre de toutes les opérations (cadeau, achat, génération). Le solde ne
+  // se modifie que par des instructions atomiques : jamais « lire puis réécrire ».
+  `CREATE TABLE IF NOT EXISTS credits (
+    username text PRIMARY KEY,
+    balance integer NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS credit_ledger (
+    id bigserial PRIMARY KEY,
+    username text NOT NULL,
+    delta integer NOT NULL,
+    balance_after integer NOT NULL,
+    reason text NOT NULL,
+    ref text UNIQUE,
+    at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS credit_ledger_user_idx ON credit_ledger (username, id DESC)`,
+
+  // Versions de CV déjà générées proprement par un compte (empreinte) : les retélécharger ne coûte rien.
+  `CREATE TABLE IF NOT EXISTS renders (
+    username text NOT NULL,
+    fingerprint text NOT NULL,
+    at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (username, fingerprint)
+  )`,
+  // Compteur public des CV générés (statistiques de la landing) : une ligne par génération, sans donnée personnelle.
+  `CREATE TABLE IF NOT EXISTS render_log (
+    id bigserial PRIMARY KEY,
+    clean boolean NOT NULL,
+    at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  // Avis (note + mot) de n'importe quel utilisateur ; un seul par personne (compte, sinon session), modifiable.
+  `CREATE TABLE IF NOT EXISTS feedback (
+    id bigserial PRIMARY KEY,
+    subject text NOT NULL UNIQUE,
+    stars smallint NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    comment text NOT NULL DEFAULT '',
+    ip_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS feedback_ip_idx ON feedback (ip_hash, updated_at DESC)`,
+
+  // CV (et « personnalités ») des comptes connectés. Le contenu va sur R2 quand il est configuré (r2_key), sinon
+  // dans la base (data) : l'application marche dans les deux cas.
+  `CREATE TABLE IF NOT EXISTS projects (
+    username text NOT NULL,
+    id text NOT NULL,
+    kind text NOT NULL DEFAULT 'cv',
+    data jsonb,
+    r2_key text,
+    bytes integer NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (username, id)
+  )`,
+
   // Journal d'usage de l'IA : sert plus tard aux quotas (rien n'est encore plafonné).
   `CREATE TABLE IF NOT EXISTS ai_usage (
     id bigserial PRIMARY KEY,

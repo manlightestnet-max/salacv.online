@@ -16,6 +16,9 @@ import { SecretsError } from './crypto.js';
 import { verifyFirebaseIdToken } from './accounts/firebase.js';
 import { RateLimiter } from './ratelimit.js';
 import { listSettings, setSetting, DEFINITIONS } from './settings.js';
+import { r2Configured } from './r2.js';
+import { db } from './db/index.js';
+import { getSetting } from './settings.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -125,6 +128,25 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     }
     case 'journal':
       return [200, { ok: true, journal: await s.range('journal', MAX_JOURNAL) }];
+    // Ce qui est prêt et ce qui manque : tout se règle dans cette interface, sauf les secrets de démarrage.
+    case 'setup': {
+      const keys = await pool.listKeys();
+      const usable = keys.filter((k) => !k.disabled);
+      return [
+        200,
+        {
+          ok: true,
+          checks: [
+            { id: 'db', label: 'Base de données', ok: true, detail: (await db()).kind === 'neon' ? 'Neon connectée' : 'Base locale (développement) : définis DATABASE_URL pour Neon', env: 'DATABASE_URL' },
+            { id: 'master', label: 'Clé maître (chiffre les secrets, signe les sessions)', ok: Boolean(env.SALACV_MASTER_KEY), detail: env.SALACV_MASTER_KEY ? 'Définie' : 'Absente : variable SALACV_MASTER_KEY (32 octets, base64)', env: 'SALACV_MASTER_KEY' },
+            { id: 'admin', label: 'Administrateur', ok: Boolean(String(env.SALACV_ADMIN_UID ?? '').trim()), detail: 'UID Firebase du compte admin', env: 'SALACV_ADMIN_UID' },
+            { id: 'firebase', label: 'Connexion Google (clé Firebase)', ok: Boolean(await getSetting('firebase.apiKey', env)), detail: 'À renseigner dans « Clés IA » → Connexion Google', env: null },
+            { id: 'ai', label: 'Clés IA', ok: usable.length > 0, detail: `${usable.length} utilisable${usable.length > 1 ? 's' : ''}, dont ${usable.filter((k) => k.public).length} publique${usable.filter((k) => k.public).length > 1 ? 's' : ''} (visiteurs)`, env: null },
+            { id: 'r2', label: 'Stockage R2 (CV et PDF des clients)', ok: await r2Configured(env), detail: 'Sinon les CV sont gardés dans la base', env: null, optional: true },
+          ],
+        },
+      ];
+    }
     case 'users':
       return [200, { ok: true, users: await listUsers() }];
     case 'block':
@@ -144,7 +166,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
 
     // --- Clés des fournisseurs IA : pool partagé, attribution à un utilisateur, réglages -------
     case 'keys':
-      return [200, { ok: true, keys: await pool.listKeys(), providers: pool.providers(), settings: await listSettings(env), users: (await listUsers()).map((u) => u.username) }];
+      return [200, { ok: true, r2: await r2Configured(env), keys: await pool.listKeys(), providers: pool.providers(), settings: await listSettings(env), users: (await listUsers()).map((u) => u.username) }];
     case 'addKey': {
       const owner = payload.owner ? String(payload.owner) : null;
       if (owner && !(await getUser(owner))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
@@ -176,7 +198,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     case 'setSetting': {
       const key = String(payload.key ?? '');
       if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
-      if (key.startsWith('quota.') && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
+      if ((key.startsWith('quota.') || key.startsWith('grant.')) && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
       await setSetting(key, payload.value, env);
       await log('Réglage modifié', DEFINITIONS[key].secret ? `${key} (secret)` : `${key} = ${String(payload.value).slice(0, 80)}`);
       return [200, { ok: true, settings: await listSettings(env) }];

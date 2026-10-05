@@ -3,6 +3,9 @@
 import * as web from './agent/web.js';
 import { admin, templateSettings } from './admin.js';
 import { clientIp, context } from './identity.js';
+import { MAX_RENDER_BODY, creditsRoute, render } from './render.js';
+import { feedback, statsRoute } from './feedback.js';
+import { MAX_PROJECTS_BODY, projectsRoute } from './projects.js';
 import { configRoute } from './keys/routes.js';
 
 function send(res, status, body, headers = {}) {
@@ -50,6 +53,17 @@ export const ROUTES = {
     const ctx = context(req);
     return withCookie(web.translate(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
   },
+  render: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(render(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+  },
+  credits: (payload, req) => creditsRoute(web.bearer(req.headers.authorization)),
+  feedback: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(feedback(payload, web.bearer(req.headers.authorization), { ctx }), ctx);
+  },
+  stats: () => statsRoute(),
+  projects: (payload, req) => projectsRoute(payload, web.bearer(req.headers.authorization)),
   usage: (payload, req) => {
     const ctx = context(req);
     return withCookie(web.usage(web.bearer(req.headers.authorization), { ctx }), ctx);
@@ -62,7 +76,7 @@ export const ROUTES = {
 };
 
 // Taille maximale du corps par route (les ressources de l'admin sont plus lourdes).
-const MAX_BODY = { admin: 2 * 1024 * 1024 };
+const MAX_BODY = { admin: 2 * 1024 * 1024, render: MAX_RENDER_BODY, projects: MAX_PROJECTS_BODY };
 const limit = (name) => MAX_BODY[name] ?? web.MAX_BODY;
 
 export async function serve(name, req, res) {

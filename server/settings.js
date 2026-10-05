@@ -5,6 +5,13 @@ import { last4, open, seal } from './crypto.js';
 
 // Réglages connus : valeur par défaut, secret ou non, public (lisible par le site sans connexion) ou non.
 export const DEFINITIONS = {
+  // Stockage Cloudflare R2 (CV des comptes, PDF des clients). Les deux clés d'accès sont chiffrées et ne ressortent jamais.
+  'r2.accountId': { default: '', secret: false, public: false, label: 'R2 : identifiant de compte Cloudflare' },
+  'r2.accessKeyId': { default: '', secret: true, public: false, label: 'R2 : clé d’accès (Access Key ID)' },
+  'r2.secretAccessKey': { default: '', secret: true, public: false, label: 'R2 : clé secrète (Secret Access Key)' },
+  'r2.bucket': { default: '', secret: false, public: false, label: 'R2 : nom du bucket' },
+  // Cadeau d'inscription : crédits offerts une seule fois, à la première connexion (0 = aucun).
+  'grant.signupCredits': { default: '3', secret: false, public: false, label: 'Cadeau d’inscription (crédits)' },
   // Quota d'IA du visiteur non connecté (tokens, une seule fois) : par session et par adresse IP.
   'quota.anonTokens': { default: '250000', secret: false, public: false, label: 'Visiteur : tokens IA par session' },
   'quota.ipTokens': { default: '250000', secret: false, public: false, label: 'Visiteur : tokens IA par adresse IP' },
