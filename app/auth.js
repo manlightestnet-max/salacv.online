@@ -44,8 +44,10 @@ let config = { apiKey: '' };
 
 const button = $('auth-google');
 const error = $('auth-error');
+let leaving = false; // une redirection est en cours (session trouvée ou connexion Google lancée)
 // lock : erreur bloquante (lien invalide, configuration absente) → le bouton reste désactivé.
 const fail = (message, lock = false) => {
+  leaving = false;
   error.textContent = message;
   error.hidden = false;
   button.disabled = lock;
@@ -58,6 +60,27 @@ if (desktop) {
     fail('Lien invalide. Relance la connexion depuis l’app salacv.', true);
   }
 }
+// Déjà connecté (dans cet onglet ou un autre) → on repart directement, sans redemander Google.
+// Vérifié au chargement et chaque fois que l'onglet redevient visible. Pas pour le desktop : la session vit dans l'app.
+async function alreadySignedIn() {
+  if (desktop || leaving) return;
+  try {
+    const res = await fetch(adminMode ? '/api/admin' : '/api/me', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(adminMode ? { action: 'session' } : {}),
+    });
+    const d = await res.json();
+    if (!(adminMode ? d.ok : d.ok && d.loggedIn) || leaving) return;
+    leaving = true;
+    $('auth-title').textContent = 'Déjà connecté';
+    location.replace(adminMode ? '/admin/' : next);
+  } catch {}
+}
+alreadySignedIn();
+window.addEventListener('focus', alreadySignedIn);
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && alreadySignedIn());
+
 button.disabled = true;
 loadConfig().then((c) => {
   config = c;
@@ -78,6 +101,7 @@ button.addEventListener('click', async () => {
   if (!navigator.onLine) return fail('Pas de connexion Internet. La connexion Google en a besoin.');
   button.disabled = true;
   try {
+    leaving = true; // la connexion en cours redirigera elle-même
     const auth = getAuth(initializeApp(config));
     const result = await signInWithPopup(auth, new GoogleAuthProvider());
     const idToken = await result.user.getIdToken();

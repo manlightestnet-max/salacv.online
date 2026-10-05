@@ -9,7 +9,7 @@ import { checkCredentials, issue, verify } from './auth.js';
 import { settings } from './config.js';
 import { handle } from './run.js';
 import { translate as translateCv } from './translate.js';
-import { collect } from '../admin.js';
+import { adminTokenFor, collect } from '../admin.js';
 import { RateLimiter } from '../ratelimit.js';
 import { getUser, recordLogin } from '../db/users.js';
 import { keySourceFor, logUsage } from '../keys/pool.js';
@@ -44,7 +44,8 @@ export async function googleLogin(payload, client, env = process.env, { verifyTo
   const token = issue(identity.email, env);
   if (!token) return [503, { ok: false, error: 'Connexion indisponible : le serveur n’est pas encore configuré (clé maître manquante). Préviens l’administrateur.' }];
   if ((await recordLogin(identity.email, { name: identity.name }).catch(() => ({}))).blocked) return [403, { ok: false, error: 'Ce compte est suspendu. Contacte salacv.' }];
-  return [200, { ok: true, token, username: identity.email, name: identity.name, picture: identity.picture, kind: 'google' }];
+  const adminToken = await adminTokenFor(identity, env).catch(() => null); // retiré de la réponse par server/http.js
+  return [200, { ok: true, token, username: identity.email, name: identity.name, picture: identity.picture, kind: 'google', ...(adminToken ? { adminToken } : {}) }];
 }
 
 // Clé KEYGEN en ligne (PC uniquement) : la session ne dépasse jamais la fin de vie de la clé.

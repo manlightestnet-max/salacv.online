@@ -1,7 +1,7 @@
 // Adaptateur HTTP commun : le même code sert les fonctions Vercel (api/*.js) et le serveur
 // Node du VPS (server/index.js). Vercel = VPS : aucune différence de comportement.
 import * as web from './agent/web.js';
-import { admin, templateSettings } from './admin.js';
+import { ADMIN_SECONDS, admin, templateSettings } from './admin.js';
 import { ADMIN_COOKIE, SESSION_COOKIE, clearCookieString, clientIp, context, cookieString, readCookie } from './identity.js';
 import { MAX_RENDER_BODY, creditsRoute, render } from './render.js';
 import { feedback, statsRoute } from './feedback.js';
@@ -61,7 +61,15 @@ export const ROUTES = {
     process.env.SALACV_ALLOW_PASSWORD_LOGIN === '1'
       ? withSession(web.login(payload, clientIp(req)), req, context(req))
       : [410, { ok: false, error: 'La connexion par mot de passe n’existe plus : utilise Google ou une clé.' }],
-  google: (payload, req) => withSession(web.googleLogin(payload, clientIp(req)), req, context(req)),
+  google: async (payload, req) => {
+    // Compte administrateur : la même connexion ouvre aussi la session admin (cookie à part, 8 h). Jamais pour l'app desktop.
+    const [status, body] = await web.googleLogin(payload, clientIp(req));
+    const { adminToken, ...rest } = body ?? {};
+    const ctx = context(req);
+    const [s, out, headers = {}] = await withSession(Promise.resolve([status, rest]), req, ctx);
+    if (!adminToken || ctx.client === 'desktop' || !out?.ok) return [s, out, headers];
+    return [s, out, { 'Set-Cookie': [headers['Set-Cookie'], cookieString(ADMIN_COOKIE, adminToken, ADMIN_SECONDS, req)].filter(Boolean) }];
+  },
   key: (payload, req) => withSession(web.keyLogin(payload, clientIp(req)), req, context(req)),
   me: (payload, req) => web.me(tokenOf(req)),
   logout: (payload, req) => [200, { ok: true }, { 'Set-Cookie': [clearCookieString(SESSION_COOKIE, req), clearCookieString(ADMIN_COOKIE, req)] }],

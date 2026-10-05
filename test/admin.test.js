@@ -85,3 +85,12 @@ test('DSL des modèles : téléversé, validé, lu par le studio, supprimé', as
   const [, del] = await admin({ action: 'deleteTemplateSpec', id: 'kin-bleu' }, token, ENV);
   assert.equal(del.specs.length, 0);
 });
+
+test('admin : la connexion Google d’un administrateur ouvre aussi la session admin, pas celle d’un autre compte', async () => {
+  const [, body] = await web.googleLogin({ idToken: 'x' }, 'ip-admin-google', ENV, asUid('uid-admin-1'));
+  assert.ok(body.ok && body.adminToken);
+  assert.deepEqual(await admin({ action: 'session' }, body.adminToken, ENV), [200, { ok: true }]);
+  assert.equal((await admin({ action: 'session' }, body.token, ENV))[0], 401); // la session utilisateur ne suffit pas
+  const [, other] = await web.googleLogin({ idToken: 'x' }, 'ip-other-google', ENV, asUid('un-autre-compte'));
+  assert.ok(other.ok && !other.adminToken);
+});

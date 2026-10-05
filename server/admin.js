@@ -83,6 +83,16 @@ const isAdminUid = (uid, env) =>
     .filter(Boolean)
     .reduce((found, allowed) => same(uid, allowed) || found, false);
 
+// Connexion Google ordinaire (/api/google) d'un compte administrateur : même preuve que « login » (jeton Google
+// vérifié, UID autorisé), donc la session admin s'ouvre en même temps. null si ce n'est pas un administrateur.
+export async function adminTokenFor(identity, env = process.env) {
+  if (!identity?.uid || !String(env.SALACV_ADMIN_UID ?? '').trim() || !isAdminUid(identity.uid, env)) return null;
+  const t = issue(ADMIN, env, Date.now(), ADMIN_TTL);
+  if (t) await log('Connexion admin', identity.email);
+  return t;
+}
+export const ADMIN_SECONDS = ADMIN_TTL;
+
 async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdToken } = {}) {
   const action = String(payload?.action ?? '');
   if (action === 'login') {
@@ -99,6 +109,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     return t ? [200, { ok: true, token: t, email: identity.email }] : [503, { ok: false, error: 'Serveur non configuré : la variable SALACV_MASTER_KEY est absente ou invalide (32 octets en base64). Ouvre /api/status pour voir ce qui manque.' }];
   }
   if (!String(env.SALACV_ADMIN_UID ?? '').trim() || verify(token, env) !== ADMIN) return [401, { ok: false, error: 'Connexion admin requise.' }];
+  if (action === 'session') return [200, { ok: true }]; // la page /auth/?admin=1 vérifie qu'une session admin est déjà ouverte
 
   const s = store(env);
   switch (action) {
