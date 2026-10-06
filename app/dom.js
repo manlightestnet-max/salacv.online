@@ -19,6 +19,7 @@ let uid = 0;
 // Icônes au trait (24×24, couleur du texte). Une seule source pour toute l'interface.
 const ICONS = {
   chevrons: '<path d="M6 6l6 6-6 6M12 6l6 6-6 6"/>',
+  chevronUp: '<path d="M6 15l6-6 6 6"/>',
   refresh: '<path d="M20 11a8 8 0 10-2.2 5.8"/><path d="M20 4v7h-7"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   alert: '<path d="M12 6.5v7"/><path d="M12 17.6v.1"/>',

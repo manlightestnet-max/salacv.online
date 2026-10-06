@@ -133,3 +133,22 @@ test('PDF d’un client : un PDF propre est gardé sur R2, un PDF avec filigrane
     globalThis.fetch = real;
   }
 });
+
+test('partage : un CV est privé ; rendu public, n’importe qui le lit (sans le compte du propriétaire) ; de nouveau privé, plus personne', async () => {
+  await configureR2();
+  const r2 = fakeR2();
+  const o = { env: ENV, fetchImpl: r2.fetchImpl, ip: '10.0.0.9' };
+  const owner = token('pub@example.com');
+  assert.equal((await projectsRoute({ action: 'save', id: 'pubcv01', kind: 'cv', data: cv('pubcv01') }, owner, o))[0], 200);
+  assert.equal((await projectsRoute({ action: 'public', id: 'pubcv01' }, '', o))[0], 404, 'privé par défaut');
+  assert.equal((await projectsRoute({ action: 'share', id: 'pubcv01', public: true }, token('autre@example.com'), o))[0], 404, 'seul le propriétaire partage');
+  assert.equal((await projectsRoute({ action: 'share', id: 'pubcv01', public: true }, owner, o))[0], 200);
+  const [status, body] = await projectsRoute({ action: 'public', id: 'pubcv01' }, '', o);
+  assert.equal(status, 200);
+  assert.deepEqual(Object.keys(body.cv).sort(), ['docs', 'name', 'state', 'variants']);
+  assert.ok(!JSON.stringify(body).includes('pub@example.com'), 'le compte du propriétaire ne sort jamais');
+  const [, list] = await projectsRoute({ action: 'list' }, owner, o);
+  assert.equal(list.items.find((it) => it.id === 'pubcv01').public, true);
+  assert.equal((await projectsRoute({ action: 'share', id: 'pubcv01', public: false }, owner, o))[0], 200);
+  assert.equal((await projectsRoute({ action: 'public', id: 'pubcv01' }, '', o))[0], 404);
+});

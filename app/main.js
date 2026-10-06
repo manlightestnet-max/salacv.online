@@ -5,7 +5,8 @@
 import { syncBrowserBar, toggleTheme } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { createProject, getPlan, initStore, isPersisted, getProject, isPro, setPlan, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
+import { createProject, fetchShared, getPlan, initStore, isPersisted, isShared, getProject, isPro, setPlan, setShared, shareLink, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
+import { offerSandboxSync } from './sync.js';
 import { openDialog } from './dialog.js';
 import { openExport } from './export.js';
 import { openMultiExport } from './export-multi.js';
@@ -20,7 +21,7 @@ import { STEPS, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
 import { initQuotaBar } from './quotabar.js';
-import { initSession } from './session.js';
+import { getSession, initSession } from './session.js';
 import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
@@ -76,9 +77,10 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
-// Les CV du compte (R2 / base) sont chargés avant tout : plus rien n'est lu dans le navigateur.
+// Les CV du compte (R2 / base) — ou, pour un visiteur, son bac à sable — sont chargés avant tout.
 await initStore();
-const project = openProject();
+const synced = await offerSandboxSync(); // connecté avec des CV faits sans compte sur cet appareil : les ajouter ?
+const project = await openProject(synced.ids);
 project.variants ??= {};
 let state = project.state;
 let activeLang = state.lang; // onglet de langue affiché (voir langs.js)
@@ -118,6 +120,42 @@ const ctx = {
 // Le formulaire est utilisable tout de suite ; l'aperçu arrive quand le moteur est chargé.
 setSidebarWidth(Number(read(SIDEBAR_KEY)) || SIDEBAR.default);
 setSheet('collapsed');
+
+// --- Mobile : le haut de l'écran ------------------------------------------------------------
+// Tout ce qui vit en haut s'empile au centre, sans se chevaucher ni couvrir le CV : l'invitation à se connecter,
+// puis la barre d'outils (zoom, rendu final, langues), puis les messages. --top-h (bas de la pile) sert à l'aperçu
+// (le CV commence dessous) et à la feuille dépliée (elle se colle dessous). PC : chaque élément garde sa place.
+const topStack = h('div', { class: 'top-stack' });
+function placeTopStack() {
+  const parts = [document.querySelector('.quota-bar'), document.querySelector('.zoombar'), document.querySelector('.topbar')].filter(Boolean);
+  if (desktop.matches) {
+    document.body.append(...parts);
+    topStack.remove();
+  } else {
+    topStack.append(...parts);
+    if (!topStack.isConnected) document.body.append(topStack);
+  }
+}
+// --quota-b : bas de l'invitation à se connecter (la feuille dépliée s'arrête dessous ; sans elle, tout l'écran).
+const measureTop = () => {
+  root.style.setProperty('--top-h', `${Math.ceil(topStack.getBoundingClientRect().bottom)}px`);
+  const quota = document.querySelector('.quota-bar');
+  root.style.setProperty('--quota-b', `${quota && !quota.hidden ? Math.ceil(quota.getBoundingClientRect().bottom) : 0}px`);
+};
+const topObserver = new ResizeObserver(measureTop);
+topObserver.observe(topStack);
+if (document.querySelector('.quota-bar')) topObserver.observe(document.querySelector('.quota-bar'));
+desktop.addEventListener('change', placeTopStack);
+placeTopStack();
+
+// Mobile : toucher le CV ailleurs que sur un texte → plein écran (seule la barre d'outils reste) ; re-toucher → retour.
+// Toucher un texte ouvre toujours sa modification ; un premier toucher qui ne fait que désélectionner ne bascule pas.
+let hadSelection = false;
+preview.addEventListener('click', () => (hadSelection = Boolean(document.querySelector('.qe-bar:not([hidden])'))), true);
+preview.addEventListener('click', () => {
+  if (desktop.matches || hadSelection || workspace?.on || sheet.dataset.state === 'expanded') return;
+  root.classList.toggle('immersive');
+});
 renderStep();
 initEngine();
 
@@ -218,6 +256,13 @@ async function initEngine() {
       askLogin: () => openAgent(),
       // Mêmes fenêtres flottantes d'édition dans tous les modes (Lite et Pro).
       inspector: () => null,
+      // Principe global : toucher un élément de l'aperçu (ou de l'espace) rend son étape active
+      // dans le panneau de gauche et dans les pastilles de la feuille repliée, sans rien ouvrir.
+      onSelect: (raw) => {
+        const id = raw.list === 'education' ? 'formation' : raw.list === 'experiences' ? 'experience' : STEP_OF_KIND[raw.kind];
+        const i = STEPS.findIndex((s) => s.id === id);
+        if (i >= 0 && i !== stepIndex && !aiProposal) goTo(i);
+      },
     });
   } catch (err) {
     // Sans moteur, pas d'aperçu : on le dit au lieu de laisser le gris de chargement.
@@ -241,8 +286,10 @@ function setSheet(next) {
   sheet.dataset.state = next;
   sheet.style.transform = '';
   const open = desktop.matches || next === 'expanded';
-  // Mobile : un simple indicateur (chevron) pour déplier / replier, pas de bouton texte.
-  $('toggle').textContent = desktop.matches ? '' : next === 'expanded' ? '⌄' : '⌃';
+  if (open) root.classList.remove('immersive');
+  // Mobile : un chevron standard pour déplier / replier (il se retourne une fois déplié), pas de bouton texte.
+  if (desktop.matches) $('toggle').replaceChildren();
+  else if (!$('toggle').querySelector('svg')) $('toggle').replaceChildren(icon('chevronUp', 22));
   $('toggle').setAttribute('aria-label', next === 'expanded' ? 'Replier' : 'Déplier');
   $('sheet-body').inert = !open; // pas de focus clavier dans la partie cachée
   $('agent-view').inert = !open;
@@ -426,7 +473,7 @@ function renderStep() {
         'button',
         {
           type: 'button',
-          class: `step-pill${i === stepIndex ? ' active' : ''}${i < stepIndex ? ' done' : ''}`,
+          class: `step-pill${i === stepIndex ? ' active' : ''}`,
           'aria-current': i === stepIndex ? 'step' : null,
           onClick: () => {
             goTo(i);
@@ -486,6 +533,49 @@ function renderStep() {
   renderTitle();
   $('prev').hidden = stepIndex === 0;
   $('next').style.visibility = stepIndex === STEPS.length - 1 ? 'hidden' : 'visible';
+  sheet.classList.toggle('last-step', stepIndex === STEPS.length - 1); // mobile : « Générer » prend la place de « Suivant »
+  renderMobileProgress();
+  updatePills();
+}
+
+// Mobile : barre de progression en bas, une case par étape, avec les signalements du rail du PC (étapes déjà vues) :
+// rouge = point obligatoire manquant, jaune = conseil, couleur pleine = complète ; la dernière case est la vérification.
+function renderMobileProgress() {
+  const levels = stepLevels(state, current?.doc);
+  const review = reviewStatus(state, current?.doc);
+  const segs = STEPS.map((s, i) => {
+    const last = i === STEPS.length - 1;
+    const level = last ? (seen >= i ? review.level : '') : i <= seen && i !== stepIndex ? levels[s.id] : '';
+    return h('button', {
+      type: 'button',
+      class: `mp-seg${i === stepIndex ? ' active' : ''}`,
+      'data-level': level,
+      'aria-label': `Étape ${i + 1} : ${s.label}${level === 'todo' ? ' (à corriger)' : level === 'warn' ? ' (conseil)' : level === 'ok' ? ' (complète)' : ''}`,
+      'aria-current': i === stepIndex ? 'step' : null,
+      onClick: () => goTo(i),
+    });
+  });
+  const todo = STEPS.filter((s, i) => i <= seen && levels[s.id] === 'todo' && s.id !== 'verification').length;
+  $('mprogress').replaceChildren(
+    h('div', { class: 'mp-segs' }, segs),
+    h('p', { class: 'mp-label' }, h('strong', {}, STEPS[stepIndex].label), ` · ${stepIndex + 1}/${STEPS.length}`, todo > 0 && h('span', { class: 'mp-todo' }, ` · ${todo} à corriger`)),
+  );
+}
+
+// Élément du CV → son étape.
+const STEP_OF_KIND = { identity: 'identite', contact: 'identite', photo: 'identite', summary: 'profil', skills: 'competences', language: 'langues', hobbies: 'langues' };
+
+// Pastilles de la feuille repliée : mêmes signalements que le rail et la progression du bas.
+function updatePills() {
+  const levels = stepLevels(state, current?.doc);
+  const review = reviewStatus(state, current?.doc);
+  document.querySelectorAll('#stepper .step-pill').forEach((pill, i) => {
+    const last = i === STEPS.length - 1;
+    const level = i === stepIndex ? '' : last ? (seen >= i ? review.level : '') : i <= seen ? levels[STEPS[i].id] : '';
+    pill.dataset.level = level;
+    const num = pill.querySelector('.step-num');
+    if (num) num.replaceChildren(level === 'ok' ? icon('check', 12) : level === 'todo' ? '!' : String(i + 1));
+  });
 }
 
 // Étape Vérification du rail : un drapeau rouge (erreur), jaune (conseil) ou vert (prêt), toujours déplié.
@@ -515,6 +605,8 @@ function updateRailSteps() {
 
 function updateRailFlag() {
   updateRailSteps();
+  renderMobileProgress();
+  updatePills();
   const flag = document.querySelector('.rail-flag');
   if (!flag) return;
   const { level, label } = reviewStatus(state, current?.doc);
@@ -719,7 +811,7 @@ function update() {
   current = result;
   // Pendant un message (toast), l'aide attend son tour.
   if (!note.classList.contains('toast')) {
-    note.textContent = finalView ? 'Rendu final : seulement ce que tu as rempli' : 'Touche le CV pour modifier · en gris : exemple';
+    note.textContent = finalView ? 'Rendu final : seulement ce que tu as rempli' : 'Touche un texte pour le modifier · gris = exemple';
     note.hidden = !finalView && !hasGhost(result.resume);
   }
   paint(result.doc);
@@ -1084,7 +1176,7 @@ const SAVE_TEXT = {
   saving: [' · Enregistrement…', false],
   saved: [' · Enregistré ✓', true],
   error: [' · Échec de l’enregistrement, nouvel essai…', false],
-  local: [' · Non sauvegardé : connecte-toi', false],
+  local: [' · Sur cet appareil', false],
   refused: [' · Non enregistré', false],
 };
 window.addEventListener('salacv:save', (e) => {
@@ -1095,7 +1187,7 @@ window.addEventListener('salacv:save', (e) => {
   el.classList.toggle('done', done);
 });
 window.addEventListener('salacv:save-refused', (e) => toast(e.detail?.error || 'Ce CV n’a pas pu être enregistré.'));
-// Visiteur non connecté : rien n'est sauvegardé, on prévient avant de quitter une page qui contient un CV.
+// CV qui ne serait gardé nulle part (navigateur qui refuse le bac à sable du visiteur) : on prévient avant de quitter.
 window.addEventListener('beforeunload', (e) => {
   if (!isPersisted() && state?.profile?.name?.trim()) {
     e.preventDefault();
@@ -1109,24 +1201,31 @@ function renderTitle() {
   if (btn.querySelector('input')) return;
   btn.textContent = projectName(project);
 }
-// Un clic sur le titre du CV : son nom et son modèle, au même endroit.
-$('cv-title').addEventListener('click', () => {
+// Un clic sur le titre du CV : son espace de travail (Mes CV) si connecté, sinon la fenêtre du CV.
+// Le modèle ne s'ouvre jamais par le titre : bouton « Modèle » de la barre d'outils.
+$('cv-title').addEventListener('click', () => (getSession() ? openSwitcher({ engine, project, state }) : openCvDialog({ templates: false })));
+$('tpl-btn').addEventListener('click', () => openCvDialog({ templates: true }));
+// Nom et partage du CV ; avec la liste des modèles seulement depuis le bouton « Modèle ».
+function openCvDialog({ templates = true } = {}) {
   const tpl = $('templates');
-  const parking = tpl.parentNode;
+  const parking = $('templates-parking'); // place fixe : la liste y revient toujours, même si deux fenêtres se suivent
   const input = h('input', { class: 'cv-name-input', value: project.name ?? '', placeholder: projectName({ ...project, name: '' }), maxlength: 60, 'aria-label': 'Nom du CV' });
   input.addEventListener('input', () => {
     project.name = input.value.trim();
     saveCurrent();
   });
   input.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), d.close()));
-  tpl.classList.add('in-dialog');
+  if (templates) tpl.classList.add('in-dialog');
   const d = openDialog({
-    title: 'Ce CV',
+    title: templates ? 'Modèle' : 'Ce CV',
     className: 'cv-dialog',
     content: [
       h('label', { class: 'cv-dialog-label' }, 'Nom', input),
-      h('p', { class: 'cv-dialog-label' }, 'Modèle'),
-      tpl,
+      templates && h('p', { class: 'cv-dialog-label' }, 'Modèle'),
+      templates && tpl,
+      shareBlock(),
+      // Mobile : « Mes CV » vit ici (plus de logo dans la barre de la sheet).
+      h('button', { type: 'button', class: 'btn-ghost cv-mine', onClick: () => (d.close(), openSwitcher({ engine, project, state })) }, 'Mes CV'),
       // Mobile : le thème vit ici (la barre de la sheet reste légère).
       h('button', { type: 'button', class: 'btn-ghost cv-theme', onClick: (e) => (toggleTheme(), renderThemeBtn(), (e.currentTarget.textContent = themeLabel())) }, themeLabel()),
     ],
@@ -1136,9 +1235,42 @@ $('cv-title').addEventListener('click', () => {
       parking.append(tpl);
     },
   });
-  if (engine) paintThumbs();
-});
+  if (templates && engine) paintThumbs();
+}
 $('switch').addEventListener('click', () => openSwitcher({ engine, project, state }));
+
+// Partage : privé par défaut ; public, le lien s'ouvre chez n'importe qui, qui peut en faire sa copie.
+function shareBlock() {
+  if (!getSession()) {
+    return h('div', { class: 'share' }, h('p', { class: 'cv-dialog-label' }, 'Partage'), h('p', { class: 'share-text' }, 'Lien privé. Connecte-toi pour pouvoir le rendre public.'));
+  }
+  const text = h('p', { class: 'share-text' });
+  const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-label': 'Lien public' }, h('span', { 'aria-hidden': 'true' }));
+  const copy = h('button', { type: 'button', class: 'btn-ghost share-copy' }, 'Copier le lien');
+  const render = () => {
+    const on = isShared(project.id);
+    sw.setAttribute('aria-checked', String(on));
+    text.textContent = on ? 'Public : tout le monde avec le lien peut le voir et le dupliquer.' : 'Privé : toi seul l’ouvres.';
+    copy.hidden = !on;
+  };
+  sw.addEventListener('click', async () => {
+    sw.disabled = true;
+    const r = await setShared(project.id, !isShared(project.id));
+    sw.disabled = false;
+    if (!r.ok) toast(r.error);
+    render();
+  });
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink(project.id));
+      copy.textContent = 'Lien copié';
+    } catch {
+      copy.textContent = shareLink(project.id);
+    }
+  });
+  render();
+  return h('div', { class: 'share' }, h('div', { class: 'share-row' }, h('p', { class: 'cv-dialog-label' }, 'Lien public'), sw), text, copy);
+}
 
 // PC : l'aperçu se masque aussi, pour travailler le formulaire en grand.
 function setPreviewHidden(hidden) {
@@ -1581,13 +1713,47 @@ function openPlans() {
 
 // --- Projet et export -----------------------------------------------------------
 
-// /studio/?p=<id> ouvre un projet ; ?new (et ?name=) en crée un ; sinon le plus récent.
-function openProject() {
+// /studio/?p=<id> ouvre un de SES CV ; le CV de quelqu'un d'autre seulement s'il est public (on en fait une copie).
+// ?new (et ?name=, ?template=) en crée un : c'est l'entrée depuis la landing. Sinon le plus récent.
+// Un visiteur passe toujours par la landing : lien privé, lien inconnu ou studio sans CV en cours → accueil.
+async function openProject(ids = {}) {
   const q = new URLSearchParams(location.search);
-  let p = q.has('new') ? null : getProject(q.get('p')) ?? (q.get('p') ? null : listProjects()[0]);
-  p ??= createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: q.get('template') ?? undefined, persona: q.get('persona') ?? undefined });
+  const raw = q.get('p');
+  const pid = raw ? (ids[raw] ?? raw) : null;
+  const logged = Boolean(getSession());
+  const fresh = () => createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: q.get('template') ?? undefined, persona: q.get('persona') ?? undefined });
+  let p = null;
+  if (pid) p = getProject(pid) ?? (await openShared(pid, logged));
+  else if (q.has('new')) p = fresh();
+  else p = listProjects()[0] ?? (logged || window.desktop?.isDesktop ? fresh() : null);
+  if (!p) {
+    location.replace(logged ? '/dashboard/' : '/');
+    await new Promise(() => {}); // la page change
+  }
   history.replaceState(null, '', `${location.pathname}?p=${p.id}`);
   return p;
+}
+
+// CV public de quelqu'un d'autre : on le montre, et il devient le tien en copie (l'original ne bouge jamais).
+async function openShared(id, logged) {
+  const cv = await fetchShared(id);
+  if (!cv) return null;
+  const name = projectName({ name: cv.name, state: normalizeState(cv.state) });
+  return new Promise((resolve) => {
+    let copy = null;
+    const d = openDialog({
+      title: 'CV partagé',
+      content: [
+        h('p', { class: 'dlg-text' }, h('strong', {}, name)),
+        h('p', { class: 'dlg-text' }, logged ? 'Fais-en ta copie pour l’adapter : elle va dans tes CV, l’original ne change pas.' : 'Fais-en ta copie pour l’adapter : elle reste sur cet appareil jusqu’à ta connexion.'),
+      ],
+      footer: [
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, logged ? 'Mes CV' : 'Accueil'),
+        h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => ((copy = createProject({ copy: cv })), d.close()) }, 'Dupliquer ce CV'),
+      ],
+      onClose: () => resolve(copy),
+    });
+  });
 }
 
 // Jamais de téléchargement direct : la préparation (progression, crédit) puis le fichier.

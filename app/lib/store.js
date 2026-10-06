@@ -1,10 +1,11 @@
 // Données de l'utilisateur : projets (CV), personnalités, crédits, avis, parrainage.
 //
-// Les CV et les personnalités ne sont PLUS gardés dans le navigateur : ils vivent sur le serveur (R2 / base), liés au
-// compte. Ici, une copie en mémoire (l'API reste synchrone pour le reste de l'application), synchronisée avec le
-// serveur pour un compte connecté. Un visiteur non connecté n'a aucune sauvegarde : son CV vit le temps de la page.
-// Seules des préférences d'interface (thème, mode Lite/Pro, taille du panneau) restent dans le navigateur.
-import { emptyState, normalizeState } from '../state.js';
+// Compte connecté : les CV et les personnalités vivent sur le serveur (R2 / base), jamais dans le navigateur. Ici, une
+// copie en mémoire (l'API reste synchrone pour le reste de l'application), synchronisée avec le serveur.
+// Visiteur non connecté : SEULE exception, un bac à sable dans ce navigateur (« salacv:sandbox »), pour qu'il ne perde pas
+// son travail avant de se connecter. À la connexion, on lui propose de l'ajouter à son compte (syncSandbox), puis il est vidé.
+// Sinon, seules des préférences d'interface (thème, mode Lite/Pro, taille du panneau) restent dans le navigateur.
+import { emptyState, normalizeState, toResume } from '../state.js';
 import { forgetSession, getSession } from '../session.js';
 
 
@@ -27,6 +28,46 @@ export function write(key, value) {
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 
+// --- Bac à sable du visiteur (non connecté) ----------------------------------------------
+const SANDBOX_KEY = 'salacv:sandbox';
+const emptySandbox = () => ({ projects: {}, personas: {} });
+function readSandbox() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SANDBOX_KEY) || 'null');
+    return d && typeof d === 'object' ? { projects: d.projects ?? {}, personas: d.personas ?? {} } : emptySandbox();
+  } catch {
+    return emptySandbox();
+  }
+}
+// → vrai si c'est écrit (faux : stockage plein ou bloqué, navigation privée)
+function writeSandbox(data) {
+  try {
+    if (!Object.keys(data.projects).length && !Object.keys(data.personas).length) localStorage.removeItem(SANDBOX_KEY);
+    else localStorage.setItem(SANDBOX_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+// Un CV vide (ouvert puis laissé tel quel) ne vaut pas d'être gardé ni proposé.
+const hasContent = (state) => {
+  const r = toResume(normalizeState(state));
+  return r.sections.length > 0 || Object.values(r.profile).some((v) => (Array.isArray(v) ? v.length : Boolean(v)));
+};
+let sandboxTimer = null;
+function saveSandboxSoon() {
+  clearTimeout(sandboxTimer);
+  sandboxTimer = setTimeout(saveSandboxNow, 300);
+}
+function saveSandboxNow() {
+  clearTimeout(sandboxTimer);
+  sandboxTimer = null;
+  const projects = Object.fromEntries(Object.entries(mem.projects).filter(([, p]) => hasContent(p.state)));
+  sandboxOk = writeSandbox({ projects, personas: mem.personas });
+  if (sandboxOk) emit('local');
+  else window.dispatchEvent(new CustomEvent('salacv:save-refused', { detail: { error: 'Ce navigateur refuse de garder ton CV (stockage plein ou navigation privée). Connecte-toi pour le sauvegarder.' } }));
+}
+
 // --- Projets --------------------------------------------------------------------
 // Copie en mémoire + synchronisation avec le serveur (compte connecté seulement).
 
@@ -40,7 +81,8 @@ let timer = null;
 let retry = null;
 
 const emit = (state) => window.dispatchEvent(new CustomEvent('salacv:save', { detail: { state } }));
-export const isPersisted = () => live;
+let sandboxOk = true; // visiteur : le dernier enregistrement dans le navigateur a réussi
+export const isPersisted = () => live || sandboxOk;
 
 async function call(body, { keepalive = false } = {}) {
   if (!loggedIn()) return { status: 401, data: { ok: false } };
@@ -94,7 +136,7 @@ async function flush(opts = {}) {
 }
 
 function schedule(kind, id) {
-  if (!live) return emit('local');
+  if (!live) return saveSandboxSoon();
   dirty.set(`${kind}:${id}`, { kind, id });
   emit('saving');
   clearTimeout(timer);
@@ -103,7 +145,8 @@ function schedule(kind, id) {
 
 // Quitter la page : on envoie ce qui reste (keepalive limité à ~64 Ko : au-delà, envoi normal).
 const flushOnLeave = () => {
-  if (!live || !dirty.size) return;
+  if (!live) return sandboxTimer && saveSandboxNow();
+  if (!dirty.size) return;
   const small = [...dirty.values()].every(({ kind, id }) => JSON.stringify(recordOf(kind, id) ?? {}).length < 55_000);
   flush({ keepalive: small });
 };
@@ -116,13 +159,16 @@ export async function initStore() {
   mem.personas = {};
   dirty.clear();
   live = loggedIn();
-  if (!live) return { live: false };
+  if (!live) {
+    Object.assign(mem, readSandbox()); // visiteur : son bac à sable
+    return { live: false };
+  }
   const { status, data } = await call({ action: 'list' });
   if (status === 401) return sessionExpired(), { live: false, expired: true };
   if (!data.ok) return emit('error'), { live: true, offline: true };
   if (data.storage === false) window.dispatchEvent(new CustomEvent('salacv:save-refused', { detail: { error: 'Le stockage des CV n’est pas encore configuré par l’administrateur : tes CV ne peuvent pas être sauvegardés.' } }));
   for (const it of data.items) {
-    const rec = { ...it.data, id: it.id, createdAt: it.createdAt, updatedAt: it.updatedAt };
+    const rec = { ...it.data, id: it.id, public: it.public, createdAt: it.createdAt, updatedAt: it.updatedAt };
     if (it.kind === 'persona') mem.personas[it.id] = rec;
     else mem.projects[it.id] = rec;
   }
@@ -143,12 +189,14 @@ export function getProject(id) {
   return p ? { ...p, state: normalizeState(p.state) } : null;
 }
 
+// patch.copy : { state, name, variants, docs } d'un CV partagé, dupliqué tel quel (nouveau CV, à soi).
 export function createProject(patch = {}) {
   const persona = patch.persona ? getPersona(patch.persona) : null;
-  const state = persona ? fromPersona(persona) : emptyState();
+  const state = patch.copy ? normalizeState(structuredClone(patch.copy.state)) : persona ? fromPersona(persona) : emptyState();
   if (patch.name) state.profile.name = patch.name;
   if (patch.template) state.template = patch.template;
   const project = { id: newId(), state, createdAt: Date.now(), updatedAt: Date.now() };
+  if (patch.copy) Object.assign(project, structuredClone({ name: patch.copy.name || undefined, variants: patch.copy.variants ?? {}, docs: patch.copy.docs ?? [] }));
   saveProject(project);
   return project;
 }
@@ -162,7 +210,66 @@ export function deleteProject(id) {
   delete mem.projects[id];
   dirty.delete(`cv:${id}`);
   if (live) call({ action: 'delete', id });
+  else saveSandboxNow();
 }
+
+// --- Partage ------------------------------------------------------------------------
+// Un CV est privé. Son propriétaire (connecté) peut le rendre public : le lien /studio/?p=<id> s'ouvre alors chez
+// n'importe qui, qui peut en faire sa propre copie. → { ok, error? }
+export async function setShared(id, on) {
+  if (!live) return { ok: false, error: 'Connecte-toi pour partager ce CV.' };
+  await flush(); // le CV doit exister sur le serveur avant d'être partagé
+  const { data } = await call({ action: 'share', id, public: Boolean(on) });
+  if (data.ok && mem.projects[id]) mem.projects[id].public = Boolean(on);
+  return data.ok ? { ok: true } : { ok: false, error: data.error || 'Le partage a échoué. Réessaie.' };
+}
+export const isShared = (id) => Boolean(mem.projects[id]?.public);
+export const shareLink = (id) => `${location.origin}/studio/?p=${id}`;
+
+// CV public de quelqu'un d'autre (sans connexion). → { state, name, variants, docs } | null
+export async function fetchShared(id) {
+  try {
+    const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'public', id }) });
+    const data = await res.json();
+    return data.ok ? data.cv : null;
+  } catch {
+    return null;
+  }
+}
+
+// --- Bac à sable → compte -------------------------------------------------------------
+// CV faits sans compte sur ce navigateur, en attente (compte connecté seulement).
+export function sandboxPending() {
+  if (!live) return { projects: [], personas: [] };
+  const s = readSandbox();
+  return { projects: Object.values(s.projects).filter((p) => hasContent(p.state)), personas: Object.values(s.personas) };
+}
+// Ajoute le bac à sable au compte. Un identifiant déjà pris dans le compte reçoit un nouvel identifiant.
+// → { moved, failed, ids: { ancien: nouveau }, error? }
+export async function syncSandbox() {
+  const s = readSandbox();
+  const out = { moved: 0, failed: 0, ids: {}, error: '' };
+  for (const [kind, bucket] of [['cv', 'projects'], ['persona', 'personas']]) {
+    for (const rec of Object.values(s[bucket])) {
+      const target = kind === 'cv' ? mem.projects : mem.personas;
+      const id = target[rec.id] ? newId() : rec.id;
+      target[id] = { ...rec, id, public: false };
+      const { data } = await push(kind, id);
+      if (data.ok) {
+        out.moved++;
+        out.ids[rec.id] = id;
+        delete s[bucket][rec.id];
+      } else {
+        out.failed++;
+        out.error ||= data.error || '';
+        delete target[id]; // reste dans le bac à sable, pour réessayer plus tard
+      }
+    }
+  }
+  writeSandbox(s);
+  return out;
+}
+export const discardSandbox = () => writeSandbox(emptySandbox());
 
 export function duplicateProject(id) {
   const p = getProject(id);
@@ -213,6 +320,7 @@ export function deletePersona(id) {
   delete mem.personas[id];
   dirty.delete(`persona:${id}`);
   if (live) call({ action: 'delete', id });
+  else saveSandboxNow();
 }
 
 // Nouveau CV depuis une personnalité : tout est repris, sauf la profession et le profil.

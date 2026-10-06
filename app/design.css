@@ -1,0 +1,163 @@
+/* ===== Studio : couche de design (chargée en dernier) =========================================
+   Trois règles, partout :
+   1. Mouvement : rien n'apparaît ni ne disparaît d'un coup. Chaque élément part vers là d'où il vient
+      (la barre du haut remonte, la feuille redescend, une fenêtre se pose et repart) — on sait où il va.
+   2. Surfaces sans traits : on sépare par le fond (surface, relevé) et l'ombre, jamais par une bordure.
+   3. Espacements : une seule échelle (4 · 8 · 12 · 16 · 24), les mêmes rayons (10 · 14 · 20). */
+
+:root {
+  --m-fast: 160ms;
+  --m-base: 260ms;
+  --m-slow: 440ms;
+  --e-out: cubic-bezier(0.22, 1, 0.36, 1); /* sortie douce */
+  --e-sheet: cubic-bezier(0.32, 0.72, 0, 1); /* feuilles, comme iOS */
+  --e-pop: cubic-bezier(0.34, 1.4, 0.64, 1); /* petit rebond : barres, bulles */
+  --r-ctl: 10px;
+  --r-card: 14px;
+  --r-sheet: 20px;
+  --lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 12px 32px -16px rgb(0 0 0 / 0.45);
+  --lift-hi: 0 2px 6px rgb(0 0 0 / 0.08), 0 28px 70px -24px rgb(0 0 0 / 0.6);
+}
+
+/* --- Contrôles : remplis, sans bordure ------------------------------------------------------- */
+.input, .period-button, :root[data-theme] .input, :root[data-theme] .period-button {
+  border: 1px solid transparent; border-radius: var(--r-ctl); background: rgb(var(--raised));
+  transition: background-color var(--m-fast), box-shadow var(--m-fast), border-color var(--m-fast);
+}
+.input:hover, :root[data-theme] .input:hover { border-color: transparent; background: rgb(var(--raised-hover)); }
+.input:focus, .input:focus-visible, :root[data-theme] .input:focus, :root[data-theme] .input:focus-visible {
+  border-color: transparent; background: rgb(var(--surface)); box-shadow: 0 0 0 2px rgb(var(--accent)), 0 0 0 6px rgb(var(--accent) / 0.14);
+}
+.btn-ghost, :root[data-theme] .btn-ghost, .sheet .btn-ghost, :root[data-theme] .sheet .btn-ghost {
+  border-color: transparent !important; background: rgb(var(--raised)); border-radius: var(--r-ctl);
+  transition: background-color var(--m-fast), transform var(--m-fast) var(--e-out);
+}
+.btn-ghost:hover:not(:disabled), :root[data-theme] .sheet .btn-ghost:hover { background: rgb(var(--raised-hover)); }
+.btn-primary { border-radius: var(--r-ctl); transition: opacity var(--m-fast), transform var(--m-fast) var(--e-out), box-shadow var(--m-fast); }
+.btn-primary:not(:disabled) { box-shadow: 0 6px 16px -8px rgb(var(--accent) / 0.8); }
+.btn-primary:active, .btn-ghost:active { transform: scale(0.97); }
+.photo-frame { border: 0 !important; border-radius: var(--r-card); background: rgb(var(--raised)); }
+.field label, .cv-dialog-label { font-size: 12.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: rgb(var(--gray-600)); }
+
+/* --- Listes (formations, expériences, langues) : cartes posées, pas encadrées ------------------------ */
+.acc-card, .acc-card.open, .acc-card:not(.open):hover, :root[data-theme] .acc-card {
+  border: 0; border-radius: var(--r-card); background: rgb(var(--surface));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 28px -16px rgb(0 0 0 / 0.4);
+  transition: box-shadow var(--m-base) var(--e-out), transform var(--m-fast) var(--e-out);
+}
+.acc-card:not(.open):active { transform: scale(0.99); }
+.acc-card.open .acc-head, :root[data-theme] .acc-card.open .acc-head { border: 0; background: transparent; }
+.acc-status, :root[data-theme] .acc-status { border: 0; background: rgb(var(--flag-warn) / 0.16); color: rgb(var(--flag-warn)); }
+.acc-status.done, :root[data-theme] .acc-status.done { background: rgb(var(--flag-ok) / 0.14); color: rgb(var(--flag-ok)); }
+.btn-add, :root[data-theme] .btn-add {
+  height: 44px; border: 0; border-radius: var(--r-card); background: rgb(var(--raised)); color: rgb(var(--accent)); font-weight: 600;
+  transition: background-color var(--m-fast), transform var(--m-fast) var(--e-out);
+}
+.btn-add:hover { background: rgb(var(--raised-hover)); color: rgb(var(--accent)); }
+.btn-add:active { transform: scale(0.98); }
+.accordion-wrap, .accordion { gap: 12px; }
+
+/* --- Panneau : plus de traits entre les zones -------------------------------------------------- */
+.sheet-head, .step-nav, .stepper, .mprogress, :root[data-theme] .sheet-head, :root[data-theme] .step-nav { border: 0 !important; }
+@media (min-width: 960px) {
+  .sheet, .sheet[data-state='collapsed'], :root[data-theme] .sheet { border: 0 !important; box-shadow: var(--lift); border-radius: var(--r-sheet); }
+}
+.step-pill, :root[data-theme] .step-pill { border: 0; background: rgb(var(--raised)); transition: background-color var(--m-base), color var(--m-base), transform var(--m-fast) var(--e-out); }
+.step-pill:active { transform: scale(0.96); }
+.step-pill.active, :root[data-theme] .step-pill.active { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
+.step-num { border: 0; background: rgb(var(--surface) / 0.6); transition: background-color var(--m-base), color var(--m-base); }
+
+/* Changement d'étape : les blocs montent un à un. */
+.fade .step > * { animation: rise var(--m-slow) var(--e-out) both; }
+.fade .step > *:nth-child(2) { animation-delay: 30ms; }
+.fade .step > *:nth-child(3) { animation-delay: 60ms; }
+.fade .step > *:nth-child(4) { animation-delay: 90ms; }
+.fade .step > *:nth-child(5) { animation-delay: 120ms; }
+.fade .step > *:nth-child(6) { animation-delay: 150ms; }
+.fade .step > *:nth-child(n + 7) { animation-delay: 180ms; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+/* --- Édition sur l'aperçu : sélection et barre d'actions ------------------------------------------ */
+.qe-outline, .qe-outline.strong {
+  border-radius: 8px; outline: 2px solid rgb(var(--accent) / 0.9); outline-offset: 3px; background: rgb(var(--accent) / 0.07);
+  transition: left var(--m-base) var(--e-out), top var(--m-base) var(--e-out), width var(--m-base) var(--e-out), height var(--m-base) var(--e-out);
+  animation: outline-in var(--m-base) var(--e-out) both;
+}
+@keyframes outline-in { from { opacity: 0; outline-offset: 8px; } }
+.qe-bar, :root[data-theme] .qe-bar { border: 0; border-radius: var(--r-card); background: rgb(var(--surface)); box-shadow: var(--lift-hi); animation: bar-in var(--m-base) var(--e-pop) both; }
+@keyframes bar-in { from { opacity: 0; transform: translateY(6px) scale(0.92); } }
+.qe-act { border-radius: var(--r-ctl); }
+
+/* --- Fenêtres du studio : un seul fond, pas de bandeaux ni de traits ----------------------------- */
+.quick-edit .dialog-head, .quick-edit .dialog-foot, .quick-edit .dialog-grip { background: transparent !important; margin-bottom: 0; }
+.quick-edit .dialog-head { padding-top: 16px; }
+.share { border-top: 0; margin-top: 8px; padding: 14px; border-radius: var(--r-card); background: rgb(var(--raised)); }
+.cv-dialog .templates { gap: 8px; }
+
+/* Pied de fenêtre : même fond que la fenêtre, pas de bande ni de trait. */
+.dialog-foot, .quick-edit .dialog-foot, :root[data-theme] .dialog-foot { background: transparent !important; border-top: 0 !important; box-shadow: none; }
+/* Libellés : en clair, pas en capitales techniques. */
+.cv-dialog-label, :root[data-theme] .cv-dialog-label { font: 500 12.5px var(--font-sans); letter-spacing: 0; text-transform: none; color: rgb(var(--gray-600)); }
+.cv-dialog-label + .cv-dialog-label { margin-top: 16px; }
+/* Modèles : vignettes posées sur un fond relevé ; le choisi est entouré d'un anneau, pas d'un trait. */
+.tpl-card, :root[data-theme] .tpl-card { border: 0 !important; border-radius: var(--r-card); background: rgb(var(--raised)); transition: background-color var(--m-fast), box-shadow var(--m-base) var(--e-out), transform var(--m-fast) var(--e-out); }
+.tpl-card:hover, :root[data-theme] .tpl-card:hover { background: rgb(var(--raised-hover)); }
+.tpl-card:active { transform: scale(0.97); }
+.tpl-card[aria-pressed='true'], :root[data-theme] .tpl-card[aria-pressed='true'] { background: rgb(var(--accent) / 0.1); box-shadow: 0 0 0 2px rgb(var(--accent)); }
+
+/* ===== Mobile ===================================================================================== */
+@media (max-width: 959px) {
+  /* Pile du haut : du verre, pas de trait. Chaque élément peut se replier en remontant. */
+  .top-stack .quota-bar, .top-stack .zoombar, .top-stack .topbar,
+  :root[data-theme] .top-stack .quota-bar, :root[data-theme] .top-stack .zoombar, :root[data-theme] .top-stack .topbar {
+    border: 0; background: rgb(var(--surface) / 0.8); box-shadow: var(--lift);
+    backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  }
+  .top-stack > * {
+    max-height: 96px; overflow: hidden; transform-origin: 50% 0;
+    transition: opacity var(--m-base) var(--e-out), transform var(--m-slow) var(--e-sheet), max-height var(--m-slow) var(--e-sheet),
+      margin var(--m-slow) var(--e-sheet), padding var(--m-slow) var(--e-sheet);
+  }
+  .top-stack .topbar { animation: drop-in var(--m-slow) var(--e-pop) both; }
+  @keyframes drop-in { from { opacity: 0; transform: translateY(-10px) scale(0.94); } }
+
+  /* Replié = remonte vers le haut et s'efface (la place se referme en douceur). */
+  .immersive .top-stack .quota-bar, .immersive .top-stack .topbar,
+  body:has(.sheet[data-state='expanded']) .top-stack .zoombar, body:has(.sheet[data-state='expanded']) .top-stack .topbar {
+    opacity: 0; transform: translateY(-14px) scale(0.94); max-height: 0; margin-bottom: -6px; padding-top: 0; padding-bottom: 0; pointer-events: none;
+  }
+  #canvases { transition: padding-top var(--m-slow) var(--e-sheet); }
+
+  /* Feuille : courbe des feuilles natives ; en plein écran, elle redescend hors de l'écran. */
+  .sheet, .sheet[data-state] { transition: transform var(--m-slow) var(--e-sheet), border-radius var(--m-base) var(--e-out), box-shadow var(--m-base); }
+  .sheet[data-state='collapsed'], :root[data-theme] .sheet[data-state='collapsed'] { box-shadow: 0 -10px 40px -18px rgb(0 0 0 / 0.5); }
+  .immersive .sheet, .immersive .sheet[data-state] { transform: translateY(calc(100% + 24px)) !important; box-shadow: none; }
+  .immersive .step-fab, .immersive .ws-picker, .immersive .qe-bar { opacity: 0; pointer-events: none; transition: opacity var(--m-base); }
+  .sheet-body { transition: opacity var(--m-base) var(--e-out); }
+  .sheet[data-state='collapsed'] .sheet-body { opacity: 0; }
+
+  /* Pastilles : se replient vers le haut quand la feuille s'ouvre (la progression est en bas). */
+  .stepper { max-height: 72px; transition: max-height var(--m-slow) var(--e-sheet), opacity var(--m-base), padding var(--m-slow) var(--e-sheet); }
+  .sheet[data-state='expanded'] .stepper { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; }
+
+  /* En-tête de la feuille et pied : plats, sur le même fond que la feuille. */
+  .sheet-head, .step-nav, .mprogress, :root[data-theme] .sheet-head, :root[data-theme] .step-nav { background: rgb(var(--surface)) !important; box-shadow: none !important; }
+  .step-nav { padding-top: 6px; }
+  .mprogress { padding-top: 12px; }
+  .mp-seg { transition: background-color var(--m-base), transform var(--m-base) var(--e-pop); }
+  .mp-seg.active { transform: scaleY(1.5); box-shadow: none; }
+
+  /* Formulaire / IA : segment flottant épinglé. */
+  .step-tabs { border: 0 !important; background: rgb(var(--raised)) !important; box-shadow: var(--lift); }
+  .step-tabs .qe-tab { transition: background-color var(--m-base) var(--e-out), color var(--m-base); }
+
+  /* Espacements du formulaire : une seule échelle. */
+  .step { gap: 16px; padding: 12px 16px 24px; }
+  .step-head h2 { font-size: 19px; letter-spacing: -0.02em; }
+}
+
+/* Mouvement réduit : tout reste, rien ne bouge. */
+@media (prefers-reduced-motion: reduce) {
+  .top-stack > *, .sheet, #canvases, .stepper, .sheet-body, .qe-outline, .mp-seg { transition: none !important; }
+  .fade .step > *, .qe-bar, .qe-outline, .top-stack .topbar { animation: none !important; }
+}

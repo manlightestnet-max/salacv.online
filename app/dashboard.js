@@ -9,6 +9,7 @@ import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
 import { initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
 import { openDialog } from './dialog.js';
+import { offerSandboxSync } from './sync.js';
 import { TEMPLATES, toResume } from './state.js';
 
 // Le tableau de bord est réservé aux connectés : un visiteur est renvoyé vers la connexion (sur PC, une clé hors ligne active suffit).
@@ -26,6 +27,7 @@ async function gate() {
 await initSession();
 if (!(await gate())) await new Promise(() => {}); // la page change : on n'affiche rien
 await initStore(); // les CV et personnalités du compte, depuis le serveur
+await offerSandboxSync(); // des CV faits sans compte sur cet appareil ? on propose de les ajouter au compte
 
 const $ = (id) => document.getElementById(id);
 const view = $('view');

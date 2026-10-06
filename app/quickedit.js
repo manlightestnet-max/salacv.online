@@ -214,7 +214,7 @@ function editor(target, state, changed, close, photoShape) {
   const p = state.profile;
   switch (target.kind) {
     case 'identity':
-      return [field('Nom complet', p, 'name', changed, { autocomplete: 'name' }), field('Profession ou domaine', p, 'title', changed)];
+      return [field('Nom complet', p, 'name', changed, { autocomplete: 'name' }), field('Profession ou domaine', p, 'title', changed, { suggest: 'jobs' })];
     case 'contact':
       return [
         field('Email', p, 'email', changed, { type: 'email', autocomplete: 'email' }),
@@ -224,13 +224,13 @@ function editor(target, state, changed, close, photoShape) {
     case 'summary':
       return [field('Profil professionnel', p, 'summary', changed, { multiline: true, rows: 6 })];
     case 'skills':
-      return [itemsInput({ label: 'Compétences', list: state.skills, onChange: changed, variant: 'chips', placeholder: 'Câblage structuré' })];
+      return [itemsInput({ label: 'Compétences', list: state.skills, onChange: changed, variant: 'chips', placeholder: 'Câblage structuré', suggest: 'skills' })];
     case 'hobbies':
-      return [itemsInput({ label: 'Loisirs', list: state.hobbies, onChange: changed, variant: 'chips', placeholder: 'Football' })];
+      return [itemsInput({ label: 'Loisirs', list: state.hobbies, onChange: changed, variant: 'chips', placeholder: 'Football', suggest: 'hobbies' })];
     case 'language': {
       const l = state.languages[target.index];
       if (!l) return [];
-      return [field('Langue', l, 'name', changed, { placeholder: 'Français' }), choicePills({ label: 'Niveau', options: LEVELS, obj: l, key: 'level', onChange: changed })];
+      return [field('Langue', l, 'name', changed, { placeholder: 'Français', suggest: 'languages' }), choicePills({ label: 'Niveau', options: LEVELS, obj: l, key: 'level', onChange: changed })];
     }
     case 'photo':
       return [photoInput({ profile: p, onChange: changed, shape: photoShape })];
@@ -240,8 +240,8 @@ function editor(target, state, changed, close, photoShape) {
       const edu = target.list === 'education';
       return [
         periodField(it, 'period', changed),
-        field(edu ? 'Diplôme ou certification' : 'Poste', it, 'title', changed),
-        field(edu ? 'Établissement' : 'Entreprise ou organisation', it, 'org', changed),
+        field(edu ? 'Diplôme ou certification' : 'Poste', it, 'title', changed, { suggest: edu ? 'degrees' : 'jobs' }),
+        field(edu ? 'Établissement' : 'Entreprise ou organisation', it, 'org', changed, { suggest: edu ? 'schools' : 'companies' }),
         field(edu ? 'Ce que tu as appris' : 'Tes tâches', it, 'details', changed, { multiline: true, rows: 4, hint: 'Une ligne par point.' }),
         h(
           'button',
@@ -266,7 +266,7 @@ function editor(target, state, changed, close, photoShape) {
 }
 
 // canvases : conteneur des pages ; getDoc() : layout affiché ; getState() : formulaire.
-export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, photoShape = () => null, enabled = () => true, replaceState, askLogin, inspector = () => null }) {
+export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mockup, changed, onClose, onSelect = () => {}, photoShape = () => null, enabled = () => true, replaceState, askLogin, inspector = () => null }) {
   const kit = createKit(fonts);
   const mockupState = fromResume(mockup);
   const outline = h('div', { class: 'qe-outline', hidden: true });
@@ -355,6 +355,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
 
   function select(raw, box, anchor = null) {
     selected = { raw, box, anchor };
+    onSelect(raw); // l'étape de cet élément devient l'étape active (panneau, pastilles), sans rien ouvrir
     show(box, true);
     const label = raw.kind === 'item' ? (raw.list === 'education' ? 'Formation' : 'Expérience') : raw.kind === 'section' ? (raw.list === 'education' ? 'Formation' : 'Expérience') : TITLES[raw.kind];
     bar.replaceChildren(

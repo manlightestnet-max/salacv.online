@@ -1547,3 +1547,134 @@ button.logo-mark { border: 0; cursor: pointer; }
 .tpl-studio-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgb(var(--bar)); border-top: 1px solid rgb(var(--gray-200)); font-size: 13.5px; }
 .tpl-studio-bar span { flex: 1; }
 .tpl-studio-bar[hidden] { display: none; }
+
+/* ===== Mobile : pile du haut, plein écran, feuille collée sous la barre d'outils =============== */
+.top-stack { display: none; }
+@media (max-width: 959px) {
+  /* Connexion, barre d'outils, messages : empilés au centre, jamais l'un sur l'autre ni sur le CV. */
+  .top-stack {
+    position: fixed; z-index: 30; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    width: min(calc(100vw - 16px), 460px); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+  }
+  .top-stack > * { position: static !important; transform: none !important; inset: auto !important; max-width: 100%; pointer-events: auto; }
+  .top-stack .quota-bar { width: 100%; padding: 6px 6px 6px 12px; gap: 10px; }
+  .top-stack .quota-msg { font-size: 12.5px; }
+  .top-stack .quota-login { height: 32px; padding: 0 12px; font-size: 12.5px; }
+  .top-stack .topbar { animation: none; }
+  #canvases { padding-top: calc(var(--top-h, 56px) + 10px); }
+
+  /* Plein écran : seule la barre d'outils reste (les sorties sont animées dans design.css). */
+
+  /* Feuille : plus de logo ; titre centré (une colonne vide à gauche équilibre le chevron à droite). */
+  .sheet-head .logo-mark { display: none !important; }
+  .sheet-head, .sheet[data-state='expanded'] .sheet-head, :root[data-theme] .sheet-head { grid-template-columns: 40px minmax(0, 1fr) 40px; height: 56px; padding: 0 10px; }
+  .sheet-head::before { content: ''; }
+  /* La colonne du milieu ne déborde jamais : titre et ligne d'état vraiment centrés, coupés par « … » si trop longs. */
+  .sheet-head .sheet-title { width: 100%; min-width: 0; overflow: hidden; align-items: center; text-align: center; gap: 1px; }
+  .sheet-head .cv-title { width: auto; max-width: 100%; margin: 0 auto; text-align: center; font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
+  .sheet-head .cv-sub { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 12px; color: rgb(var(--gray-500)); }
+  /* Chevron standard, sans pastille maison : une simple icône, comme les feuilles natives. */
+  #toggle, .sheet[data-state='expanded'] #toggle, :root[data-theme] #toggle {
+    width: 40px; height: 40px; padding: 0; border: 0 !important; border-radius: 10px; background: transparent !important; box-shadow: none !important;
+    color: rgb(var(--gray-600)); display: grid; place-items: center;
+  }
+  #toggle:active { background: rgb(var(--gray-100)) !important; }
+  #toggle svg { transition: transform 0.3s var(--ease-out); }
+  .sheet[data-state='expanded'] #toggle svg { transform: rotate(180deg); }
+  .sheet-grip { height: 20px; }
+  .sheet-grip span { width: 40px; height: 5px; background: rgb(var(--gray-300)); }
+
+  /* Pile du haut : mêmes formes, même verre, mêmes ombres. */
+  .top-stack .quota-bar, .top-stack .zoombar, .top-stack .topbar {
+    border-radius: 14px; border: 1px solid rgb(var(--gray-200)); background: rgb(var(--surface) / 0.86);
+    backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 10px 30px -14px rgb(0 0 0 / 0.5);
+  }
+  .top-stack .zoombar { padding: 3px; }
+  .top-stack .topbar { border-radius: 999px; padding: 2px 4px; }
+  .top-stack .topbar .ghost-note { font-size: 11.5px; }
+  .top-stack .quota-meter { gap: 6px; }
+  .top-stack .quota-track { height: 4px; }
+
+  /* Dépliée : tout l'écran sous la barre d'outils, qui reste visible ; pas de voile derrière. */
+  .sheet, .sheet[data-state] { height: calc(100dvh - var(--top-h, 56px) - 8px); }
+  .sheet-scrim { display: none !important; }
+  body:has(.sheet[data-state='expanded']) .zoombar { opacity: 1; pointer-events: auto; }
+  body:has(.sheet[data-state='expanded']) .topbar { display: none; }
+  .kb-open .top-stack { display: none; }
+
+  /* Moins de texte : le titre de l'étape suffit, centré ; les aides sous les champs disparaissent (les erreurs restent). */
+  .step-head { text-align: center; }
+  .step-head p, .step .hint:not(.error) { display: none; }
+  .step-tabs { max-width: 260px; margin-left: auto !important; margin-right: auto !important; }
+}
+
+/* ===== Mobile : feuille plein écran, progression en bas, barre de boutons ===================== */
+.mprogress { display: none; }
+@media (max-width: 959px) {
+  /* Même hauteur dépliée ou repliée (le glissement reste fluide) : tout l'écran, ou sous « Se connecter » s'il est là. */
+  .sheet, .sheet[data-state] { height: 100dvh; }
+  html.has-quota .sheet, html.has-quota .sheet[data-state] { height: calc(100dvh - var(--quota-b, 0px) - 6px); }
+  /* Dépliée : un écran, pas une carte ; ni coins ni ombre. Zoom, ajustement et langues n'y servent à rien. */
+  .sheet[data-state='expanded'], :root[data-theme] .sheet[data-state='expanded'] { border-radius: 0; box-shadow: none; }
+  /* Zoom, ajustement, langues : repliés quand la feuille est dépliée (animé dans design.css). */
+  .sheet[data-state='expanded'] .sheet-grip { display: none; }
+  /* Les étapes en pastilles restent pour la feuille repliée ; dépliée, la progression est en bas. */
+  /* (repli animé des pastilles : design.css) */
+
+  /* Formulaire / IA : épinglé en haut du formulaire, même en défilant. */
+  .step-tabs { position: sticky; top: 8px; z-index: 4; box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.45); }
+
+  /* Progression : une case par étape, signalements du rail. */
+  .mprogress { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 2px; border-top: 1px solid rgb(var(--gray-200)); background: rgb(var(--bar, var(--surface))); }
+  .mp-segs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .mp-seg { position: relative; height: 6px; padding: 0; border: 0; border-radius: 999px; background: rgb(var(--gray-200)); cursor: pointer; transition: background-color 0.2s; }
+  .mp-seg::before { content: ''; position: absolute; inset: -10px -2px; } /* zone de toucher confortable */
+  .mp-seg[data-level='ok'] { background: rgb(var(--accent) / 0.55); }
+  .mp-seg[data-level='warn'] { background: rgb(var(--flag-warn)); }
+  .mp-seg[data-level='todo'] { background: rgb(var(--flag-todo)); }
+  .mp-seg.active { background: rgb(var(--accent)); box-shadow: 0 0 0 2px rgb(var(--accent) / 0.25); }
+  .mp-label { margin: 0; font-size: 12px; text-align: center; color: rgb(var(--gray-500)); }
+  .mp-label strong { color: rgb(var(--gray-900)); font-weight: 600; }
+  .mp-todo { color: rgb(var(--flag-todo)); font-weight: 600; }
+
+  /* Barre du bas : Précédent · Aperçu au centre · Suivant (Générer à la dernière étape). */
+  .step-nav, .sheet .step-nav {
+    display: grid !important; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+    padding: 8px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 0 !important;
+  }
+  .step-nav #prev { grid-column: 1; justify-self: start; }
+  .step-nav #peek { grid-column: 2; justify-self: center; display: inline-flex; }
+  .step-nav #next, .step-nav #generate { grid-column: 3; grid-row: 1; justify-self: end; }
+  .step-nav #generate, .step-nav .shortcut-hint { display: none; }
+  .sheet.last-step .step-nav #generate { display: inline-flex; margin: 0; }
+  .sheet.last-step .step-nav #next { display: none; }
+  .step-nav .btn-primary, .step-nav .btn-ghost, .step-nav .btn-text { height: 40px; padding: 0 16px; border-radius: 12px; font-size: 14px; }
+  .step-nav #peek { min-width: 104px; justify-content: center; }
+  .sheet.last-step .step-nav #generate { background: rgb(var(--accent)); color: rgb(var(--on-accent)); border-color: transparent; }
+}
+
+/* ===== Mobile : modification d'un élément = fenêtre flottante (pas une feuille du bas) ========= */
+@media (max-width: 959px) {
+  .dialog-backdrop:has(.quick-edit) { align-items: flex-start; padding: calc(var(--top-h, 56px) + 8px) 12px 12px; }
+  .quick-edit, :root[data-theme] .quick-edit {
+    width: 100%; max-height: calc(100dvh - var(--top-h, 56px) - 24px); border-radius: 22px; border: 0;
+    animation: qe-drop 0.4s cubic-bezier(0.34, 1.3, 0.64, 1) both; padding-bottom: 0; box-shadow: 0 30px 70px -24px rgb(0 0 0 / 0.65);
+  }
+  .quick-edit .dialog-grip { display: none; }
+  /* Elle descend de la barre d'outils et y remonte en partant. */
+  .dialog-backdrop.closing .quick-edit { animation: qe-lift 0.18s cubic-bezier(0.4, 0, 1, 1) both; }
+  .dialog-backdrop:has(.quick-edit) { padding-bottom: 12px; }
+  .quick-edit .dialog-head { border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding-top: 0.7rem; }
+  /* Clavier ouvert : la fenêtre reste dans la partie visible. */
+  .kb-open .dialog-backdrop:has(.quick-edit) { padding-top: 8px; }
+  .kb-open .quick-edit { max-height: calc(var(--vvh, 100dvh) - 16px); }
+}
+
+/* Pastilles des étapes (feuille repliée) : signalements. */
+.step-pill[data-level='todo'] .step-num { border-color: transparent; background: rgb(var(--flag-todo)); color: #fff; font-weight: 700; }
+.step-pill[data-level='warn'] .step-num { border-color: transparent; background: rgb(var(--flag-warn)); color: #1a1a1a; }
+.step-pill[data-level='ok'] .step-num { border-color: transparent; background: rgb(var(--accent) / 0.85); color: rgb(var(--on-accent)); }
+
+@keyframes qe-drop { from { opacity: 0; transform: translateY(-14px) scale(0.96); } }
+@keyframes qe-lift { to { opacity: 0; transform: translateY(-10px) scale(0.97); } }

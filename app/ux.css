@@ -464,3 +464,13 @@ body:has(.dialog-backdrop) .quota-bar { z-index: 40; }
 .multi-status.bad { color: rgb(var(--flag-todo)); }
 .multi-files { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-end; }
 .multi-row.done { align-items: flex-start; }
+
+/* Fenêtre « Ce CV » : partage du lien et accès à « Mes CV ». */
+.share { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid rgb(var(--gray-200)); }
+.share-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.share-row .cv-dialog-label { margin: 0; }
+.share-text { font-size: 0.82rem; color: rgb(var(--gray-500)); }
+.share-copy { align-self: flex-start; }
+.share-copy[hidden] { display: none; }
+.cv-mine { margin-top: 0.9rem; width: 100%; }
+@media (min-width: 960px) { .cv-mine { display: none; } }

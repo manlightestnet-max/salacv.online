@@ -140,4 +140,7 @@ export const STATEMENTS = [
   `ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS tokens integer NOT NULL DEFAULT 0`,
   // Photo du compte Google (adresse https de Google), affichée dans « Mon compte ».
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS picture text NOT NULL DEFAULT ''`,
+  // Lien public d'un CV (choisi par son propriétaire) : n'importe qui peut le voir et le dupliquer. Privé par défaut.
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS public boolean NOT NULL DEFAULT false`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS projects_public_id ON projects (id) WHERE public`,
 ];

@@ -1,6 +1,7 @@
 // CV des comptes connectés : le contenu est écrit UNIQUEMENT sur Cloudflare R2, dans le dossier du compte (u/<empreinte>/…) ;
-// la table `projects` ne garde que l'index (identifiant, dates, taille). Rien n'est gardé dans le navigateur. Un visiteur non
-// connecté n'a aucune sauvegarde. Sans R2 configuré, l'enregistrement est refusé avec un message clair (aucun repli silencieux).
+// la table `projects` ne garde que l'index (identifiant, dates, taille, lien public). Sans R2 configuré, l'enregistrement est
+// refusé avec un message clair (aucun repli silencieux). Un CV est PRIVÉ : seul son propriétaire l'ouvre, sauf s'il le rend
+// public (action « share ») ; alors n'importe qui peut le lire (action « public ») et en faire sa propre copie.
 import { query } from './db/index.js';
 import { verify } from './agent/auth.js';
 import { getUser } from './db/users.js';
@@ -13,6 +14,7 @@ export const MAX_PROJECTS_BODY = 700 * 1024;
 const ID = /^[a-z0-9]{4,24}$/;
 const KINDS = new Set(['cv', 'persona']);
 const saveLimiter = new RateLimiter(120);
+const publicLimiter = new RateLimiter(60);
 
 const keyOf = (username, kind, id) => `${userPrefix(username)}/${kind}/${id}.json`;
 
@@ -29,7 +31,7 @@ async function mapLimit(items, n, fn) {
 }
 
 export async function listProjects(username, opts = {}) {
-  const rows = await query('SELECT id, kind, data, r2_key, created_at, updated_at FROM projects WHERE username = $1 ORDER BY updated_at DESC LIMIT $2', [username, MAX_PROJECTS * 2]);
+  const rows = await query('SELECT id, kind, data, r2_key, public, created_at, updated_at FROM projects WHERE username = $1 ORDER BY updated_at DESC LIMIT $2', [username, MAX_PROJECTS * 2]);
   const items = await mapLimit(rows, 8, async (r) => {
     let data = r.data;
     if (data == null && r.r2_key) {
@@ -40,7 +42,7 @@ export async function listProjects(username, opts = {}) {
         console.error(`[projets] lecture R2 impossible (${r.id}) : ${err.message}`);
       }
     }
-    return data == null ? null : { id: r.id, kind: r.kind, data, createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
+    return data == null ? null : { id: r.id, kind: r.kind, data, public: Boolean(r.public), createdAt: new Date(r.created_at).getTime(), updatedAt: new Date(r.updated_at).getTime() };
   });
   return items.filter(Boolean);
 }
@@ -78,8 +80,44 @@ export async function deleteProject(username, id, opts = {}) {
   return rows.length > 0;
 }
 
-// POST /api/projects { action: 'list' | 'save' | 'delete', … } — connexion obligatoire.
-export async function projectsRoute(payload, token, { env = process.env, ...opts } = {}) {
+// Rendre un CV public (ou de nouveau privé). → { ok } | { ok: false, status, error }
+export async function shareProject(username, id, on) {
+  try {
+    const rows = await query("UPDATE projects SET public = $3 WHERE username = $1 AND id = $2 AND kind = 'cv' RETURNING id", [username, String(id), Boolean(on)]);
+    return rows.length ? { ok: true } : { ok: false, status: 404, error: 'CV introuvable : il n’est peut-être pas encore enregistré.' };
+  } catch (err) {
+    // même identifiant déjà public chez quelqu'un d'autre (rarissime) : on demande une copie
+    if (err?.code === '23505') return { ok: false, status: 409, error: 'Ce lien est déjà pris. Duplique ce CV puis partage la copie.' };
+    throw err;
+  }
+}
+
+// Lecture d'un CV public, sans connexion : seulement ce qui sert à le voir et le dupliquer (jamais le compte du propriétaire).
+export async function publicProject(id, opts = {}) {
+  if (!ID.test(String(id ?? ''))) return null;
+  const rows = await query(
+    `SELECT p.data, p.r2_key FROM projects p LEFT JOIN users u ON u.username = p.username
+     WHERE p.id = $1 AND p.public AND p.kind = 'cv' AND COALESCE(u.blocked, false) = false`,
+    [String(id)],
+  );
+  if (!rows.length) return null;
+  let data = rows[0].data;
+  if (data == null && rows[0].r2_key) {
+    const raw = await r2Get(rows[0].r2_key, opts).catch(() => null);
+    data = raw ? JSON.parse(raw.toString('utf8')) : null;
+  }
+  if (!data || typeof data !== 'object') return null;
+  const { state, name, variants, docs } = data;
+  return { state, name: typeof name === 'string' ? name : '', variants: variants ?? {}, docs: Array.isArray(docs) ? docs : [] };
+}
+
+// POST /api/projects { action: 'list' | 'save' | 'delete' | 'share' | 'public', … } — connexion obligatoire, sauf « public ».
+export async function projectsRoute(payload, token, { env = process.env, ip = 'inconnue', ...opts } = {}) {
+  if (payload?.action === 'public') {
+    if (!publicLimiter.allow(`ip:${ip}`)) return [429, { ok: false, error: 'Trop de demandes. Attends une minute.' }];
+    const cv = await publicProject(payload.id, { env, ...opts });
+    return cv ? [200, { ok: true, cv }] : [404, { ok: false, error: 'Ce CV est privé ou n’existe plus.' }];
+  }
   const username = token ? verify(token, env) : null;
   if (!username) return [401, { ok: false, error: 'Connecte-toi pour sauvegarder tes CV.' }];
   if ((await getUser(username).catch(() => null))?.blocked) return [403, { ok: false, error: 'Ce compte est suspendu.' }];
@@ -94,6 +132,10 @@ export async function projectsRoute(payload, token, { env = process.env, ...opts
     }
     case 'delete':
       return [200, { ok: true, deleted: await deleteProject(username, payload.id, o) }];
+    case 'share': {
+      const r = await shareProject(username, payload.id, payload.public);
+      return [r.ok ? 200 : r.status, r.ok ? { ok: true, public: Boolean(payload.public) } : { ok: false, error: r.error }];
+    }
     default:
       return [400, { ok: false, error: 'Action inconnue.' }];
   }

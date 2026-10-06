@@ -110,7 +110,7 @@ export const ROUTES = {
     const missing = [...new Set(Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => names[k]))];
     return [200, { ok: true, ready: missing.length === 0, checks, missing }];
   },
-  projects: (payload, req) => projectsRoute(payload, tokenOf(req)),
+  projects: (payload, req) => projectsRoute(payload, tokenOf(req), { ip: clientIp(req) }),
   usage: (payload, req) => {
     const ctx = context(req);
     return withCookie(web.usage(tokenOf(req), { ctx }), ctx);

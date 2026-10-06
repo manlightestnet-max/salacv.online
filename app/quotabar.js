@@ -10,7 +10,7 @@ export function initQuotaBar() {
   if (desktop() || readSession()) return; // connecté (ou app desktop, qui exige la connexion) : pas de barre
   const fill = h('span', { class: 'quota-fill' });
   const pct = h('strong', { class: 'quota-pct' }, '…');
-  const msg = h('p', { class: 'quota-msg' }, 'Connecte-toi et débloque la sauvegarde sans filigrane');
+  const msg = h('p', { class: 'quota-msg' }, 'Connecte-toi pour garder ton CV');
   const login = h('a', { class: 'quota-login', href: `/auth/?next=${encodeURIComponent(location.pathname + location.search)}` }, 'Se connecter');
   const bar = h('div', { class: 'quota-bar', role: 'status', hidden: true }, h('div', { class: 'quota-text' }, msg, h('div', { class: 'quota-meter' }, h('span', { class: 'quota-track', 'aria-hidden': 'true' }, fill), pct)), login);
   document.body.append(bar);
@@ -24,7 +24,7 @@ export function initQuotaBar() {
     pct.textContent = q.exhausted ? 'IA gratuite épuisée' : `IA gratuite : ${used} % utilisée`;
     bar.classList.toggle('low', used >= 80 && !q.exhausted);
     bar.classList.toggle('out', Boolean(q.exhausted));
-    msg.textContent = q.exhausted ? 'Tes crédits IA gratuits sont épuisés. Connecte-toi pour continuer.' : 'Connecte-toi et débloque la sauvegarde sans filigrane';
+    msg.textContent = q.exhausted ? 'IA gratuite épuisée : connecte-toi' : 'Connecte-toi pour garder ton CV';
   }
 
   window.addEventListener('salacv:quota', (e) => show(e.detail));
