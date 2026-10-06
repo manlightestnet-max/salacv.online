@@ -8,7 +8,7 @@
   <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="description" content="Crée ton CV au format congolais en quelques minutes : sept modèles, aperçu en direct, PDF haute qualité et Word. Fais ton CV en ligne.">
+  <meta name="description" content="Crée ton CV pro au format congolais en 2 minutes, depuis ton téléphone : modèles pro, assistant IA, aperçu en direct, PDF et Word. Gratuit pour commencer.">
   <meta name="theme-color" content="#f8fafc">
   <script>
     try {
@@ -25,211 +25,142 @@
 <body>
   <div class="grid-bg" aria-hidden="true"></div>
 
-  <header class="nav">
+  <header class="top">
     <a class="brand" href="/" aria-label="salacv.online, accueil">
-      <span class="brand-logo" aria-hidden="true">
-        <svg class="brand-mark-svg" viewBox="0 0 44 44" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="scv-bg" x1="0%" y1="0%" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#38BDF8"/>
-              <stop offset="45%" stop-color="#2563EB"/>
-              <stop offset="100%" stop-color="#1D4ED8"/>
-            </linearGradient>
-            <filter id="scv-fold-shadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="-1" dy="1.5" stdDeviation="1.2" flood-color="#0f172a" flood-opacity="0.28"/>
-            </filter>
-          </defs>
-          <path d="M10 4 C6.69 4 4 6.69 4 10 V34 C4 37.31 6.69 40 10 40 H34 C37.31 40 40 37.31 40 34 V16 L28 4 H10 Z" fill="url(#scv-bg)"/>
-          <path d="M28 4 V13 C28 14.66 29.34 16 31 16 H40 L28 4 Z" fill="#E0F2FE" filter="url(#scv-fold-shadow)"/>
-          <path d="M 23.8 16.5 C 19.8 16.5 17.5 18.2 17.5 21 C 17.5 24.8 24.5 24.2 24.5 27.2 C 24.5 28.6 23 29.4 20.8 29.4 C 18.8 29.4 16.8 28.7 15.8 27.8 L 14.6 30.6 C 16.2 31.8 18.6 32.5 21.2 32.5 C 26 32.5 28.5 29.8 28.5 26.6 C 28.5 22.6 21.4 23 21.4 20.3 C 21.4 19.2 22.4 18.6 24.2 18.6 C 25.8 18.6 27.5 19.3 28.7 20.2 L 30 17.5 C 28.2 16.4 25.8 16.5 23.8 16.5 Z" fill="#FFFFFF"/>
-        </svg>
-      </span>
+      <img class="brand-logo" src="/brand.svg" alt="" width="34" height="34">
       <span class="brand-text">
         <span class="brand-name">salacv<span class="brand-tld">.online</span></span>
         <span class="brand-slogan">Fais ton CV en ligne</span>
       </span>
     </a>
     <nav class="nav-links" aria-label="Sections">
-      <a href="#comment">Comment ça marche</a>
       <a href="#modeles">Modèles</a>
-      <a href="#amis">Avantages</a>
+      <a href="#prix">Prix</a>
+      <a href="#avis">Avis</a>
+      <a href="#faq">Questions</a>
     </nav>
-    <a class="nav-mine" href="/auth/?next=/dashboard/" data-logged="Mes CV" data-anon="Connecte-toi">Connecte-toi</a>
+    <a class="nav-mine" href="/auth/?next=/dashboard/" data-logged="Mes CV">Se connecter</a>
     <a class="btn btn-solid nav-cta" href="/studio/?new">Créer mon CV</a>
   </header>
 
   <main>
-    <!-- Héros : aperçu dynamique du CV avec personnalisation directe du nom -->
+    <!-- Héros : le vrai moteur dessine le CV, le nom tapé y apparaît en direct. -->
     <section class="hero" id="haut">
       <div class="hero-copy">
-        <div class="eyebrow reveal">
-          <span class="badge-flag" aria-hidden="true">🇨🇬</span>
-          <span>Format CV congolais · PDF &amp; Word</span>
-        </div>
-        <h1 class="reveal">Ton CV pro,<br><span class="h1-dim">prêt en 2 minutes.</span></h1>
-        <p class="lead reveal">Tape ton nom pour voir ton CV en direct, choisis un style et télécharge.</p>
+        <p class="eyebrow reveal"><span aria-hidden="true">🇨🇬</span> Fait à Brazzaville · format CV congolais</p>
+        <h1 class="reveal">Ton CV pro,<br><span class="accent-text">prêt en 2 minutes.</span></h1>
+        <p class="lead reveal">Tape ton nom : ton CV apparaît en direct. Choisis un style, télécharge en PDF et Word. Depuis ton téléphone.</p>
+
         <form id="name-form" class="name-form reveal" autocomplete="on">
           <label class="sr-only" for="name">Ton prénom et nom</label>
           <input id="name" class="name-input" name="name" type="text" autocomplete="name" enterkeyhint="go" maxlength="60" placeholder="Ton prénom et nom" spellcheck="false">
-          <button class="btn btn-solid name-go" type="submit">Entrer <span aria-hidden="true">→</span></button>
+          <button class="btn btn-solid name-go" type="submit">Commencer <span aria-hidden="true">→</span></button>
         </form>
-        <div class="hero-meta reveal">
-          <div class="hero-perks">
-            <span class="perk-chip">✓ Gratuit sans compte</span>
-            <span class="perk-chip">✓ Export immédiat</span>
-          </div>
-          <div id="stats" class="stats-badge" hidden></div>
+
+        <div class="hero-alt reveal">
+          <a class="btn btn-google" href="/auth/?next=/dashboard/" data-logged="Ouvrir mes CV">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"/></svg>
+            <span data-label>Continuer avec Google</span>
+          </a>
+          <span class="hero-note">Gratuit pour commencer · sans carte</span>
         </div>
+
+        <ul id="live" class="live reveal" aria-label="En direct" hidden></ul>
       </div>
 
       <div class="hero-stage reveal" aria-label="Aperçu de ton CV">
-        <div id="stage" class="stage">
-          <div class="paper paper-skeleton"></div>
-        </div>
+        <div class="stage-glow" aria-hidden="true"></div>
+        <div id="stage" class="stage"><div class="paper paper-skeleton"></div></div>
         <div class="stage-meta" aria-live="polite">
-          <span class="mono">Modèle</span>
+          <span class="stage-tag">Modèle</span>
           <strong id="stage-name">Minimal</strong>
           <span id="stage-dots" class="dots" role="group" aria-label="Choisir un style"></span>
         </div>
       </div>
     </section>
 
-    <!-- Les 4 étapes du processus selon la charte graphique -->
-    <section class="process-band reveal" aria-label="Les 4 étapes du CV">
-      <div class="process-inner">
-        <div class="process-step">
-          <span class="step-num-pill">1</span>
-          <div class="step-detail">
-            <strong>Infos</strong>
-            <span>Identité &amp; contact</span>
-          </div>
-        </div>
-        <div class="process-sep" aria-hidden="true"></div>
-        <div class="process-step">
-          <span class="step-num-pill">2</span>
-          <div class="step-detail">
-            <strong>Formation</strong>
-            <span>Études &amp; diplômes</span>
-          </div>
-        </div>
-        <div class="process-sep" aria-hidden="true"></div>
-        <div class="process-step">
-          <span class="step-num-pill">3</span>
-          <div class="step-detail">
-            <strong>Expérience</strong>
-            <span>Stages &amp; emplois</span>
-          </div>
-        </div>
-        <div class="process-sep" aria-hidden="true"></div>
-        <div class="process-step">
-          <span class="step-num-pill">4</span>
-          <div class="step-detail">
-            <strong>Compétences</strong>
-            <span>Atouts &amp; langues</span>
-          </div>
-        </div>
+    <!-- Chiffres réels (serveur) : une tuile n'apparaît que si son chiffre existe. -->
+    <section class="numbers" aria-label="salacv en chiffres">
+      <div id="numbers" class="numbers-grid"></div>
+    </section>
+
+    <!-- Trois étapes -->
+    <section class="section how" id="comment">
+      <p class="kicker reveal">Comment ça marche</p>
+      <h2 class="reveal">Trois gestes, un CV qui décroche des entretiens.</h2>
+      <div class="how-grid">
+        <article class="how-tile reveal"><span class="how-num">1</span><strong>Tu remplis</strong><p>Formulaire guidé, pensé pour le pouce. L’assistant IA t’aide à formuler.</p></article>
+        <article class="how-tile reveal"><span class="how-num">2</span><strong>Tu choisis ton style</strong><p>Change de modèle en un geste, ton contenu suit.</p></article>
+        <article class="how-tile reveal"><span class="how-num">3</span><strong>Tu télécharges</strong><p>PDF net à imprimer et Word modifiable, prêts à envoyer.</p></article>
       </div>
     </section>
 
-    <!-- Défilement : comment ça marche -->
-    <section class="story" id="comment">
-      <div class="story-inner">
-        <div class="story-steps">
-          <p class="mono label reveal">// Comment ça marche</p>
-          <article class="story-step" data-step="0">
-            <span class="step-num mono">01 / 03</span>
-            <h2>Tu remplis.</h2>
-            <p>Un formulaire guidé optimisé pour mobile. L'assistant IA t'aide à formuler chaque section.</p>
-          </article>
-          <article class="story-step" data-step="1">
-            <span class="step-num mono">02 / 03</span>
-            <h2>Tu choisis ton style.</h2>
-            <p>Sept modèles conformes aux attentes des recruteurs, avec aperçu et changement en direct.</p>
-          </article>
-          <article class="story-step" data-step="2">
-            <span class="step-num mono">03 / 03</span>
-            <h2>Tu télécharges.</h2>
-            <p>Export PDF vectoriel ultra-net et fichier Word modifiable, prêts à être envoyés en 1 clic.</p>
-          </article>
-        </div>
-        <div class="story-visual" aria-hidden="true">
-          <div class="story-frame">
-            <div class="form-ghost" data-show="0">
-              <span class="fg-label"></span><span class="fg-input w80"></span>
-              <span class="fg-label"></span><span class="fg-input w60"></span>
-              <span class="fg-label"></span><span class="fg-input w90 tall"></span>
-              <span class="fg-label"></span><span class="fg-input w70"></span>
-            </div>
-            <canvas id="story-cv" class="story-cv"></canvas>
-            <div class="scan" aria-hidden="true"></div>
-            <div class="pdf-chip mono" data-show="2">
-              <span class="fmt-tag fmt-pdf">PDF</span>
-              <span class="fmt-tag fmt-word">Word</span>
-              <span>CV prêt</span>
-            </div>
-          </div>
-          <div class="story-progress"><span id="story-bar"></span></div>
-        </div>
+    <!-- Ce qui est vraiment dans l'app -->
+    <section class="section features">
+      <p class="kicker reveal">Dans l’app</p>
+      <h2 class="reveal">Tout ce qu’il faut. Rien de compliqué.</h2>
+      <div class="bento">
+        <article class="bento-tile big reveal"><span class="b-icon" aria-hidden="true">✦</span><strong>Assistant IA</strong><p>Il remplit avec toi : profil, expériences, compétences. Tu gardes la main sur chaque phrase.</p></article>
+        <article class="bento-tile reveal"><span class="b-icon" aria-hidden="true">📱</span><strong>Fait pour le téléphone</strong><p>Remplis, zoome, télécharge : tout marche au doigt.</p></article>
+        <article class="bento-tile reveal"><span class="b-icon" aria-hidden="true">📄</span><strong>PDF + Word</strong><p>Le PDF pour postuler, le Word pour retoucher.</p></article>
+        <article class="bento-tile reveal"><span class="b-icon" aria-hidden="true">🌍</span><strong>Plusieurs langues</strong><p>Une version de ton CV par langue, comme des onglets.</p></article>
+        <article class="bento-tile reveal"><span class="b-icon" aria-hidden="true">☁️</span><strong>Sur ton compte</strong><p>Tes CV te suivent sur tous tes appareils, avec Google.</p></article>
+        <article class="bento-tile reveal"><span class="b-icon" aria-hidden="true">↺</span><strong>Re-télécharger : gratuit</strong><p>Une version payée se re-télécharge sans rien dépenser.</p></article>
       </div>
     </section>
 
-    <!-- Les modèles, en ruban infini -->
-    <section class="templates-band" id="modeles">
-      <div class="band-head">
-        <p class="mono label reveal">// Modèles</p>
-        <h2 class="reveal">Sept styles pro.<br><span class="h1-dim">Prêts pour l'embauche.</span></h2>
+    <!-- Modèles : rendus par le vrai moteur -->
+    <section class="section templates-band" id="modeles">
+      <p class="kicker reveal">Modèles</p>
+      <h2 class="reveal"><span id="tpl-count">Des</span> styles pro, prêts pour l’embauche.</h2>
+      <div class="marquee" aria-label="Modèles disponibles"><div id="marquee-track" class="marquee-track"></div></div>
+    </section>
+
+    <!-- Prix : les packs réglés dans l'admin -->
+    <section class="section pricing" id="prix">
+      <p class="kicker reveal">Prix</p>
+      <h2 class="reveal">Gratuit pour essayer. Un crédit pour un CV propre.</h2>
+      <p class="section-lead reveal">Sans crédit, ton PDF sort avec filigrane. Un crédit prépare un CV sans filigrane (et le Word). Paiement MTN MoMo, Airtel Money ou wallet LightPay.</p>
+      <p id="gift" class="gift reveal" hidden></p>
+      <div id="price-grid" class="price-grid">
+        <article class="price-tile free reveal">
+          <span class="price-amount">0</span>
+          <span class="price-unit">FCFA</span>
+          <strong>Essai</strong>
+          <span class="price-each">CV avec filigrane</span>
+        </article>
       </div>
-      <div class="marquee" aria-label="Modèles disponibles">
-        <div id="marquee-track" class="marquee-track"></div>
+      <a class="btn btn-solid btn-xl recharge-cta reveal" href="/auth/?next=/dashboard/%23credits" data-logged="Recharger mes crédits" data-logged-href="/dashboard/#credits"><span class="coin" aria-hidden="true"></span><span data-label>Commencer</span></a>
+    </section>
+
+    <!-- Avis réels (rien d'inventé : section cachée s'il n'y en a pas) -->
+    <section class="section reviews" id="avis" hidden>
+      <p class="kicker reveal">Avis</p>
+      <h2 class="reveal" id="rating-title">Ce qu’ils en disent.</h2>
+      <div id="review-grid" class="review-grid"></div>
+    </section>
+
+    <!-- Questions -->
+    <section class="section faq" id="faq">
+      <p class="kicker reveal">Questions</p>
+      <h2 class="reveal">Les vraies questions, les vraies réponses.</h2>
+      <div class="faq-list">
+        <details class="reveal"><summary>C’est vraiment gratuit ?</summary><p>Oui pour créer, modifier et voir ton CV. Le PDF gratuit porte un filigrane ; un crédit prépare la version propre (et le Word). Re-télécharger une version déjà payée ne coûte rien.</p></details>
+        <details class="reveal"><summary>Comment je paie ?</summary><p>Par MTN MoMo, Airtel Money ou ton wallet LightPay, dans une fenêtre sécurisée. Les crédits arrivent dès que le paiement est confirmé.</p></details>
+        <details class="reveal"><summary>Pourquoi me connecter avec Google ?</summary><p>Pour garder tes CV et tes crédits sur ton compte, sur tous tes appareils. salacv ne voit jamais ton mot de passe Google.</p></details>
+        <details class="reveal"><summary>Mes informations sont-elles privées ?</summary><p>Ton CV n’est visible que par toi, sauf si tu choisis de le partager par un lien.</p></details>
+        <details class="reveal"><summary>Ça marche sur mon téléphone ?</summary><p>Oui : salacv est pensé d’abord pour le téléphone. Tu peux aussi l’ajouter à ton écran d’accueil comme une app.</p></details>
       </div>
     </section>
 
-    <!-- Avantages & Communauté -->
-    <section class="friends" id="amis">
-      <div class="friends-card reveal">
-        <p class="mono label">// Pourquoi salacv ?</p>
-        <h2>Conçu pour réussir.<br><span class="h1-dim">Pensé pour tes candidatures.</span></h2>
-        <div class="friends-grid">
-          <div class="perk">
-            <span class="perk-icon">✓</span>
-            <div class="perk-content">
-              <strong>Zéro filigrane</strong>
-              <p>Connecte-toi pour sauvegarder tes CV et exporter sans filigrane.</p>
-            </div>
-          </div>
-          <div class="perk">
-            <span class="perk-icon">📱</span>
-            <div class="perk-content">
-              <strong>100% Smartphone</strong>
-              <p>Remplis, prévisualise et télécharge directement depuis ton téléphone.</p>
-            </div>
-          </div>
-          <div class="perk">
-            <span class="perk-icon perk-flag">🇨🇬</span>
-            <div class="perk-content">
-              <strong>Conforme Congo</strong>
-              <p>Structure et rubriques calquées sur les attentes des recruteurs locaux.</p>
-            </div>
-          </div>
-        </div>
-        <div class="friends-bottom">
-          <div class="avatars" aria-hidden="true"><span>G</span><span>M</span><span>J</span><span>A</span><span>+</span></div>
-          <span class="signature-quote">Votre avenir commence ici</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Section finale CTA -->
     <section class="final">
-      <h2 class="reveal">Prêt ?</h2>
+      <h2 class="reveal">Ton prochain entretien commence ici.</h2>
       <a class="btn btn-solid btn-xl reveal" href="/studio/?new">Créer mon CV maintenant <span aria-hidden="true">→</span></a>
-      <a class="final-link reveal" href="/auth/?next=/dashboard/" data-logged="J'ai déjà un CV · Mes projets" data-anon="Déjà un compte ? Connecte-toi">Déjà un compte ? Connecte-toi</a>
+      <a class="final-link reveal" href="/auth/?next=/dashboard/" data-logged="Ouvrir mes CV">Déjà un compte ? Se connecter</a>
     </section>
   </main>
 
-  <!-- Autres produits -->
   <section class="family" aria-labelledby="family-title">
-    <p class="mono label">// Autres produits</p>
     <a class="family-card" href="https://salacope.online" target="_blank" rel="noopener">
       <span class="family-mark" aria-hidden="true">S</span>
       <span class="family-text">
@@ -242,20 +173,14 @@
 
   <footer class="foot">
     <div class="foot-brand">
-      <span class="brand-logo" aria-hidden="true">
-        <svg class="brand-mark-svg" viewBox="0 0 44 44" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M10 4 C6.69 4 4 6.69 4 10 V34 C4 37.31 6.69 40 10 40 H34 C37.31 40 40 37.31 40 34 V16 L28 4 H10 Z" fill="url(#scv-bg)"/>
-          <path d="M28 4 V13 C28 14.66 29.34 16 31 16 H40 L28 4 Z" fill="#E0F2FE"/>
-          <path d="M 23.8 16.5 C 19.8 16.5 17.5 18.2 17.5 21 C 17.5 24.8 24.5 24.2 24.5 27.2 C 24.5 28.6 23 29.4 20.8 29.4 C 18.8 29.4 16.8 28.7 15.8 27.8 L 14.6 30.6 C 16.2 31.8 18.6 32.5 21.2 32.5 C 26 32.5 28.5 29.8 28.5 26.6 C 28.5 22.6 21.4 23 21.4 20.3 C 21.4 19.2 22.4 18.6 24.2 18.6 C 25.8 18.6 27.5 19.3 28.7 20.2 L 30 17.5 C 28.2 16.4 25.8 16.5 23.8 16.5 Z" fill="#FFFFFF"/>
-        </svg>
-      </span>
+      <img src="/brand.svg" alt="" width="22" height="22">
       <span class="brand-name">salacv<span class="brand-tld">.online</span></span>
     </div>
-    <span class="mono">Par smlab • manlightstudio</span>
+    <span class="foot-by">Fait à Brazzaville · smlab • manlightstudio</span>
     <button id="theme" class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
   </footer>
 
-  <!-- Mobile : bouton d'action au pouce -->
+  <!-- Mobile : l'action au pouce dès que le héros est passé -->
   <a id="dock" class="dock btn btn-solid" href="/studio/?new">Créer mon CV <span aria-hidden="true">→</span></a>
 
   <script type="module" src="./landing.js"></script>

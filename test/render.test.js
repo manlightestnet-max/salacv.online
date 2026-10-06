@@ -176,7 +176,12 @@ test('statistiques publiques : CV générés comptés, aucune donnée personnell
   assert.equal(body.ok, true);
   assert.ok(body.cvs >= 4, 'les générations réelles sont comptées');
   assert.ok(body.rating.count >= 2);
-  assert.deepEqual(Object.keys(body).sort(), ['cvs', 'ok', 'rating']);
+  assert.deepEqual(Object.keys(body).sort(), ['cvs', 'cvsWeek', 'ok', 'rating', 'reviews', 'signupCredits']);
+  // Avis affichés : la note, le texte et la date, jamais l'auteur, une IP ou des coordonnées.
+  for (const r of body.reviews) {
+    assert.deepEqual(Object.keys(r).sort(), ['at', 'comment', 'stars']);
+    assert.ok(!/@|\d{7,}/.test(r.comment));
+  }
 });
 
 test('admin : cadeau d’inscription modifiable depuis l’interface', async () => {

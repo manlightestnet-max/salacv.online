@@ -4,6 +4,7 @@
 import { createHash } from 'node:crypto';
 import { query } from './db/index.js';
 import { verify } from './agent/auth.js';
+import { getNumberSetting } from './settings.js';
 
 const DAILY_PER_IP = 5;
 const ipHash = (ip, env) => createHash('sha256').update(`${env.SALACV_SESSION_SECRET ?? ''}|ip|${ip}`).digest('hex').slice(0, 32);
@@ -33,12 +34,23 @@ export async function feedback(payload, token, { env = process.env, ctx } = {}) 
 }
 
 // Statistiques publiques de la landing : seulement des chiffres réels (rien quand il n'y a rien).
-export async function stats() {
+// Un avis affiché sur la landing ne montre jamais de coordonnées ni de lien (et reste court, sans auteur).
+const SHOWABLE = (c) => c.length >= 12 && c.length <= 220 && !/@|https?:|www\.|\d[\d\s.-]{6,}\d/i.test(c);
+
+export async function stats(env = process.env) {
   const [r] = await query('SELECT count(*)::int AS n, avg(stars)::float AS avg FROM feedback');
-  const [c] = await query('SELECT count(*)::int AS n FROM render_log');
+  const [c] = await query(`SELECT count(*)::int AS n, (count(*) FILTER (WHERE at > now() - interval '7 days'))::int AS week FROM render_log`);
+  const recent = await query(`SELECT stars, comment, updated_at FROM feedback WHERE stars >= 4 AND comment <> '' ORDER BY updated_at DESC LIMIT 30`);
   return {
     rating: r.n > 0 ? { average: Math.round(r.avg * 10) / 10, count: r.n } : null,
     cvs: c.n,
+    cvsWeek: c.week,
+    // Crédits offerts à la première connexion (réglés dans l'admin) : la landing le dit seulement s'il y en a.
+    signupCredits: await getNumberSetting('grant.signupCredits', env).catch(() => 0),
+    reviews: recent
+      .map((x) => ({ stars: x.stars, comment: x.comment.trim(), at: new Date(x.updated_at).getTime() }))
+      .filter((x) => SHOWABLE(x.comment))
+      .slice(0, 6),
   };
 }
 

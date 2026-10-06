@@ -1,6 +1,6 @@
-// Landing : le CV d'exemple change de style tout seul, le nom tapé par le visiteur y
-// apparaît en direct ; au défilement, le formulaire devient un CV. Rendu avec le vrai
-// moteur (le même que le studio), donc ce que l'on voit est ce que l'on obtient.
+// Landing : le CV d'exemple change de style tout seul et le nom tapé y apparaît en direct (vrai moteur, celui du
+// studio). Tout le reste vient du serveur : chiffres, prix des crédits, cadeau d'inscription, avis. Une tuile ou
+// une section dont la donnée n'existe pas reste cachée : rien n'est inventé.
 import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
@@ -13,8 +13,8 @@ import { initSession } from './session.js';
 const $ = (id) => document.getElementById(id);
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CYCLE_MS = 2600;
-
-await initSession(); // qui est connecté ? (demandé au serveur)
+const nf = (n) => Number(n).toLocaleString('fr-FR');
+const post = (route) => fetch(`/api/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.json());
 
 $('theme').addEventListener('click', () => openThemePicker());
 
@@ -29,13 +29,32 @@ const io = new IntersectionObserver(
   },
   { rootMargin: '0px 0px -8% 0px' },
 );
-document.querySelectorAll('.reveal').forEach((el, i) => {
-  el.style.setProperty('--d', `${(i % 5) * 70}ms`);
-  io.observe(el);
-});
+const reveal = (root = document) =>
+  root.querySelectorAll('.reveal:not(.in)').forEach((el, i) => {
+    el.style.setProperty('--d', `${(i % 4) * 70}ms`);
+    io.observe(el);
+  });
+reveal();
 
 // Bouton flottant (mobile) dès que le héros est passé.
 new IntersectionObserver(([e]) => $('dock').classList.toggle('show', !e.isIntersecting), { threshold: 0.15 }).observe($('haut'));
+
+// Compte jusqu'au chiffre quand la tuile apparaît (instantané si l'utilisateur limite les animations).
+function countUp(el, to, format = nf) {
+  if (reduced) return void (el.textContent = format(to));
+  const ob = new IntersectionObserver(([e]) => {
+    if (!e.isIntersecting) return;
+    ob.disconnect();
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / 1100);
+      el.textContent = format(to * (1 - (1 - t) ** 3));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  ob.observe(el);
+}
 
 // --- Héros : CV vivant ------------------------------------------------------------
 const stage = $('stage');
@@ -43,27 +62,21 @@ const nameInput = $('name');
 let engine = null;
 let active = 0;
 let timer = null;
-const papers = TEMPLATES.map((t, i) => {
-  const canvas = h('canvas', { class: 'paper', 'data-active': String(i === 0), 'aria-hidden': String(i !== 0) });
-  return { ...t, canvas };
-});
+const papers = TEMPLATES.map((t, i) => ({ ...t, canvas: h('canvas', { class: 'paper', 'data-active': String(i === 0), 'aria-hidden': String(i !== 0) }) }));
 const dots = papers.map((p, i) =>
   h('button', { type: 'button', class: 'dot', 'aria-label': p.name, 'aria-pressed': String(i === 0), onClick: () => (show(i), restart()) }),
 );
 $('stage-dots').replaceChildren(...dots);
+$('tpl-count').textContent = String(TEMPLATES.length);
 
-function resumeFor(template) {
+const resumeFor = (template) => {
   const name = nameInput.value.trim();
   return { ...example, template, profile: { ...example.profile, ...(name ? { name } : {}) } };
-}
-
-function stageWidth() {
-  return Math.round(stage.clientWidth);
-}
+};
 
 function renderHero() {
   if (!engine) return;
-  const w = stageWidth();
+  const w = Math.round(stage.clientWidth);
   for (const p of papers) {
     const r = layoutResume(resumeFor(p.id), engine.fonts);
     if (r.ok) drawDoc(engine, p.canvas, r.doc, w);
@@ -82,7 +95,7 @@ function show(i) {
 
 function restart() {
   clearInterval(timer);
-  if (!reduced) timer = setInterval(() => !document.hidden && show(active + 1), CYCLE_MS);
+  if (!reduced) timer = setInterval(() => !document.hidden && nameInput !== document.activeElement && show(active + 1), CYCLE_MS);
 }
 
 let typing;
@@ -108,10 +121,8 @@ if (!reduced && window.matchMedia('(hover: hover)').matches) {
   const wrap = stage.parentElement;
   wrap.addEventListener('pointermove', (e) => {
     const r = wrap.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - 0.5;
-    const y = (e.clientY - r.top) / r.height - 0.5;
-    stage.style.setProperty('--rx', `${(-y * 6).toFixed(2)}deg`);
-    stage.style.setProperty('--ry', `${(x * 8).toFixed(2)}deg`);
+    stage.style.setProperty('--rx', `${(-((e.clientY - r.top) / r.height - 0.5) * 6).toFixed(2)}deg`);
+    stage.style.setProperty('--ry', `${(((e.clientX - r.left) / r.width - 0.5) * 8).toFixed(2)}deg`);
   });
   wrap.addEventListener('pointerleave', () => {
     stage.style.setProperty('--rx', '0deg');
@@ -119,69 +130,28 @@ if (!reduced && window.matchMedia('(hover: hover)').matches) {
   });
 }
 
-// --- Histoire au défilement : formulaire → CV → PDF ------------------------------
-const story = document.querySelector('.story');
-const storyCv = $('story-cv');
-const frame = document.querySelector('.story-frame');
-const steps = [...document.querySelectorAll('.story-step')];
-let storyTemplate = -1;
-
-function onScroll() {
-  const r = story.getBoundingClientRect();
-  const total = r.height - window.innerHeight;
-  const p = Math.min(1, Math.max(0, -r.top / Math.max(1, total)));
-  const step = Math.min(2, Math.floor(p * 3));
-  frame.style.setProperty('--p', p.toFixed(3));
-  // Étape 1 : le CV se « construit » du haut vers le bas par-dessus le formulaire.
-  frame.style.setProperty('--build', Math.min(1, p * 3).toFixed(3));
-  frame.dataset.step = String(step);
-  $('story-bar').style.width = `${p * 100}%`;
-  steps.forEach((s, i) => s.classList.toggle('current', i === step));
-  // Étape 2 : le style change au fil du défilement.
-  const t = step === 1 ? Math.min(TEMPLATES.length - 1, Math.floor((p * 3 - 1) * TEMPLATES.length)) : step === 0 ? 0 : 5;
-  if (engine && t !== storyTemplate) {
-    storyTemplate = t;
-    const res = layoutResume({ ...example, template: TEMPLATES[t].id }, engine.fonts);
-    if (res.ok) drawDoc(engine, storyCv, res.doc, Math.round(frame.clientWidth));
-  }
-}
-let ticking = false;
-window.addEventListener(
-  'scroll',
-  () => {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(() => ((ticking = false), onScroll()));
-  },
-  { passive: true },
-);
-
-// --- Ruban des modèles --------------------------------------------------------------
-// Les 7 modèles, puis les futurs formats premium (à venir, verrouillés).
+// --- Ruban des modèles (les vrais, puis les futurs formats premium) -------------------
 const SOON = ['Chronos', 'Atelier', 'Monogramme'];
 function renderMarquee() {
-  const card = (canvas, name, tag) => h('figure', { class: 'm-card' }, canvas, h('figcaption', {}, h('span', {}, name), tag && h('span', { class: 'tag-premium' }, tag)));
+  const card = (paper, name, tag) => h('figure', { class: 'm-card' }, paper, h('figcaption', {}, h('span', {}, name), tag && h('span', { class: 'tag-premium' }, tag)));
+  const canvas = document.createElement('canvas');
   const cards = [];
   for (const t of TEMPLATES) {
-    const c = h('canvas', { class: 'm-paper' });
     const r = layoutResume({ ...example, template: t.id }, engine.fonts);
-    if (r.ok) drawDoc(engine, c, r.doc, 150);
-    cards.push(card(c, t.name, null));
+    if (!r.ok) continue;
+    drawDoc(engine, canvas, r.doc, 150);
+    cards.push(card(h('img', { class: 'm-paper', src: canvas.toDataURL('image/png'), alt: '' }), t.name, null));
   }
-  for (const name of SOON) cards.push(card(h('div', { class: 'm-paper m-soon' }, h('span', { class: 'mono' }, 'Bientôt')), name, 'Premium'));
+  for (const name of SOON) cards.push(card(h('div', { class: 'm-paper m-soon' }, h('span', {}, 'Bientôt')), name, 'Premium'));
   // Deux fois la même suite : la boucle infinie ne saute jamais.
-  const track = $('marquee-track');
-  const clone = (el) => {
-    const copy = el.cloneNode(true);
-    const src = el.querySelector('canvas');
-    if (src) copy.querySelector('canvas').replaceWith(Object.assign(document.createElement('img'), { src: src.toDataURL('image/png'), className: 'm-paper', alt: '' }));
+  const copies = cards.map((c) => {
+    const copy = c.cloneNode(true);
     copy.setAttribute('aria-hidden', 'true');
     return copy;
-  };
-  track.replaceChildren(...cards, ...cards.map(clone));
+  });
+  $('marquee-track').replaceChildren(...cards, ...copies);
 }
 
-// --- Chargement du moteur ------------------------------------------------------------
 loadEngine()
   .then((e) => {
     engine = e;
@@ -190,7 +160,6 @@ loadEngine()
     renderHero();
     show(0);
     restart();
-    onScroll();
     renderMarquee();
   })
   .catch((err) => {
@@ -201,33 +170,97 @@ loadEngine()
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    renderHero();
-    storyTemplate = -1;
-    onScroll();
-  }, 150);
+  resizeTimer = setTimeout(renderHero, 150);
 });
 
-// Liens selon la connexion : visiteur → « Connecte-toi » (le tableau de bord lui est fermé) ; connecté → « Mes CV ».
-if (readSession()) {
+// --- Connecté ? Les liens mènent à l'espace au lieu de la connexion. ---------------------
+initSession().then(() => {
+  if (!readSession()) return;
   document.querySelectorAll('[data-logged]').forEach((a) => {
-    a.textContent = a.dataset.logged;
-    a.href = '/dashboard/';
+    (a.querySelector('[data-label]') ?? a).textContent = a.dataset.logged;
+    a.href = a.dataset.loggedHref || '/dashboard/';
   });
-}
+});
 
-// Statistiques réelles (avis et CV générés, calculés par le serveur) : rien n'est affiché tant qu'il n'y a rien.
-fetch('/api/stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-  .then((r) => r.json())
+// --- Chiffres, cadeau et avis (serveur) -----------------------------------------------------
+const ago = (ms) => {
+  const days = Math.floor((Date.now() - ms) / 86_400_000);
+  if (days < 1) return 'aujourd’hui';
+  if (days < 7) return `il y a ${days} jour${days > 1 ? 's' : ''}`;
+  if (days < 31) return `il y a ${Math.floor(days / 7)} semaine${days >= 14 ? 's' : ''}`;
+  return new Date(ms).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+};
+
+post('stats')
   .then((s) => {
     if (!s.ok) return;
-    const parts = [];
-    if (s.rating) parts.push(`★ ${String(s.rating.average).replace('.', ',')} · ${s.rating.count} avis`);
-    if (s.cvs > 0) parts.push(`${s.cvs.toLocaleString('fr-FR')} CV préparé${s.cvs > 1 ? 's' : ''}`);
-    const el = document.getElementById('stats');
-    if (parts.length && el) {
-      el.textContent = parts.join(' · ');
-      el.hidden = false;
+    // Tuiles : seulement les chiffres qui existent.
+    const tiles = [];
+    const tile = (value, label, format) => {
+      const strong = h('strong', {}, '0');
+      tiles.push(h('div', { class: 'num-tile', style: `--i:${tiles.length}` }, strong, h('span', {}, label)));
+      countUp(strong, value, format);
+    };
+    if (s.cvs > 0) tile(s.cvs, `CV préparé${s.cvs > 1 ? 's' : ''} avec salacv`);
+    if (s.cvsWeek > 0) tile(s.cvsWeek, 'cette semaine');
+    if (s.rating) tile(s.rating.average, `note moyenne · ${nf(s.rating.count)} avis`, (v) => `${v.toFixed(1).replace('.', ',')} ★`);
+    tile(TEMPLATES.length, 'modèles pro');
+    $('numbers').replaceChildren(...tiles);
+
+    // Pastilles en direct sous le héros.
+    const live = [];
+    if (s.cvsWeek > 0) live.push(h('li', {}, h('span', { class: 'pulse', 'aria-hidden': 'true' }), h('strong', {}, nf(s.cvsWeek)), ` CV cette semaine`));
+    if (s.rating) live.push(h('li', {}, '★ ', h('strong', {}, String(s.rating.average).replace('.', ',')), ` · ${nf(s.rating.count)} avis`));
+    if (s.signupCredits > 0) live.push(h('li', {}, '🎁 ', h('strong', {}, String(s.signupCredits)), ` crédit${s.signupCredits > 1 ? 's' : ''} offert${s.signupCredits > 1 ? 's' : ''} à l’inscription`));
+    if (live.length) {
+      live.forEach((li, i) => li.style.setProperty('--i', String(i)));
+      $('live').replaceChildren(...live);
+      $('live').hidden = false;
+      $('live').classList.add('in');
     }
+
+    if (s.signupCredits > 0) {
+      $('gift').textContent = `🎁 ${s.signupCredits} crédit${s.signupCredits > 1 ? 's' : ''} offert${s.signupCredits > 1 ? 's' : ''} à ta première connexion avec Google.`;
+      $('gift').hidden = false;
+    }
+
+    // Avis : de vraies personnes, sans nom ni coordonnées (filtrés par le serveur).
+    if (s.reviews?.length) {
+      if (s.rating) $('rating-title').textContent = `${String(s.rating.average).replace('.', ',')} ★ sur ${nf(s.rating.count)} avis.`;
+      $('review-grid').replaceChildren(
+        ...s.reviews.map((r) =>
+          h('figure', { class: 'review reveal' }, h('span', { class: 'review-stars', 'aria-label': `${r.stars} sur 5` }, '★'.repeat(r.stars)), h('p', {}, `« ${r.comment} »`), h('small', {}, `Utilisateur salacv · ${ago(r.at)}`)),
+        ),
+      );
+      $('avis').hidden = false;
+      reveal($('avis'));
+    }
+  })
+  .catch(() => {});
+
+// --- Prix : les packs réglés dans l'admin --------------------------------------------------
+post('shop')
+  .then((r) => {
+    if (!r.ok || !r.packs?.length) return;
+    const price = (p) => p.promoPrice ?? p.price;
+    const each = (p) => price(p) / p.credits;
+    const packs = [...r.packs].sort((a, b) => a.credits - b.credits);
+    const cheapest = packs.reduce((a, b) => (each(b) < each(a) ? b : a));
+    const best = packs.some((p) => each(p) > each(cheapest)) ? cheapest.id : null;
+    const tiles = packs.slice(0, 3).map((p) => {
+      const off = p.promoPrice ? Math.round((1 - p.promoPrice / p.price) * 100) : 0;
+      return h(
+        'article',
+        { class: `price-tile reveal${p.id === best ? ' best' : ''}` },
+        p.id === best ? h('span', { class: 'price-flag' }, 'Meilleur prix') : off > 0 && h('span', { class: 'price-flag promo' }, `−${off} %`),
+        h('span', { class: 'price-amount' }, h('span', { class: 'coin', 'aria-hidden': 'true' }), String(p.credits)),
+        h('span', { class: 'price-unit' }, p.credits > 1 ? 'crédits' : 'crédit'),
+        h('strong', {}, `${nf(price(p))} FCFA`),
+        p.promoPrice && h('s', {}, `${nf(p.price)} FCFA`),
+        h('span', { class: 'price-each' }, `${nf(Math.round(each(p)))} FCFA / CV`),
+      );
+    });
+    $('price-grid').append(...tiles);
+    reveal($('prix'));
   })
   .catch(() => {});

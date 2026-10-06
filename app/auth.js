@@ -87,6 +87,7 @@ const fail = (message, lock = false) => {
 
 if (adminMode) $('auth-text').textContent = 'Administration : connecte-toi avec le compte Google de l’administrateur.';
 if (desktop) $('auth-text').textContent = 'Connecte-toi avec Google, puis reviens dans l’app salacv : elle s’ouvrira toute seule.';
+if (adminMode || desktop) $('auth-title').textContent = 'Connexion';
 const desktopLinkOk = !desktop || (APP_PORTS.includes(port) && /^[0-9a-f]{32}$/.test(state));
 
 const FRIENDLY = {
@@ -169,11 +170,18 @@ async function finish(result) {
 }
 
 button.addEventListener('click', async () => {
-  if (!auth || leaving) return;
+  if (leaving) return;
   error.hidden = true;
   if (!navigator.onLine) return fail('Pas de connexion Internet. La connexion Google en a besoin.');
   leaving = true;
   try {
+    // La configuration se charge en arrière-plan depuis l'ouverture de la page : on ne l'attend qu'ici, au besoin.
+    if (!auth) {
+      setButton('busy', 'Ouverture de Google…');
+      const config = await configReady;
+      if (!config.apiKey) return fail('La connexion Google n’est pas encore configurée : l’administrateur doit renseigner la clé Firebase.', true);
+      auth = makeAuth(config);
+    }
     if (useRedirect) {
       setButton('busy', 'Ouverture de Google…');
       say('Tu choisis ton compte chez Google, puis tu reviens ici automatiquement.');
@@ -192,34 +200,65 @@ button.addEventListener('click', async () => {
 });
 
 // --- Démarrage --------------------------------------------------------------------------------
+// Le bouton est utilisable tout de suite. Rien n'attend avant le clic, sauf au retour de Google (on termine la connexion).
+// En arrière-plan : la configuration Firebase, et une session déjà ouverte (dans ce cas, on repart directement).
+const configReady = loadConfig();
+
 async function start() {
-  if (returning) {
-    $('auth-title').textContent = 'Connexion en cours…';
-    setButton('busy', 'Retour de Google…');
-    say('Un instant, on termine ta connexion.');
-    const url = new URL(location.href);
-    url.searchParams.delete('g');
-    history.replaceState(null, '', url); // un rechargement ne repasse pas par ici
-  } else {
-    setButton('busy', 'Vérification…');
-  }
   if (!desktopLinkOk) return fail('Lien invalide. Relance la connexion depuis l’app salacv.', true);
-  const config = await loadConfig();
+  showTemplates();
+  showProof();
+  if (!returning) {
+    setButton('ready', READY);
+    alreadySignedIn();
+    return;
+  }
+  $('auth-title').textContent = 'Connexion en cours…';
+  setButton('busy', 'Retour de Google…');
+  say('Un instant, on termine ta connexion.');
+  const url = new URL(location.href);
+  url.searchParams.delete('g');
+  history.replaceState(null, '', url); // un rechargement ne repasse pas par ici
+  const config = await configReady;
   if (!config.apiKey) return fail('La connexion Google n’est pas encore configurée : l’administrateur doit renseigner la clé Firebase.', true);
   auth = makeAuth(config);
-  if (useRedirect) {
-    try {
-      const result = await getRedirectResult(auth);
-      if (result) return await finish(result);
-    } catch (err) {
-      return fail(friendly(err));
-    }
-    if (returning) $('auth-title').textContent = 'Connexion';
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) return await finish(result);
+  } catch (err) {
+    return fail(friendly(err));
   }
-  if (await alreadySignedIn()) return;
+  // Revenu sans résultat (connexion abandonnée chez Google) : on repart du bouton.
+  $('auth-title').textContent = 'Bienvenue sur salacv';
   say('');
   setButton('ready', READY);
-  showTemplates();
+  alreadySignedIn();
+}
+
+// Vraies informations : cadeau d'inscription, CV préparés, note moyenne (serveur) ; rien n'apparaît sans donnée.
+function showProof() {
+  if (desktop || adminMode) return;
+  fetch('/api/stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then((r) => r.json())
+    .then((s) => {
+      if (!s.ok) return;
+      const gains = $('auth-gains');
+      if (s.signupCredits > 0) {
+        const li = document.createElement('li');
+        li.className = 'gain gift';
+        li.innerHTML = '<span class="gain-icon" aria-hidden="true">🎁</span><span><strong></strong><small>Pour préparer tes premiers CV sans filigrane</small></span>';
+        li.querySelector('strong').textContent = `${s.signupCredits} crédit${s.signupCredits > 1 ? 's' : ''} offert${s.signupCredits > 1 ? 's' : ''}`;
+        gains.prepend(li);
+      }
+      const parts = [];
+      if (s.cvs > 0) parts.push(`${Number(s.cvs).toLocaleString('fr-FR')} CV préparés`);
+      if (s.rating) parts.push(`★ ${String(s.rating.average).replace('.', ',')} sur ${Number(s.rating.count).toLocaleString('fr-FR')} avis`);
+      if (parts.length) {
+        $('auth-proof').textContent = parts.join(' · ');
+        $('auth-proof').hidden = false;
+      }
+    })
+    .catch(() => {});
 }
 
 // Grand écran : les modèles défilent à côté (moteur chargé à part, sans retarder la connexion).
