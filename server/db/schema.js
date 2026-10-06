@@ -151,4 +151,19 @@ export const STATEMENTS = [
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (username, key)
   )`,
+  // Achats de crédits payés par LightPay : une commande par paiement. Les crédits sont ajoutés une seule fois
+  // (référence « order:<id> » dans credit_ledger), par le webhook ou par la vérification du client.
+  `CREATE TABLE IF NOT EXISTS credit_orders (
+    id text PRIMARY KEY,
+    username text NOT NULL,
+    pack_id text NOT NULL,
+    credits integer NOT NULL,
+    amount integer NOT NULL,
+    env text NOT NULL,
+    status text NOT NULL DEFAULT 'PENDING',
+    session_id text UNIQUE,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    paid_at timestamptz
+  )`,
+  `CREATE INDEX IF NOT EXISTS credit_orders_user_idx ON credit_orders (username, created_at DESC)`,
 ];

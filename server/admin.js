@@ -19,6 +19,7 @@ import { listSettings, setSetting, DEFINITIONS } from './settings.js';
 import { r2Configured } from './r2.js';
 import { db } from './db/index.js';
 import { getSetting } from './settings.js';
+import { checkPacks, connectFinish, connectStart, lightpayConfig, listPacks, recentOrders, salesStats, savePacks } from './shop.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -206,12 +207,39 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       await pool.deleteKey(Number(payload.id));
       await log('Clé IA supprimée', `#${Number(payload.id)}`);
       return [200, { ok: true }];
+    // --- Boutique de crédits et paiement LightPay ----------------------------------------------
+    case 'shop': {
+      const cfg = await lightpayConfig(env);
+      return [200, { ok: true, packs: await listPacks(), orders: await recentOrders(100), stats: await salesStats(), lightpay: { env: cfg.env, ready: cfg.ready, key: Boolean(cfg.key), payee: cfg.payee }, settings: (await listSettings(env)).filter((x) => x.key.startsWith('lightpay.')) }];
+    }
+    case 'savePacks': {
+      const r = checkPacks(payload.packs);
+      if (!r.ok) return [400, { ok: false, error: r.error }];
+      await savePacks(r.packs);
+      await log('Prix des crédits modifiés', r.packs.map((p) => `${p.credits} cr. ${p.promoPrice ? `${p.promoPrice} (au lieu de ${p.price})` : p.price} FCFA${p.active ? '' : ' (retiré)'}`).join(' · '));
+      return [200, { ok: true, packs: r.packs }];
+    }
+    case 'lightpayConnectStart': {
+      const r = await connectStart(String(payload.redirectUri ?? ''), env);
+      return [r.ok ? 200 : 400, r];
+    }
+    case 'lightpayConnect': {
+      const r = await connectFinish(String(payload.code ?? ''), String(payload.state ?? ''), env);
+      if (!r.ok) return [400, r];
+      await setSetting(r.env === 'production' ? 'lightpay.payeeProduction' : 'lightpay.payeeSandbox', r.connection, env);
+      await log('Wallet LightPay connecté', `${r.env} · ${r.connection}`);
+      return [200, { ok: true, env: r.env, connection: r.connection }];
+    }
     case 'settings':
       return [200, { ok: true, settings: await listSettings(env) }];
     case 'setSetting': {
       const key = String(payload.key ?? '');
       if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
       if ((key.startsWith('quota.') || key.startsWith('grant.')) && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
+      if (key === 'lightpay.env' && !['sandbox', 'production'].includes(String(payload.value))) return [400, { ok: false, error: 'Environnement : sandbox ou production.' }];
+      if ((key === 'lightpay.apiUrl' || key === 'lightpay.checkoutUrl') && !/^https:\/\/[^\s/]+$/.test(String(payload.value).replace(/\/$/, ''))) return [400, { ok: false, error: 'Adresse https attendue, sans chemin.' }];
+      if (key === 'lightpay.keySandbox' && payload.value && !String(payload.value).startsWith('sec_test_')) return [400, { ok: false, error: 'La clé test commence par sec_test_.' }];
+      if (key === 'lightpay.keyProduction' && payload.value && !String(payload.value).startsWith('sec_live_')) return [400, { ok: false, error: 'La clé live commence par sec_live_.' }];
       await setSetting(key, payload.value, env);
       await log('Réglage modifié', DEFINITIONS[key].secret ? `${key} (secret)` : `${key} = ${String(payload.value).slice(0, 80)}`);
       return [200, { ok: true, settings: await listSettings(env) }];

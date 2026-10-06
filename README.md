@@ -130,6 +130,14 @@ Tout se règle par l'admin, dans l'onglet « Clés IA » :
   filigrane, Word bloqué**. Compte avec crédit → PDF propre + Word, **1 crédit par version** (re-télécharger la même version est
   gratuit). Débit atomique en base, registre `credit_ledger`, jamais de solde négatif ni de double débit.
 - **Cadeau d'inscription** (admin → Clés IA) : crédits offerts à la première connexion ; 3 par défaut, 0 pour le désactiver.
+- **Achat de crédits** (admin → Boutique, `server/shop.js`) : packs réglés dans l'admin (par défaut 1 crédit 300 FCFA, 5 crédits
+  500, 10 crédits 1 500), avec prix promo affiché à côté du prix barré. Le client paie dans le dialogue LightPay (`lightpay.js`) :
+  wallet LightPay, MTN MoMo ou Airtel Money ; l'argent va sur le wallet LightPay de salacv (sans séquestre). `/api/buy` crée la
+  commande (`credit_orders`) et la session LightPay ; `/api/order` et le webhook `/api/lightpay` relisent toujours l'état chez
+  LightPay avec la clé secrète (un webhook forgé ne crédite rien) et ajoutent les crédits **une seule fois** (référence
+  `order:<id>`). Réglages : clés `sec_test_…` / `sec_live_…`, environnement, puis « Connecter le wallet » (LightPay Connect,
+  retour sur `/admin/`). Côté LightPay : l'app, son site autorisé, l'adresse de retour `https://<site>/admin/` et le webhook
+  `https://<site>/api/lightpay`. Les comptes « clé » (app desktop sans Google) n'achètent pas.
 - **Sauvegarde des CV** (`/api/projects`) : **uniquement sur Cloudflare R2**, dans le dossier du compte (`u/<empreinte>/…`, jamais d'e-mail) ;
   la base ne garde que l'index. R2 non configuré = enregistrement refusé avec un message clair (aucun repli). Le navigateur ne garde
   plus rien : ni CV, ni session, ni jeton. Restent seulement des préférences d'affichage (thème, mode Lite/Pro, largeur du panneau).

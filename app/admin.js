@@ -674,6 +674,162 @@ async function keysView() {
   );
 }
 
+// --- Boutique : prix des crédits et paiement LightPay ------------------------------------------
+const fcfa = (n) => `${Number(n).toLocaleString('fr-FR')} FCFA`;
+const ORDER_STATUS = { PAID: 'Payée', PENDING: 'En attente', EXPIRED: 'Expirée', CANCELLED: 'Annulée', FAILED: 'Échouée' };
+
+async function shopView() {
+  const r = await api('shop');
+  if (!r.ok) return page('Boutique', null, null, notice(r.error, 'error'));
+  const setting = (key) => r.settings.find((s) => s.key === key);
+  const fail = (text) => {
+    const d = openDialog({ title: 'Impossible', content: h('p', { class: 'dialog-text' }, text), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
+  };
+
+  // Packs : une ligne par pack, tout est enregistré d'un coup (le serveur valide la liste entière).
+  const list = h('div', { class: 'pack-rows' });
+  const lines = [];
+  const num = (value, label, placeholder = '') => h('input', { class: 'admin-input', type: 'number', min: 0, step: 1, inputmode: 'numeric', value: value ?? '', placeholder, 'aria-label': label });
+  function addLine(p = { id: '', credits: '', price: '', promoPrice: null, active: true }) {
+    const line = {
+      id: p.id,
+      credits: num(p.credits, 'Crédits'),
+      price: num(p.price, 'Prix (FCFA)'),
+      promo: num(p.promoPrice, 'Prix promo (FCFA)', 'Aucun'),
+      active: h('input', { type: 'checkbox', checked: p.active || null, 'aria-label': 'En vente' }),
+    };
+    const remove = h('button', { type: 'button', class: 'btn-ghost danger-btn' }, 'Retirer');
+    const el = h(
+      'div',
+      { class: 'pack-row' },
+      h('label', { class: 'ad-label' }, 'Crédits', line.credits),
+      h('label', { class: 'ad-label' }, 'Prix (FCFA)', line.price),
+      h('label', { class: 'ad-label' }, 'Prix promo', line.promo),
+      h('label', { class: 'ad-check' }, line.active, h('span', {}, 'En vente')),
+      remove,
+    );
+    remove.addEventListener('click', () => {
+      lines.splice(lines.indexOf(line), 1);
+      el.remove();
+    });
+    lines.push(line);
+    list.append(el);
+  }
+  r.packs.forEach(addLine);
+
+  const save = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer les prix');
+  save.addEventListener('click', async () => {
+    const used = new Set(lines.map((l) => l.id).filter(Boolean));
+    const packs = lines.map((l) => {
+      const credits = Number.parseInt(l.credits.value, 10);
+      // Un pack existant garde son identifiant ; un nouveau prend c<crédits> (c<crédits>-2 si déjà pris).
+      let id = l.id;
+      if (!id) {
+        id = `c${credits}`;
+        for (let n = 2; used.has(id); n++) id = `c${credits}-${n}`;
+        used.add(id);
+      }
+      return { id, credits, price: Number.parseInt(l.price.value, 10), promoPrice: l.promo.value.trim() === '' ? null : Number.parseInt(l.promo.value, 10), active: l.active.checked };
+    });
+    save.disabled = true;
+    const res = await api('savePacks', { packs });
+    save.disabled = false;
+    res.ok ? render() : fail(res.error);
+  });
+  const packsCard = card(
+    'Prix des crédits',
+    h('button', { type: 'button', class: 'btn-ghost', onClick: () => addLine() }, 'Ajouter un pack'),
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Prix en FCFA, minimum 100. Un prix promo remplace le prix normal, affiché barré à côté. Décoche « En vente » pour retirer un pack sans le perdre.'),
+      list,
+      save,
+    ),
+  );
+
+  // LightPay : environnement, clés, wallet qui reçoit l'argent.
+  const lp = r.lightpay;
+  const envSel = h('select', { class: 'admin-input', 'aria-label': 'Environnement' }, ['sandbox', 'production'].map((v) => h('option', { value: v, selected: v === setting('lightpay.env').value || null }, v === 'sandbox' ? 'Test (sandbox)' : 'Réel (production)')));
+  const fields = ['lightpay.appId', 'lightpay.apiUrl', 'lightpay.checkoutUrl', 'lightpay.keySandbox', 'lightpay.keyProduction'].map((k) => {
+    const s = setting(k);
+    return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
+  });
+  const saveLp = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer LightPay');
+  saveLp.addEventListener('click', async () => {
+    saveLp.disabled = true;
+    const changes = [['lightpay.env', envSel.value], ...fields.filter((f) => !(f.secret && !f.input.value)).map((f) => [f.k, f.input.value.trim()])];
+    for (const [key, value] of changes) {
+      const res = await api('setSetting', { key, value });
+      if (!res.ok) {
+        saveLp.disabled = false;
+        return fail(res.error);
+      }
+    }
+    render();
+  });
+  const where = lp.env === 'production' ? 'réel' : 'test';
+  const connect = h('button', { type: 'button', class: 'btn-ghost' }, lp.payee ? 'Reconnecter le wallet' : 'Connecter le wallet');
+  connect.addEventListener('click', async () => {
+    connect.disabled = true;
+    const res = await api('lightpayConnectStart', { redirectUri: `${location.origin}/admin/` });
+    if (!res.ok) {
+      connect.disabled = false;
+      return fail(res.error);
+    }
+    location.href = res.url;
+  });
+  const lpCard = card(
+    'Paiement LightPay',
+    h('span', { class: lp.ready ? 'tag' : 'tag danger' }, lp.ready ? `Ouvert · ${where}` : 'Fermé'),
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Les clients paient avec leur wallet LightPay ou par mobile money ; l’argent arrive sur le wallet connecté. Les clés secrètes sont chiffrées en base et ne s’affichent plus.'),
+      h('label', { class: 'ad-label' }, setting('lightpay.env').label, envSel),
+      ...fields.map(({ k, input }) => h('label', { class: 'ad-label' }, setting(k).label, input)),
+      saveLp,
+      h('p', { class: 'ad-sub' }, lp.payee ? `Wallet connecté en ${where} : ${lp.payee}` : `Aucun wallet connecté en ${where} : le paiement reste fermé.`),
+      connect,
+    ),
+  );
+
+  const s = r.stats;
+  const rows = r.orders.map((o) =>
+    h(
+      'div',
+      { class: 'row-item' },
+      h('span', { class: 'avatar', 'aria-hidden': 'true' }, String(o.credits)),
+      h(
+        'div',
+        { class: 'row-main' },
+        h('strong', {}, `${o.credits} crédit${o.credits > 1 ? 's' : ''} · ${fcfa(o.amount)}`, o.env !== 'production' && h('span', { class: 'tag' }, 'Test'), h('span', { class: ['PAID', 'PENDING'].includes(o.status) ? 'tag' : 'tag danger' }, ORDER_STATUS[o.status] ?? o.status)),
+        h('small', {}, `${o.username} · ${dateTime(o.at)}`),
+      ),
+    ),
+  );
+  return page(
+    'Boutique',
+    'Les packs de crédits en vente et leur paiement par LightPay. Un achat payé ajoute les crédits au compte du client, une seule fois.',
+    null,
+    h('div', { class: 'stat-grid' }, statCell('Ventes', s.paid, 'commandes payées'), statCell('Encaissé', fcfa(s.revenue), 'en réel'), statCell('Crédits vendus', s.credits)),
+    packsCard,
+    lpCard,
+    card(`${r.orders.length} commande${r.orders.length > 1 ? 's' : ''} récente${r.orders.length > 1 ? 's' : ''}`, null, rowsOf(rows, 'Aucune commande pour l’instant.')),
+  );
+}
+
+// Retour de LightPay Connect (/admin/?code=…&state=…) : le wallet de salacv devient celui qui reçoit les paiements.
+async function finishConnect() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('state')) return;
+  history.replaceState(null, '', `${location.pathname}#boutique`);
+  const res = q.get('code') ? await api('lightpayConnect', { code: q.get('code'), state: q.get('state') }) : { ok: false, error: 'Connexion du wallet annulée.' };
+  if (!res.ok) {
+    const d = openDialog({ title: 'Wallet non connecté', content: h('p', { class: 'dialog-text' }, res.error), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
+  }
+}
+
 // --- Icônes de la barre latérale --------------------------------------------------------------
 const ICON_PATHS = {
   explore: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
@@ -683,6 +839,7 @@ const ICON_PATHS = {
   box: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
   spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
   log: '<path d="M8 4h11v16H8z"/><path d="M5 4v16M11 8h5M11 12h5M11 16h3"/>',
+  cart: '<path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3M14 9l2 2"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>',
 };
@@ -722,7 +879,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Navigation ----------------------------------------------------------------------------
-const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, journal: journalView };
+const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, boutique: shopView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);
@@ -742,7 +899,8 @@ async function render() {
 }
 
 window.addEventListener('hashchange', render);
-api('whoami').then((r) => {
+api('whoami').then(async (r) => {
   token = Boolean(r.ok);
+  if (token) await finishConnect();
   render();
 });

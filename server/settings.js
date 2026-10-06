@@ -19,6 +19,16 @@ export const DEFINITIONS = {
   'firebase.apiKey': { default: '', secret: false, public: true, label: 'Firebase : clé web (apiKey)' },
   'firebase.authDomain': { default: 'lightpay-a5f01.firebaseapp.com', secret: false, public: true, label: 'Firebase : authDomain' },
   'firebase.projectId': { default: 'lightpay-a5f01', secret: false, public: true, label: 'Firebase : projectId' },
+  // Paiement des crédits par LightPay. Les clés secrètes sont chiffrées ; payee = la connexion LightPay du wallet de
+  // salacv (obtenue par « Connecter le wallet » dans l'admin), une par environnement.
+  'lightpay.env': { default: 'sandbox', secret: false, public: false, label: 'LightPay : environnement (sandbox ou production)' },
+  'lightpay.appId': { default: 'salacv', secret: false, public: false, label: 'LightPay : identifiant de l’app' },
+  'lightpay.apiUrl': { default: 'https://api.smlab.xyz', secret: false, public: false, label: 'LightPay : adresse de l’API' },
+  'lightpay.checkoutUrl': { default: 'https://checkout.smlab.xyz', secret: false, public: false, label: 'LightPay : adresse des pages de paiement' },
+  'lightpay.keySandbox': { default: '', secret: true, public: false, label: 'LightPay : clé secrète test (sec_test_…)' },
+  'lightpay.keyProduction': { default: '', secret: true, public: false, label: 'LightPay : clé secrète live (sec_live_…)' },
+  'lightpay.payeeSandbox': { default: '', secret: false, public: false, label: 'LightPay : wallet de salacv en test (conn_…)' },
+  'lightpay.payeeProduction': { default: '', secret: false, public: false, label: 'LightPay : wallet de salacv en réel (conn_…)' },
 };
 
 const known = (key) => {

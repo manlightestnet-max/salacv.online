@@ -9,6 +9,7 @@ import { MAX_PROJECTS_BODY, projectsRoute } from './projects.js';
 import { signingSecret } from './agent/auth.js';
 import { db } from './db/index.js';
 import { configRoute } from './keys/routes.js';
+import { buyRoute, orderRoute, shopRoute, webhookRoute } from './shop.js';
 
 function send(res, status, body, headers = {}) {
   const data = JSON.stringify(body);
@@ -86,6 +87,11 @@ export const ROUTES = {
     return withCookie(render(payload, tokenOf(req), { ctx }), ctx);
   },
   credits: (payload, req) => creditsRoute(tokenOf(req)),
+  // Achat de crédits (LightPay) : packs en vente, achat, suivi d'une commande, webhook de LightPay.
+  shop: (payload, req) => shopRoute(tokenOf(req)),
+  buy: (payload, req) => buyRoute(payload, tokenOf(req), req),
+  order: (payload, req) => orderRoute(payload, tokenOf(req)),
+  lightpay: (payload) => webhookRoute(payload),
   feedback: (payload, req) => {
     const ctx = context(req);
     return withCookie(feedback(payload, tokenOf(req), { ctx }), ctx);

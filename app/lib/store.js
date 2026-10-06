@@ -350,6 +350,28 @@ export const wallet = {
   },
 };
 
+// --- Achat de crédits (LightPay) ----------------------------------------------
+// Les prix viennent du serveur (fixés dans l'admin) ; le paiement se fait dans le dialogue LightPay
+// (wallet LightPay ou mobile money). Le serveur crédite le compte quand LightPay confirme le paiement.
+
+const post = async (route, body = {}) => {
+  try {
+    const res = await fetch(`/api/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return await res.json();
+  } catch {
+    return { ok: false, error: 'Pas de connexion. Réessaie.' };
+  }
+};
+
+export const shop = {
+  // → { open, checkoutUrl, test, packs: [{ id, credits, price, promoPrice }] }
+  packs: () => post('shop'),
+  // → { order, checkoutUrl, amount, credits }
+  buy: (packId) => post('buy', { packId }),
+  // → { order: { id, status: PENDING | PAID | EXPIRED | CANCELLED | FAILED, credits, amount }, balance }
+  order: (orderId) => post('order', { orderId }),
+};
+
 // --- Parrainage et avis --------------------------------------------------------
 
 // Lien à partager (sans code de parrainage : le parrainage côté serveur n'existe pas encore).

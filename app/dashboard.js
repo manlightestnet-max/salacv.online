@@ -9,6 +9,7 @@ import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
 import { initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
 import { openDialog } from './dialog.js';
+import { buyPanel, followOrder, orderMessage } from './buy.js';
 import { offerSandboxSync } from './sync.js';
 import { TEMPLATES, toResume } from './state.js';
 
@@ -211,8 +212,27 @@ function explorerView() {
 }
 
 // --- Crédits ----------------------------------------------------------------------
+// Message après un achat (payé ici, ou retour de la page LightPay avec ?order=…), affiché une fois.
+let flash = '';
+const ORDER_PARAM = /^ord_[A-Za-z0-9_-]{16,40}$/;
+
 async function creditsView() {
+  const back = new URLSearchParams(location.search).get('order');
+  if (back) {
+    window.history.replaceState(null, '', `${location.pathname}${location.hash}`);
+    if (ORDER_PARAM.test(back)) flash = orderMessage(await followOrder(back, 10));
+  }
+  const notice = flash;
+  flash = '';
   const { credits, history, offline } = await wallet.balance();
+  const buy = await buyPanel({
+    keyAccount: readSession()?.kind === 'key',
+    onDone: (order) => {
+      if (order.status !== 'PAID' || location.hash !== '#credits') return;
+      flash = orderMessage(order);
+      render();
+    },
+  });
   const link = inviteLink();
   const copy = h('button', { type: 'button', class: 'btn-ghost' }, 'Copier mon lien');
   copy.addEventListener('click', async () => {
@@ -229,6 +249,7 @@ async function creditsView() {
     {},
     header('Crédits', 'Un crédit prépare un CV en PDF sans filigrane (et Word). Re-télécharger la même version est gratuit.'),
     offline && h('p', { class: 'empty' }, 'Impossible de joindre le serveur : le solde affiché peut être inexact.'),
+    notice && h('p', { class: 'flash', role: 'status' }, notice),
     h(
       'div',
       { class: 'credit-grid' },
@@ -241,9 +262,9 @@ async function creditsView() {
           { class: 'balance-text' },
           h('strong', {}, credits ? `${credits} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit'),
           h('p', {}, credits ? 'Chaque nouvelle version de ton CV en utilise un.' : 'Sans crédit, ton PDF sort avec filigrane et le Word est bloqué.'),
-          h('p', { class: 'mono' }, 'L’achat de crédits arrive bientôt.'),
         ),
       ),
+      buy,
       h(
         'div',
         { class: 'panel invite' },
