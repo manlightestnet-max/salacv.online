@@ -222,7 +222,8 @@ let gained = 0;
 function creditsArrived(order) {
   $('credit-count').textContent = String(order.balance ?? '');
   gained = order.credits;
-  if (location.hash === '#credits') render();
+  // La page Crédits est à l'écran (quelle que soit l'adresse) : on la redessine, l'anneau compte jusqu'au nouveau solde.
+  if (view.querySelector('.balance')) render();
 }
 
 const openRecharge = () => openShop({ keyAccount: readSession()?.kind === 'key', onPaid: creditsArrived });
