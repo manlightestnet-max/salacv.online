@@ -3,6 +3,9 @@
 import { query } from './db/index.js';
 import { getNumberSetting } from './settings.js';
 
+// Prix d'une nouvelle version propre (PDF sans filigrane + Word). Re-télécharger la même version est gratuit.
+export const PDF_COST = 1;
+
 // Premier passage d'un compte : sa ligne de crédits est créée avec le cadeau d'inscription (une seule fois).
 export async function ensureAccount(username, env = process.env) {
   const grant = await getNumberSetting('grant.signupCredits', env);

@@ -20,6 +20,7 @@ let uid = 0;
 const ICONS = {
   chevrons: '<path d="M6 6l6 6-6 6M12 6l6 6-6 6"/>',
   chevronUp: '<path d="M6 15l6-6 6 6"/>',
+  files: '<rect x="8" y="3" width="12" height="15" rx="2.5"/><path d="M5 7v11.5A2.5 2.5 0 007.5 21H16"/>',
   refresh: '<path d="M20 11a8 8 0 10-2.2 5.8"/><path d="M20 4v7h-7"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
   alert: '<path d="M12 6.5v7"/><path d="M12 17.6v.1"/>',

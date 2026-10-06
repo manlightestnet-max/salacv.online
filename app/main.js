@@ -17,7 +17,7 @@ import { openSwitcher } from './switcher.js';
 import { createWorkspace } from './workspace.js';
 import example from '../examples/etudiant.json';
 import { h, icon, fieldIndex, setInputError } from './dom.js';
-import { STEPS, reviewStatus, stepLevels } from './steps.js';
+import { STEPS, reviewIssues, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
 import { initQuotaBar } from './quotabar.js';
@@ -25,6 +25,7 @@ import { getSession, initSession } from './session.js';
 import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
+import { listPersonas } from './lib/store.js';
 
 const $ = (id) => document.getElementById(id);
 await initSession(); // qui est connecté ? (le serveur le sait par son cookie)
@@ -155,10 +156,13 @@ placeTopStack();
 // Mobile : toucher le CV ailleurs que sur un texte → plein écran (seule la barre d'outils reste) ; re-toucher → retour.
 // Toucher un texte ouvre toujours sa modification ; un premier toucher qui ne fait que désélectionner ne bascule pas.
 let hadSelection = false;
+let doubleTapAt = 0;
 preview.addEventListener('click', () => (hadSelection = Boolean(document.querySelector('.qe-bar:not([hidden])'))), true);
-preview.addEventListener('click', () => {
+preview.addEventListener('click', (e) => {
   if (desktop.matches || hadSelection || workspace?.on || sheet.dataset.state === 'expanded') return;
-  root.classList.toggle('immersive');
+  const at = e.timeStamp;
+  // On attend : si un second toucher arrive, c'est un double toucher (zoom), pas un plein écran.
+  setTimeout(() => doubleTapAt < at && root.classList.toggle('immersive'), 330);
 });
 renderStep();
 initEngine();
@@ -200,6 +204,7 @@ desktop.addEventListener('change', () => {
   repaint();
 });
 initSheetDrag();
+initPullToCollapse();
 $('sheet-scrim').addEventListener('click', () => setSheet('collapsed'));
 initKeyboard();
 initSplitter();
@@ -331,6 +336,53 @@ function initSheetDrag() {
   }
 }
 
+// Mobile : formulaire déjà tout en haut + on tire vers le bas = la feuille descend avec le doigt (comme une feuille native).
+// Si on remonte le formulaire jusqu'au sommet dans le même geste, la feuille prend le relais sans lever le doigt.
+// Au lâcher : repliée si on a tiré assez loin ou d'un coup sec, sinon elle revient.
+function initPullToCollapse() {
+  for (const scroller of [$('step'), $('agent-view')]) {
+    let pull = null;
+    scroller.addEventListener(
+      'touchstart',
+      (e) => {
+        if (desktop.matches || sheet.dataset.state !== 'expanded' || e.touches.length !== 1 || root.classList.contains('kb-open')) return;
+        pull = { y: e.touches[0].clientY, active: false, d: 0, t: e.timeStamp, v: 0 };
+      },
+      { passive: true },
+    );
+    scroller.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!pull) return;
+        const y = e.touches[0].clientY;
+        if (!pull.active) {
+          if (scroller.scrollTop > 0) return void (pull.y = y); // le formulaire défile encore : on attend le sommet
+          if (y - pull.y <= 6) return; // vers le haut : défilement normal
+          pull.active = true;
+          pull.y = y;
+          sheet.classList.add('dragging');
+        }
+        e.preventDefault(); // la feuille a la main : ni défilement ni élastique
+        const d = Math.max(0, y - pull.y);
+        pull.v = (d - pull.d) / Math.max(1, e.timeStamp - pull.t);
+        pull.t = e.timeStamp;
+        pull.d = d;
+        sheet.style.transform = `translateY(${d}px)`;
+      },
+      { passive: false },
+    );
+    const end = () => {
+      if (pull?.active) {
+        sheet.classList.remove('dragging');
+        setSheet(pull.d > Math.min(160, sheet.offsetHeight * 0.22) || pull.v > 0.6 ? 'collapsed' : 'expanded');
+      }
+      pull = null;
+    };
+    scroller.addEventListener('touchend', end);
+    scroller.addEventListener('touchcancel', end);
+  }
+}
+
 function setSidebarWidth(w) {
   const max = Math.min(SIDEBAR.max, window.innerWidth * 0.6);
   const width = Math.round(Math.max(SIDEBAR.min, Math.min(max, w)));
@@ -436,6 +488,37 @@ function openAgent() {
       schedule();
     },
     onClose: closeAgent,
+    // Chaque CV a sa conversation, gardée avec lui (compte : serveur ; visiteur : son bac à sable).
+    getChat: () => project.chat ?? [],
+    setChat: (chat) => {
+      project.chat = chat.slice(-40);
+      saveCurrent();
+    },
+    // « Annuler les modifications » : l'état complet d'avant (photo et modèle compris).
+    snapshot: () => structuredClone(state),
+    restore: (snap) => {
+      state = normalizeState(snap);
+      schedule();
+      if (!agentOpen) renderStep();
+    },
+    // Ce que l'agent peut consulter sans le modifier : personnalités (sans photo) et versions à générer.
+    getContext: () => ({
+      personas: listPersonas().map((p) => ({
+        name: p.name,
+        title: p.state.profile.title,
+        summary: p.state.profile.summary,
+        education: p.state.education.filter((i) => i.title.trim()).map((i) => [i.title, i.org, i.period].filter(Boolean).join(' — ')),
+        experiences: p.state.experiences.filter((i) => i.title.trim()).map((i) => [i.title, i.org, i.period].filter(Boolean).join(' — ')),
+      })),
+      versions: exportItems().map((it) => ({ key: it.key, label: `${it.label} — ${langName(it.lang)}` })),
+    }),
+    // Générer à la demande : la préparation habituelle, où le serveur revérifie et débite les crédits.
+    generate: (key) => {
+      const it = exportItems().find((x) => x.key === key) ?? exportItems()[0];
+      if (!it?.state.profile.name.trim()) return toast('Écris d’abord ton nom : il est obligatoire sur le CV.');
+      const missing = checklist(it.state).filter((c) => c.level !== 'ok');
+      openExport({ state: it.state, missing, onReview: () => (closeAgent(), goTo(STEPS.length - 1), setSheet('expanded')) });
+    },
   });
   if (!agentPanel.el.isConnected) $('agent-view').append(agentPanel.el);
   agentOpen = true;
@@ -447,6 +530,7 @@ function openAgent() {
   $('step-title').textContent = 'Assistant';
   $('progress').textContent = 'il remplit ton CV';
   setSheet('expanded');
+  updatePills();
   agentPanel.focus();
 }
 
@@ -457,7 +541,7 @@ function closeAgent() {
   $('sheet-body').hidden = false;
   $('agent-view').hidden = true;
   $('assistant').setAttribute('aria-pressed', 'false');
-  renderStep(); // le formulaire reflète ce que l'agent a rempli
+  renderStep(); // le formulaire reflète ce que l'agent a rempli (et l'en-tête replié reprend l'étape)
 }
 
 // --- Étapes ------------------------------------------------------------------
@@ -573,16 +657,47 @@ function renderMobileProgress() {
 const STEP_OF_KIND = { identity: 'identite', contact: 'identite', photo: 'identite', summary: 'profil', skills: 'competences', language: 'langues', hobbies: 'langues' };
 
 // Pastilles de la feuille repliée : mêmes signalements que le rail et la progression du bas.
+// Le bleu ne dit qu'une chose : « étape choisie ». La couleur de l'état (vert complet, jaune conseil, rouge erreur)
+// reste visible, même sur l'étape choisie (en contour) : rien ne masque une erreur.
 function updatePills() {
   const levels = stepLevels(state, current?.doc);
   const review = reviewStatus(state, current?.doc);
   document.querySelectorAll('#stepper .step-pill').forEach((pill, i) => {
     const last = i === STEPS.length - 1;
-    const level = i === stepIndex ? '' : last ? (seen >= i ? review.level : '') : i <= seen ? levels[STEPS[i].id] : '';
+    const level = last ? (seen >= i ? review.level : '') : i <= seen ? levels[STEPS[i].id] : '';
     pill.dataset.level = level;
     const num = pill.querySelector('.step-num');
     if (num) num.replaceChildren(level === 'ok' ? icon('check', 12) : level === 'todo' ? '!' : String(i + 1));
   });
+  renderStepTitle(levels, review);
+}
+
+// Feuille repliée (mobile) : l'en-tête prend le nom de l'étape et dit ce qu'il lui manque (ou qu'elle est complète).
+function renderStepTitle(levels = stepLevels(state, current?.doc), review = reviewStatus(state, current?.doc)) {
+  const step = STEPS[stepIndex];
+  const now = $('step-now');
+  const need = $('step-need');
+  if (!now || !need) return;
+  if (agentOpen) {
+    now.textContent = 'Assistant';
+    need.textContent = 'Écris-lui, il remplit ton CV';
+    need.dataset.level = '';
+    return;
+  }
+  if (now.textContent !== step.label) {
+    now.textContent = step.label;
+    now.parentElement.classList.remove('swap');
+    void now.offsetWidth;
+    now.parentElement.classList.add('swap');
+  }
+  const issues = reviewIssues(state, current?.doc).filter((c) => step.id === 'verification' || c.step === step.id);
+  const first = issues.find((c) => c.level === 'todo') ?? issues[0];
+  const level = step.id === 'verification' ? review.level : levels[step.id];
+  need.dataset.level = level;
+  need.textContent =
+    step.id === 'verification'
+      ? review.level === 'ok' ? 'Prêt à générer' : `${review.label} · ${first?.text ?? ''}`
+      : first ? first.text : 'Complet';
 }
 
 // Étape Vérification du rail : un drapeau rouge (erreur), jaune (conseil) ou vert (prêt), toujours déplié.
@@ -985,20 +1100,52 @@ function paint(doc) {
   $('zoom-fit').classList.toggle('active', zoom.fit);
 }
 
-// Zoom en gardant le même point au centre de l'aperçu.
-// anchor : le point de l'aperçu (coordonnées écran) qui ne bouge pas pendant le zoom —
-// le centre par défaut, le milieu des deux doigts au pincement.
+// Zoom autour d'un point : le point du CV qui est sous `anchor` (coordonnées écran ; le centre de l'aperçu par défaut,
+// le milieu des doigts au pincement, le doigt au double toucher) reste exactement sous lui après le zoom.
+// On mesure ce point sur la PAGE elle-même (pas sur le conteneur) : marges, centrage et pages multiples ne le décalent plus.
+function pagePoint(anchor) {
+  const list = [...canvases.querySelectorAll('canvas.page')];
+  if (!list.length) return null;
+  const hit = list.find((el) => el.getBoundingClientRect().bottom >= anchor.y) ?? list.at(-1);
+  const r = hit.getBoundingClientRect();
+  return { index: list.indexOf(hit), fx: (anchor.x - r.left) / r.width, fy: (anchor.y - r.top) / r.height };
+}
+function keepUnder(point, anchor) {
+  const el = canvases.querySelectorAll('canvas.page')[point.index];
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  preview.scrollLeft += r.left + point.fx * r.width - anchor.x;
+  preview.scrollTop += r.top + point.fy * r.height - anchor.y;
+}
 function setZoom(value, fit = false, anchor = null) {
   if (!current) return;
-  const r = preview.getBoundingClientRect();
-  const ax = anchor ? anchor.x - r.left : preview.clientWidth / 2;
-  const ay = anchor ? anchor.y - r.top : preview.clientHeight / 2;
-  const cx = (preview.scrollLeft + ax) / preview.scrollWidth;
-  const cy = (preview.scrollTop + ay) / preview.scrollHeight;
+  const pr = preview.getBoundingClientRect();
+  const a = anchor ?? { x: pr.left + preview.clientWidth / 2, y: pr.top + preview.clientHeight / 2 };
+  const point = pagePoint(a);
   zoom = { fit, value: Math.max(ZOOM.min, Math.min(ZOOM.max, value)) };
   paint(current.doc);
-  preview.scrollLeft = cx * preview.scrollWidth - ax;
-  preview.scrollTop = cy * preview.scrollHeight - ay;
+  if (point) keepUnder(point, a);
+}
+
+// Zoom animé (double toucher, boutons) : la page grandit en douceur autour du point, puis un seul vrai rendu.
+let zoomAnim = null;
+function animateZoom(value, fit, anchor) {
+  if (!current || zoomAnim) return;
+  const from = currentZoom();
+  const to = fit ? fitZoom(current.doc) : Math.max(ZOOM.min, Math.min(ZOOM.max, value));
+  const r = canvases.getBoundingClientRect();
+  canvases.style.transformOrigin = `${anchor.x - r.left}px ${anchor.y - r.top}px`;
+  canvases.style.transition = 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)';
+  canvases.style.transform = `scale(${to / from})`;
+  zoomAnim = setTimeout(() => {
+    zoomAnim = null;
+    const point = pagePoint(anchor); // mesuré sur la page agrandie : c'est le même point du CV
+    canvases.style.transition = '';
+    canvases.style.transform = '';
+    zoom = { fit, value: to };
+    paint(current.doc);
+    if (point) keepUnder(point, anchor);
+  }, 270);
 }
 
 function currentZoom() {
@@ -1067,19 +1214,41 @@ function initPreviewGestures() {
     const p = pinch;
     pinch = null;
     const m = p.last ?? p.m;
-    // Le point du CV qui était sous les doigts au départ finit sous les doigts à l'arrivée.
-    const r0 = preview.getBoundingClientRect();
-    const px = preview.scrollLeft + p.m.x - r0.left;
-    const py = preview.scrollTop + p.m.y - r0.top;
+    // Le point du CV qui est sous les doigts à la fin du geste (mesuré sur la page agrandie) y reste après le rendu.
+    const point = pagePoint(m);
     canvases.style.transform = '';
     preview.style.overflow = '';
     zoom = { fit: false, value: p.zoom * p.f };
     paint(current.doc);
-    preview.scrollLeft = px * p.f - (m.x - r0.left);
-    preview.scrollTop = py * p.f - (m.y - r0.top);
+    if (point) keepUnder(point, m);
+    lastTap = null; // un pincement n'est pas un toucher
   };
   preview.addEventListener('touchend', (e) => e.touches.length < 2 && endPinch());
   preview.addEventListener('touchcancel', endPinch);
+
+  // Double toucher : zoom ×2,2 sur le point touché ; au double toucher suivant, retour à la largeur de l'écran.
+  let lastTap = null;
+  preview.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) lastTap = null;
+  }, { passive: true });
+  preview.addEventListener(
+    'touchend',
+    (e) => {
+      if (workspace?.on || e.touches.length || e.changedTouches.length !== 1 || !current) return;
+      const t = e.changedTouches[0];
+      const now = e.timeStamp;
+      const near = lastTap && now - lastTap.t < 320 && Math.hypot(t.clientX - lastTap.x, t.clientY - lastTap.y) < 36;
+      if (!near) return void (lastTap = { t: now, x: t.clientX, y: t.clientY });
+      lastTap = null;
+      e.preventDefault(); // pas de clic ni de double-clic simulés derrière
+      doubleTapAt = now;
+      const anchor = { x: t.clientX, y: t.clientY };
+      const fit = fitZoom(current.doc);
+      if (zoom.fit || currentZoom() <= fit * 1.05) animateZoom(fit * 2.2, false, anchor);
+      else animateZoom(1, true, anchor);
+    },
+    { passive: false },
+  );
 }
 
 // --- Panneau (PC) -----------------------------------------------------------------
@@ -1210,7 +1379,10 @@ function renderTitle() {
 }
 // Un clic sur le titre du CV : son espace de travail (Mes CV) si connecté, sinon la fenêtre du CV.
 // Le modèle ne s'ouvre jamais par le titre : bouton « Modèle » de la barre d'outils.
-$('cv-title').addEventListener('click', () => (getSession() ? openSwitcher({ engine, project, state }) : openCvDialog({ templates: false })));
+// Le titre n'ouvre plus rien (il surprenait) : à côté du chevron, un bouton dédié ouvre la bonne fenêtre.
+$('cv-open').append(icon('files', 19));
+$('cv-open').setAttribute('aria-label', getSession() ? 'Mes CV' : 'Ce CV');
+$('cv-open').addEventListener('click', () => (getSession() ? openSwitcher({ engine, project, state }) : openCvDialog({ templates: false })));
 $('tpl-btn').addEventListener('click', () => openCvDialog({ templates: true }));
 // Nom et partage du CV ; avec la liste des modèles seulement depuis le bouton « Modèle ».
 function openCvDialog({ templates = true } = {}) {

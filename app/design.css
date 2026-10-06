@@ -175,3 +175,171 @@ html, body { overscroll-behavior: none; }
   .top-stack > *, .sheet, #canvases, .stepper, .sheet-body, .qe-outline, .mp-seg { transition: none !important; }
   .fade .step > *, .qe-bar, .qe-outline, .top-stack .topbar { animation: none !important; }
 }
+
+/* ===== États des étapes : une couleur = un sens ==================================================
+   Bleu : l'étape choisie, rien d'autre. Vert : complète. Jaune : conseil. Rouge : erreur.
+   Sur l'étape choisie, la couleur de l'état reste en contour : elle ne cache jamais une erreur. */
+.step-pill[data-level='ok'] .step-num, :root[data-theme] .step-pill[data-level='ok'] .step-num { background: rgb(var(--flag-ok)); color: #fff; }
+.step-pill.active[data-level='todo'], :root[data-theme] .step-pill.active[data-level='todo'] { box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgb(var(--flag-todo)); }
+.step-pill.active[data-level='warn'], :root[data-theme] .step-pill.active[data-level='warn'] { box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgb(var(--flag-warn)); }
+.step-pill.active[data-level='ok'], :root[data-theme] .step-pill.active[data-level='ok'] { box-shadow: 0 0 0 2px rgb(var(--surface)), 0 0 0 4px rgb(var(--flag-ok)); }
+@media (max-width: 959px) {
+  .mp-seg[data-level='ok'] { background: rgb(var(--flag-ok)); }
+  .mp-seg.active[data-level='todo'] { box-shadow: 0 0 0 2px rgb(var(--flag-todo)); }
+  .mp-seg.active[data-level='warn'] { box-shadow: 0 0 0 2px rgb(var(--flag-warn)); }
+  .mp-seg.active[data-level='ok'] { box-shadow: 0 0 0 2px rgb(var(--flag-ok)); }
+}
+@media (min-width: 960px) {
+  .rail-step[data-level='ok'], :root[data-theme] .rail-step[data-level='ok'] { background: rgb(var(--flag-ok)); color: #fff; }
+}
+
+/* ===== En-tête de la feuille : le CV (dépliée) ou l'étape (repliée), qui se relaient ================= */
+.title-step { display: none; }
+@media (max-width: 959px) {
+  .sheet-head .sheet-title { display: grid !important; place-items: center; overflow: hidden; }
+  .title-cv, .title-step {
+    grid-area: 1 / 1; width: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center;
+    transition: opacity var(--m-base) var(--e-out), transform var(--m-slow) var(--e-sheet), filter var(--m-base);
+  }
+  .title-step strong { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
+  .title-step span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; color: rgb(var(--gray-500)); }
+  .title-step span[data-level='todo'] { color: rgb(var(--flag-todo)); }
+  .title-step span[data-level='warn'] { color: rgb(var(--flag-warn)); }
+  .title-step span[data-level='ok'] { color: rgb(var(--flag-ok)); }
+  /* Repliée : l'étape monte, le CV s'efface vers le haut ; dépliée : l'inverse. */
+  .sheet[data-state='collapsed'] .title-cv { opacity: 0; transform: translateY(-10px) scale(0.97); filter: blur(2px); pointer-events: none; }
+  .sheet[data-state='collapsed'] .title-step { display: flex; opacity: 1; transform: none; }
+  .sheet[data-state='expanded'] .title-step { display: flex; opacity: 0; transform: translateY(10px) scale(0.97); filter: blur(2px); pointer-events: none; }
+
+  /* Assistant : accès direct, à gauche de la barre de la feuille (en face du chevron). */
+  .sheet-head::before { content: none !important; }
+  .sheet-head .assistant-btn, :root[data-theme] .sheet-head .assistant-btn {
+    display: grid !important; place-items: center; grid-column: 1; grid-row: 1; width: 40px; height: 40px; padding: 0;
+    border-radius: 12px; background: rgb(var(--accent) / 0.12) !important; color: rgb(var(--accent)); font-size: 17px;
+    transition: transform var(--m-fast) var(--e-out), background-color var(--m-fast);
+  }
+  .sheet-head .assistant-btn[aria-pressed='true'] { background: rgb(var(--accent)) !important; color: rgb(var(--on-accent)); }
+  .sheet-head .assistant-btn:active { transform: scale(0.92); }
+  .sheet-head .assistant-label { display: none; }
+  .sheet-head .sheet-title { grid-column: 2; grid-row: 1; }
+  .sheet-head #toggle { grid-column: 3; grid-row: 1; }
+}
+
+/* ===== Assistant : moderne, lisible ===============================================================
+   Ses réponses : du texte posé, pas de bulle (comme un document) ; les tiennes : une bulle bleue à droite.
+   Actions (annuler, générer, recharger) : de petites cartes sous la réponse. Saisie : une pilule flottante. */
+.agent-view, :root[data-theme] .agent-view { border: 0 !important; background: rgb(var(--surface)); }
+.agent-head, :root[data-theme] .agent-head { border: 0 !important; padding: 10px 16px 6px; background: transparent; }
+.agent-back { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: rgb(var(--raised)); color: rgb(var(--gray-700)); font: 500 13px var(--font-sans); }
+.agent-head-title { align-items: center; text-align: center; }
+.agent-head-title strong { font-size: 14.5px; font-weight: 600; }
+.agent-head-title span { font-size: 12px; }
+.agent-login-link { font: 600 13px var(--font-sans); color: rgb(var(--accent)); text-decoration: none; }
+.agent-messages { gap: 18px; padding: 8px 18px 20px; scroll-behavior: smooth; }
+
+.agent-intro { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 8px 6px; text-align: center; animation: rise var(--m-slow) var(--e-out) both; }
+.agent-intro-mark { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: rgb(var(--accent) / 0.12); color: rgb(var(--accent)); font-size: 20px; }
+.agent-intro strong { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.agent-intro p { max-width: 30ch; font-size: 13.5px; line-height: 1.5; color: rgb(var(--gray-600)); }
+
+.msg { max-width: 100%; font-size: 15px; line-height: 1.6; color: rgb(var(--gray-900)); animation: rise var(--m-base) var(--e-out) both; }
+.msg-assistant { align-self: stretch; }
+.msg-user, :root[data-theme] .msg-user {
+  align-self: flex-end; max-width: 85%; padding: 10px 14px; border: 0; border-radius: 18px 18px 6px 18px;
+  background: rgb(var(--accent)); color: rgb(var(--on-accent)); font-size: 15px; line-height: 1.5;
+}
+.msg-error, :root[data-theme] .msg-error { padding: 10px 14px; border: 0; border-radius: var(--r-card); background: rgb(var(--flag-todo) / 0.1); color: rgb(var(--flag-todo)); }
+.msg h1, .msg h2, .msg h3 { font-size: 15px; font-weight: 600; margin: 10px 0 4px; }
+.msg-changes { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 5px 10px; border-radius: 999px; background: rgb(var(--flag-ok) / 0.12); color: rgb(var(--flag-ok)); font-size: 12.5px; font-weight: 600; }
+.msg-changes.undone { background: rgb(var(--raised)); color: rgb(var(--gray-600)); }
+.msg-changes-mark { font-weight: 700; }
+.msg-undo {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px; height: 34px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: rgb(var(--raised)); color: rgb(var(--gray-800)); font: 600 13px var(--font-sans);
+  animation: bar-in var(--m-base) var(--e-pop) both; transition: background-color var(--m-fast), transform var(--m-fast) var(--e-out);
+}
+.msg-undo:hover { background: rgb(var(--raised-hover)); }
+.msg-undo:active { transform: scale(0.96); }
+.msg-card { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding: 14px; border-radius: var(--r-card); background: rgb(var(--raised)); font-size: 13.5px; line-height: 1.45; animation: rise var(--m-base) var(--e-out) both; }
+.msg-card strong { font-size: 14px; }
+.msg-card span { color: rgb(var(--gray-600)); }
+.msg-card.buy { background: rgb(var(--accent) / 0.08); }
+.msg-card-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.msg-card .btn-primary, .msg-card .btn-ghost { height: 38px; text-decoration: none; display: inline-flex; align-items: center; }
+.msg-typing { display: flex; align-items: center; gap: 5px; padding: 6px 0; }
+.msg-typing span { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--gray-400)); animation: typing 1s ease-in-out infinite; }
+
+.agent-compose, :root[data-theme] .agent-compose { border: 0 !important; background: transparent; padding: 8px 12px calc(12px + env(safe-area-inset-bottom)); gap: 10px; }
+.agent-suggestions { gap: 8px; }
+.agent-chip { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: rgb(var(--raised)); color: rgb(var(--gray-800)); font: 500 13px var(--font-sans); transition: background-color var(--m-fast), transform var(--m-fast) var(--e-out); }
+.agent-chip:hover { background: rgb(var(--raised-hover)); }
+.agent-chip:active { transform: scale(0.96); }
+.agent-compose-row {
+  align-items: flex-end; gap: 8px; padding: 6px 6px 6px 16px; border-radius: 24px; background: rgb(var(--raised));
+  box-shadow: var(--lift); transition: box-shadow var(--m-fast);
+}
+.agent-compose-row:focus-within { box-shadow: 0 0 0 2px rgb(var(--accent)), var(--lift); }
+.agent-input { flex: 1; min-height: 36px; max-height: 160px; padding: 8px 0; border: 0; outline: 0; resize: none; background: transparent; color: rgb(var(--gray-900)); font: 400 15px/1.45 var(--font-sans); }
+.agent-input::placeholder { color: rgb(var(--gray-500)); }
+.agent-send {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: rgb(var(--accent)); color: rgb(var(--on-accent)); font: 700 17px var(--font-sans);
+  transition: opacity var(--m-fast), transform var(--m-fast) var(--e-pop);
+}
+.agent-send:disabled { opacity: 0.35; transform: scale(0.9); }
+@media (max-width: 959px) {
+  .sheet.agent-mode .mprogress, .sheet.agent-mode .step-nav { display: none; }
+}
+
+/* ===== Aperçu : une page plus petite que l'écran est centrée, jamais collée en haut ===================== */
+#canvases { min-height: 100%; }
+#canvases > :first-child { margin-top: auto; }
+#canvases > :last-child { margin-bottom: auto; }
+
+/* ===== En-tête de la feuille (mobile) : toujours l'étape et ce qui lui manque ===========================
+   [✦ assistant]      Étape · ce qui manque      [Mes CV] [chevron]   — le titre est centré sur toute la largeur. */
+@media (max-width: 959px) {
+  .title-cv { display: none !important; }
+  .sheet[data-state] .title-step { display: flex !important; opacity: 1 !important; transform: none !important; filter: none !important; pointer-events: none; }
+  .title-step.swap strong, .title-step.swap span { animation: rise var(--m-base) var(--e-out) both; }
+  .title-step.swap span { animation-delay: 40ms; }
+  .sheet-head, .sheet[data-state='expanded'] .sheet-head, :root[data-theme] .sheet-head { grid-template-columns: 88px minmax(0, 1fr) 88px !important; }
+  .sheet-head .assistant-btn { justify-self: start; }
+  .sheet-head .sheet-title { grid-column: 2; }
+  .sheet-head .cv-open, .sheet-head #toggle { grid-row: 1; }
+  .sheet-head .cv-open { grid-column: 3; justify-self: start; }
+  .sheet-head #toggle { grid-column: 3; justify-self: end; }
+  .cv-open {
+    display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px;
+    background: transparent; color: rgb(var(--gray-600)); transition: background-color var(--m-fast), transform var(--m-fast) var(--e-out);
+  }
+  .cv-open:active { background: rgb(var(--raised)); transform: scale(0.92); }
+
+  /* Dépliée : un trait fin sépare la barre du contenu. */
+  .sheet[data-state='expanded'] .sheet-head, :root[data-theme] .sheet[data-state='expanded'] .sheet-head { box-shadow: inset 0 -1px 0 rgb(var(--gray-200)) !important; }
+
+  /* Coins plus discrets. */
+  .sheet, .sheet[data-state], :root[data-theme] .sheet[data-state='collapsed'] { border-radius: 16px 16px 0 0; }
+  .sheet[data-state='expanded'] { border-radius: 0; }
+  .quick-edit, :root[data-theme] .quick-edit { border-radius: 16px; }
+  .top-stack .quota-bar, .top-stack .zoombar, :root[data-theme] .top-stack .quota-bar, :root[data-theme] .top-stack .zoombar { border-radius: 12px; }
+
+  /* Logo de l'assistant : pas de cadre, une étoile qui respire. */
+  .sheet-head .assistant-btn, :root[data-theme] .sheet-head .assistant-btn {
+    border: 0 !important; border-radius: 50%; background: transparent !important; box-shadow: none !important; font-size: 19px;
+  }
+  .sheet-head .assistant-btn[aria-pressed='true'] { background: rgb(var(--accent) / 0.14) !important; color: rgb(var(--accent)); }
+  .assistant-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; animation: breathe 3.2s ease-in-out infinite; }
+}
+.cv-open { display: none; }
+@media (max-width: 959px) { .cv-open { display: grid; } }
+.dialog { border-radius: 18px; }
+@media (min-width: 960px) { .dialog { border-radius: 14px; } }
+:root { --r-sheet: 16px; --r-card: 12px; }
+/* Respiration : l'étoile grandit à peine et s'illumine, sans anneau ni cadre. */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; text-shadow: 0 0 0 rgb(var(--accent) / 0); }
+  50% { transform: scale(1.14); opacity: 1; text-shadow: 0 0 14px rgb(var(--accent) / 0.75), 0 0 4px rgb(var(--accent) / 0.6); }
+}
+.agent-intro-mark { animation: breathe 3.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .assistant-mark, .agent-intro-mark { animation: none; } }

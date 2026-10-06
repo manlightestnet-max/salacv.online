@@ -105,7 +105,7 @@ async function runAi(kind, payload, token, { env, callModel, ctx }, loginMessage
   try {
     const keySource = callModel ? null : await keysFor(guard.username, env, guard.anonymous);
     if (guard.anonymous && !callModel && !keySource) return [503, { ok: false, error: "L'assistant est indisponible pour le moment. Réessaie dans un instant." }];
-    const { status, ...result } = await handler(payload ?? {}, { env, callModel, keySource });
+    const { status, ...result } = await handler(payload ?? {}, { env, callModel, keySource, username: guard.username ?? null });
     const tokens = keySource?.tokens ?? 0;
     logUsage(guard.who, keySource?.lastUsedId ?? null, kind, Boolean(result.ok), tokens);
     if (guard.anonymous) {

@@ -20,7 +20,7 @@ import { store } from './store.js';
 import * as credits from './credits.js';
 import { r2Configured, r2Put, userPrefix } from './r2.js';
 
-export const PDF_COST = 1;
+export const PDF_COST = credits.PDF_COST;
 export const WATERMARK = 'salacv.online · version gratuite';
 export const MAX_RENDER_BODY = 1024 * 1024; // l'état du CV, photo comprise
 

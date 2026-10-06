@@ -9,9 +9,12 @@ import setIdentity from './set-identity.js';
 import setLanguages from './set-languages.js';
 import setSummary from './set-summary.js';
 import updateEntry from './update-entry.js';
+import listPersonas from './list-personas.js';
+import generateCv from './generate-cv.js';
+import { forgetTool, rememberTool } from './remember.js';
 import { spec } from './base.js';
 
-export const TOOLS = [finalAnswer, setIdentity, setSummary, addEntry, updateEntry, removeEntry, editList, setLanguages, loadSkill];
+export const TOOLS = [finalAnswer, setIdentity, setSummary, addEntry, updateEntry, removeEntry, editList, setLanguages, loadSkill, listPersonas, generateCv, rememberTool, forgetTool];
 
 export const specs = () => TOOLS.map(spec);
 export const byName = new Map(TOOLS.map((t) => [t.name, t]));

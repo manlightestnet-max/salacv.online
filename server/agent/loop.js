@@ -25,11 +25,11 @@ function args(call) {
   }
 }
 
-function callTool(run, tools, name, input) {
+async function callTool(run, tools, name, input) {
   const tool = tools.get(name);
   if (!tool) return { error: `Outil inconnu : ${name}` };
   try {
-    return tool.run(run, input);
+    return await tool.run(run, input);
   } catch (err) {
     // un outil qui plante ne doit pas faire tomber la requête
     return { error: `Échec de ${name} : ${err.message}` };
@@ -49,7 +49,7 @@ export async function runLoop(run, messages, specs, tools, callModel, maxIterati
       if (!(announcesFutureWork(text) && !run.flags.promiseRefused && iteration < maxIterations)) {
         // Outils demandés dans le même tour que final_answer : exécutés avant de conclure,
         // sinon le CV ne contiendrait pas ce que la réponse annonce.
-        for (const call of calls) if (call !== final && call.function.name !== 'final_answer') callTool(run, tools, call.function.name, args(call));
+        for (const call of calls) if (call !== final && call.function.name !== 'final_answer') await callTool(run, tools, call.function.name, args(call));
         return clean(text);
       }
       run.flags.promiseRefused = true;
@@ -64,7 +64,7 @@ export async function runLoop(run, messages, specs, tools, callModel, maxIterati
     messages.push({ role: 'assistant', content: choice.content ?? null, tool_calls: calls });
     for (const call of calls) {
       const name = call.function.name;
-      const result = name === 'final_answer' ? { error: REFUSED } : callTool(run, tools, name, args(call));
+      const result = name === 'final_answer' ? { error: REFUSED } : await callTool(run, tools, name, args(call));
       messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result) });
     }
   }

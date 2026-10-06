@@ -9,6 +9,7 @@ import { compact, normalize } from './state.js';
 import { byName, specs } from './tools/index.js';
 import { setExtraSkills } from './skills/index.js';
 import { customSkills } from '../admin.js';
+import { listMemory } from './memory.js';
 
 // Agent limité à une section (onglet ✦ IA d'une étape du studio) : seuls les outils de
 // cette section, et ceux qui touchent une liste sont forcés sur la bonne.
@@ -42,19 +43,39 @@ export function scopedTools(scope) {
   return { specs: specs().filter((sp) => names.has(sp.name)), tools };
 }
 
-// payload = { state, message, history?, scope? }. callModel est injectable (tests sans réseau).
-export async function handle(payload, { callModel, env = process.env, keySource = null } = {}) {
+// Contexte envoyé par le studio (jamais de photo) : personnalités résumées et versions du CV, bornés.
+function cleanContext(raw) {
+  const str = (v, n) => String(v ?? '').slice(0, n);
+  const personas = (Array.isArray(raw?.personas) ? raw.personas : []).slice(0, 20).map((p) => ({
+    name: str(p?.name, 80),
+    title: str(p?.title, 120),
+    summary: str(p?.summary, 600),
+    education: (Array.isArray(p?.education) ? p.education : []).slice(0, 8).map((e) => str(e, 160)),
+    experiences: (Array.isArray(p?.experiences) ? p.experiences : []).slice(0, 8).map((e) => str(e, 160)),
+  }));
+  const versions = (Array.isArray(raw?.versions) ? raw.versions : [])
+    .slice(0, 30)
+    .map((v) => ({ key: str(v?.key, 60), label: str(v?.label, 120) }))
+    .filter((v) => v.key);
+  return { personas, versions };
+}
+
+// payload = { state, message, history?, scope?, context? }. callModel est injectable (tests sans réseau).
+// username : compte connecté (mémoire, crédits) ou null pour un visiteur.
+export async function handle(payload, { callModel, env = process.env, keySource = null, username = null } = {}) {
   const message = String(payload?.message ?? '').trim();
   if (!message) return { ok: false, status: 400, error: 'Message vide.' };
 
-  const run = { state: normalize(payload.state), changes: new Set(), flags: {} };
+  const context = cleanContext(payload?.context);
+  const memory = username ? await listMemory(username).catch(() => []) : [];
+  const run = { state: normalize(payload.state), changes: new Set(), flags: {}, username, context, memory, generate: null };
   setExtraSkills(await customSkills()); // skills ajoutées depuis l'admin
   const scope = SCOPES[payload.scope] ? payload.scope : null;
   const { specs: toolSpecs, tools } = scopedTools(scope);
   const said = scope
     ? `[Section en cours : ${SCOPES[scope].label}. Tu ne modifies que cette section. S'il manque une information importante, pose UNE question courte au lieu d'inventer. Tes modifications sont une PROPOSITION : l'utilisateur la voit dans son formulaire et choisit de la garder ou non. Dans ta réponse, dis « Je te propose… » et invite-le à relire puis garder ; ne dis jamais « c'est fait » ni « j'ai ajouté ».]\n\n${message}`
     : message;
-  const messages = build(run.state, said, payload.history);
+  const messages = build(run.state, said, payload.history, scope ? {} : { versions: context.versions, memory, loggedIn: Boolean(username) });
   const secrets = [...(keySource?.secrets() ?? []), ...allKeys(env)];
   callModel ??= (msgs, sp) => callLLM(msgs, sp, { temperature: settings.temperature, timeoutMs: settings.llmTimeoutMs, env, keySource });
 
@@ -68,5 +89,5 @@ export async function handle(payload, { callModel, env = process.env, keySource 
     }
     return { ok: false, status: 502, error: "L'assistant a rencontré un problème. Réessaie." };
   }
-  return { ok: true, reply: redact(reply, secrets), state: compact(run.state), changes: [...run.changes].sort() };
+  return { ok: true, reply: redact(reply, secrets), state: compact(run.state), changes: [...run.changes].sort(), ...(run.generate ? { generate: run.generate } : {}) };
 }

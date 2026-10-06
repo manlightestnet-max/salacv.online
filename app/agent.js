@@ -1,18 +1,21 @@
-// Assistant : connexion (fictive, vérifiée côté serveur) puis discussion. L'agent
-// reçoit le CV du formulaire, le modifie et le renvoie ; le formulaire et l'aperçu
-// se mettent à jour, l'étudiant peut tout corriger à la main ensuite.
+// Assistant du CV : une conversation par CV (gardée avec lui), lisible, et sûre.
+//   • il ne modifie que si on le lui demande ; après chaque modification, « Annuler les modifications » remet le CV
+//     tel qu'il était (seule la dernière modification garde ce bouton : un nouveau changement le reprend) ;
+//   • il peut consulter les personnalités et générer le CV sur demande : la préparation habituelle s'ouvre et le
+//     SERVEUR revérifie et débite les crédits (aucun contournement par l'assistant) ; pas assez : on propose de recharger.
 import { h } from './dom.js';
 import { markdown } from './markdown.js';
 import { loginPanel } from './login.js';
 import { publishQuota } from './quotabar.js';
-import { forgetSession, getSession, logout } from './session.js';
+import { forgetSession, getSession } from './session.js';
 
 const HISTORY_SENT = 6; // derniers échanges envoyés pour les demandes de suivi
 
 const SUGGESTIONS = [
-  { label: 'Remplir mon CV', text: "Voici mes infos : je m'appelle …, j'ai étudié … à … de … à …, j'ai fait un stage chez … où j'ai …" },
+  { label: 'Remplir mon CV', text: "Voici mes infos à mettre dans mon CV : je m'appelle …, j'ai étudié … à … de … à …, j'ai fait un stage chez … où j'ai …" },
+  { label: 'Que manque-t-il ?', text: 'Qu’est-ce qui manque à mon CV ? Ne modifie rien, dis-le-moi.' },
   { label: 'Écrire mon profil', text: 'Écris mon profil professionnel à partir de mon CV.' },
-  { label: 'Reformuler mes expériences', text: 'Reformule mes expériences avec des verbes d’action, sans rien inventer.' },
+  { label: 'Générer mon CV', text: 'Génère mon CV en PDF.' },
 ];
 
 const CHANGE_LABELS = {
@@ -28,11 +31,7 @@ const CHANGE_LABELS = {
 async function post(url, body) {
   let res;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   } catch {
     return { status: 0, data: { ok: false, error: 'Pas de connexion. Vérifie ton réseau et réessaie.' } };
   }
@@ -40,11 +39,14 @@ async function post(url, body) {
   return { status: res.status, data };
 }
 
-// ctx : { getState(), setState(state), onClose() }
+const here = () => `/auth/?next=${encodeURIComponent(location.pathname + location.search)}`;
+
+// ctx : { getState(), setState(state), onClose(), getChat(), setChat(chat), snapshot(), restore(snap), getContext(), generate(key) }
 export function createAgentPanel(ctx) {
   let session = getSession(); // l'identité vient du serveur (cookie httpOnly) : aucun jeton dans la page
-  let chat = []; // le fil de discussion reste en mémoire : plus rien n'est gardé dans le navigateur
+  let chat = [...(ctx.getChat?.() ?? [])]; // la conversation de CE CV
   let pending = false;
+  let undo = null; // { snap, node } : la dernière modification annulable
 
   const root = h('div', { class: 'agent' });
 
@@ -57,29 +59,53 @@ export function createAgentPanel(ctx) {
     return h(
       'div',
       { class: 'agent-head' },
-      h('button', { class: 'btn-text agent-back', type: 'button', onClick: ctx.onClose }, '‹ Formulaire'),
-      h('div', { class: 'agent-head-title' }, subtitle && h('span', {}, subtitle)),
+      h('button', { class: 'agent-back', type: 'button', onClick: ctx.onClose, 'aria-label': 'Revenir au formulaire' }, '‹ Formulaire'),
+      h('div', { class: 'agent-head-title' }, h('strong', {}, 'Assistant'), subtitle && h('span', {}, subtitle)),
       action,
     );
   }
 
-  // --- Connexion ------------------------------------------------------------
+  // --- Connexion (app desktop) ---------------------------------------------------
 
   function loginView() {
     const panel = loginPanel({
-      intro: window.desktop?.isDesktop
-        ? "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés : Google, ou une clé en ligne."
-        : "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés avec Google.",
+      intro: "L'assistant remplit ton CV à partir de ce que tu lui écris. Il est réservé aux comptes connectés : Google, ou une clé en ligne.",
       onDone: (r) => {
         if (r?.kind === 'offline') return; // une clé hors ligne ouvre l'app, pas l'assistant (il demande un compte)
         session = getSession();
         render();
       },
     });
-    return h('div', { class: 'agent-inner' }, header('Connexion'), h('div', { class: 'agent-scroll' }, h('div', { class: 'agent-login' }, h('div', { class: 'step-head' }, h('h2', {}, 'Connecte-toi')), panel)));
+    return h('div', { class: 'agent-inner' }, header('Connexion'), h('div', { class: 'agent-scroll' }, h('div', { class: 'agent-login' }, panel)));
   }
 
-  // --- Discussion -----------------------------------------------------------
+  // --- Discussion ------------------------------------------------------------------
+
+  // Crédits ou génération : une petite carte d'action sous la réponse.
+  function generateCard(g) {
+    if (g.enough) {
+      return h(
+        'div',
+        { class: 'msg-card' },
+        h('span', {}, `${g.label} · 1 crédit (il t’en reste ${g.balance})`),
+        h('button', { type: 'button', class: 'btn-primary', onClick: () => ctx.generate?.(g.version) }, 'Préparer le PDF'),
+      );
+    }
+    return h(
+      'div',
+      { class: 'msg-card buy' },
+      h('strong', {}, g.loggedIn ? `Il te faut ${g.cost} crédit pour un PDF sans filigrane` : 'Connecte-toi pour un PDF sans filigrane'),
+      h('span', {}, g.loggedIn ? `Solde : ${g.balance} crédit${g.balance > 1 ? 's' : ''}. Recharge pour le PDF propre et le Word.` : 'Sans compte, le PDF sort avec filigrane.'),
+      h(
+        'div',
+        { class: 'msg-card-row' },
+        g.loggedIn
+          ? h('a', { class: 'btn-primary', href: '/dashboard/#credits' }, 'Recharger mes crédits')
+          : h('a', { class: 'btn-primary', href: here() }, 'Se connecter'),
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => ctx.generate?.(g.version) }, 'PDF avec filigrane'),
+      ),
+    );
+  }
 
   function bubble(msg) {
     // Réponses de l'agent en markdown ; messages de l'étudiant en texte brut.
@@ -87,61 +113,74 @@ export function createAgentPanel(ctx) {
     const node = h('div', { class: `msg msg-${msg.role}${msg.error ? ' msg-error' : ''}` }, body);
     if (msg.changes?.length) {
       node.append(
-        h('div', { class: 'msg-changes' }, h('span', { 'aria-hidden': 'true' }, '✓'), h('span', {}, `Mis à jour : ${msg.changes.map((c) => CHANGE_LABELS[c] ?? c).join(', ')}`)),
+        h(
+          'div',
+          { class: `msg-changes${msg.undone ? ' undone' : ''}` },
+          h('span', { class: 'msg-changes-mark', 'aria-hidden': 'true' }, msg.undone ? '↺' : '✓'),
+          h('span', {}, msg.undone ? 'Modifications annulées' : `Modifié : ${msg.changes.map((c) => CHANGE_LABELS[c] ?? c).join(', ')}`),
+        ),
       );
     }
+    if (msg.generate) node.append(generateCard(msg.generate));
     return node;
+  }
+
+  // Seule la dernière modification se laisse annuler : le bouton passe d'une réponse à la suivante.
+  function offerUndo(node, msg, snap) {
+    undo?.button.remove();
+    const button = h('button', { type: 'button', class: 'msg-undo' }, '↺ Annuler les modifications');
+    button.addEventListener('click', () => {
+      ctx.restore?.(snap);
+      msg.undone = true;
+      ctx.setChat?.(chat);
+      node.querySelector('.msg-changes')?.replaceWith(bubble(msg).querySelector('.msg-changes'));
+      button.remove();
+      undo = null;
+    });
+    node.append(button);
+    undo = { button };
   }
 
   function chatView() {
     const list = h('div', { class: 'agent-messages', 'aria-live': 'polite' });
-    const input = h('textarea', {
-      class: 'input agent-input',
-      rows: 2,
-      placeholder: 'Tes infos, ou « ajoute Excel »…',
-      'aria-label': "Message pour l'assistant",
-    });
-    const send = h('button', { class: 'btn-primary agent-send', type: 'submit', 'aria-label': 'Envoyer', title: 'Envoyer (Entrée)' }, '↑');
+    const input = h('textarea', { class: 'agent-input', rows: 1, placeholder: 'Écris à l’assistant…', 'aria-label': "Message pour l'assistant" });
+    const send = h('button', { class: 'agent-send', type: 'submit', 'aria-label': 'Envoyer', title: 'Envoyer' }, '↑');
 
-    const intro = {
-      role: 'assistant',
-      text: `Salut${session ? ` ${session.username}` : ''} ! Écris-moi tes infos (études, stages, compétences, langues) même en vrac, ou dis-moi quoi changer. Je remplis ton CV, et tu pourras tout corriger ensuite.`,
-    };
-    list.append(bubble(intro), ...chat.map(bubble));
+    const intro = h(
+      'div',
+      { class: 'agent-intro' },
+      h('span', { class: 'agent-intro-mark', 'aria-hidden': 'true' }, '✦'),
+      h('strong', {}, 'Je t’aide sur ce CV'),
+      h('p', {}, 'Écris tes infos, même en vrac, ou pose une question. Je ne modifie rien sans que tu le demandes, et tu peux toujours annuler.'),
+    );
+    list.append(intro, ...chat.map(bubble));
 
     const suggestions = h(
       'div',
       { class: 'agent-suggestions' },
       SUGGESTIONS.map((s) =>
-        h('button', {
-          class: 'pill-option',
-          type: 'button',
-          onClick: () => {
-            input.value = s.text;
-            input.focus();
-            autosize();
-          },
-        }, s.label),
+        h('button', { class: 'agent-chip', type: 'button', onClick: () => ((input.value = s.text), input.focus(), autosize(), send.disabled = false) }, s.label),
       ),
     );
     suggestions.hidden = chat.length > 0;
 
     function autosize() {
       input.style.height = 'auto';
-      input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+      input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+      send.disabled = pending || !input.value.trim();
     }
-
-    function scrollDown() {
-      requestAnimationFrame(() => (list.scrollTop = list.scrollHeight));
-    }
+    const scrollDown = () => requestAnimationFrame(() => list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' }));
 
     function push(msg) {
       if (!msg.error) {
         chat.push(msg);
-        chat = chat.slice(-30);
+        chat = chat.slice(-40);
+        ctx.setChat?.(chat);
       }
-      list.append(bubble(msg));
+      const node = bubble(msg);
+      list.append(node);
       scrollDown();
+      return node;
     }
 
     async function submit(e) {
@@ -156,14 +195,15 @@ export function createAgentPanel(ctx) {
 
       pending = true;
       send.disabled = true;
-      const typing = h('div', { class: 'msg msg-assistant msg-typing' }, h('span'), h('span'), h('span'), h('em', {}, 'Je remplis ton CV…'));
+      const typing = h('div', { class: 'msg msg-assistant msg-typing' }, h('span'), h('span'), h('span'));
       list.append(typing);
       scrollDown();
 
-      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history });
+      const snap = ctx.snapshot?.();
+      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history, context: ctx.getContext?.() });
       typing.remove();
       pending = false;
-      send.disabled = false;
+      autosize();
 
       publishQuota(data.quota);
       if (status === 401) {
@@ -176,9 +216,14 @@ export function createAgentPanel(ctx) {
         push({ role: 'assistant', text: data.error || 'Une erreur est survenue. Réessaie.', error: true });
         return;
       }
-      if (data.state) ctx.setState(data.state);
-      push({ role: 'assistant', text: data.reply || 'C’est fait.', changes: data.changes });
-      input.focus();
+      const changed = Boolean(data.changes?.length);
+      if (changed && data.state) ctx.setState(data.state);
+      const msg = { role: 'assistant', text: data.reply || (changed ? 'C’est fait.' : 'D’accord.'), changes: data.changes ?? [], ...(data.generate ? { generate: data.generate } : {}) };
+      const node = push(msg);
+      if (changed && snap) offerUndo(node, msg, snap);
+      // Génération demandée et crédits suffisants : la préparation s'ouvre (le serveur décide au téléchargement).
+      if (data.generate?.enough) ctx.generate?.(data.generate.version);
+      if (window.matchMedia('(hover: hover)').matches) input.focus();
     }
 
     input.addEventListener('input', autosize);
@@ -186,31 +231,17 @@ export function createAgentPanel(ctx) {
       // Entrée envoie ; Maj+Entrée va à la ligne (sur mobile, le bouton Envoyer).
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && window.matchMedia('(hover: hover)').matches) submit(e);
     });
-
-    const logout = h(
-      'button',
-      {
-        class: 'btn-text agent-logout',
-        type: 'button',
-        onClick: () => {
-          session = null;
-          chat = [];
-          logout().then(() => location.reload());
-        },
-      },
-      'Déconnexion',
-    );
-
+    autosize();
     scrollDown();
     return h(
       'div',
       { class: 'agent-inner' },
-      header(session ? session.username : 'Assistant', session ? logout : h('a', { class: 'btn-text agent-logout', href: `/auth/?next=${encodeURIComponent(location.pathname + location.search)}` }, 'Se connecter')),
+      header(session ? 'Ce CV' : 'Visiteur', session ? null : h('a', { class: 'agent-login-link', href: here() }, 'Se connecter')),
       list,
       h('form', { class: 'agent-compose', onSubmit: submit }, suggestions, h('div', { class: 'agent-compose-row' }, input, send)),
     );
   }
 
   render();
-  return { el: root, focus: () => root.querySelector('textarea, input')?.focus() };
+  return { el: root, focus: () => window.matchMedia('(hover: hover)').matches && root.querySelector('textarea, input')?.focus() };
 }

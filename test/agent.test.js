@@ -183,3 +183,38 @@ test('onglet IA d’une étape : seuls les outils de la section, liste forcée',
   assert.equal(out.state.experiences.filter((e) => e.title).length, 0);
   assert.match(model.seen[0].at(-1).content, /Section en cours : Formation/);
 });
+
+test('mémoire : retenue en base pour un compte, rappelée à la conversation suivante ; refusée à un visiteur', async () => {
+  const save = scripted([call('remember', { key: 'dates', value: 'mois et année' })], [call('final_answer', { text: 'Noté.' })]);
+  assert.equal((await handle({ state: {}, message: 'retiens : dates en mois et année' }, { callModel: save, env: ENV, username: 'mem@example.com' })).ok, true);
+  const next = scripted([call('final_answer', { text: 'ok' })]);
+  await handle({ state: {}, message: 'salut' }, { callModel: next, env: ENV, username: 'mem@example.com' });
+  assert.match(next.seen[0].at(-1).content, /PRÉFÉRENCES RETENUES[\s\S]*dates : mois et année/);
+  const visitor = scripted([call('remember', { key: 'x', value: 'y' })], [call('final_answer', { text: 'ok' })]);
+  await handle({ state: {}, message: 'retiens x' }, { callModel: visitor, env: ENV });
+  assert.match(visitor.seen[1].at(-1).content, /réservée aux comptes connectés/);
+});
+
+test('générer : plusieurs versions → il faut choisir ; crédits vérifiés côté serveur, jamais accordés par l’agent', async () => {
+  const versions = [{ key: 'main:fr', label: 'CV — Français' }, { key: 'main:en', label: 'CV — Anglais' }];
+  const ask = scripted([call('generate_cv', {})], [call('final_answer', { text: 'Laquelle ?' })]);
+  const a = await handle({ state: {}, message: 'génère mon cv', context: { versions } }, { callModel: ask, env: ENV, username: 'gen@example.com' });
+  assert.equal(a.generate, undefined);
+  assert.match(ask.seen[1].at(-1).content, /Plusieurs versions/);
+  const go = scripted([call('generate_cv', { version: 'main:en' })], [call('final_answer', { text: 'Je prépare ton CV.' })]);
+  const b = await handle({ state: {}, message: 'génère la version anglaise', context: { versions } }, { callModel: go, env: ENV, username: 'gen@example.com' });
+  assert.deepEqual({ v: b.generate.version, enough: b.generate.enough, balance: b.generate.balance }, { v: 'main:en', enough: false, balance: 0 }, 'compte sans crédit : insuffisant');
+  const anon = scripted([call('generate_cv', { version: 'main:fr' })], [call('final_answer', { text: 'ok' })]);
+  const c = await handle({ state: {}, message: 'génère', context: { versions } }, { callModel: anon, env: ENV });
+  assert.equal(c.generate.loggedIn, false);
+  assert.equal(c.generate.enough, false);
+});
+
+test('personnalités : lecture seule, sans toucher au CV', async () => {
+  const model = scripted([call('list_personas')], [call('final_answer', { text: 'Tu as 1 personnalité.' })]);
+  const out = await handle({ state: { profile: { name: 'A' } }, message: 'montre mes personnalités', context: { personas: [{ name: 'Technicien', title: 'Réseaux', photo: 'data:x' }] } }, { callModel: model, env: ENV });
+  assert.deepEqual(out.changes, []);
+  const seenTool = JSON.parse(model.seen[1].at(-1).content);
+  assert.equal(seenTool.personas[0].name, 'Technicien');
+  assert.equal(seenTool.personas[0].photo, undefined, 'jamais de photo envoyée au modèle');
+});

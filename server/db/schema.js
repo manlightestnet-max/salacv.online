@@ -143,4 +143,12 @@ export const STATEMENTS = [
   // Lien public d'un CV (choisi par son propriétaire) : n'importe qui peut le voir et le dupliquer. Privé par défaut.
   `ALTER TABLE projects ADD COLUMN IF NOT EXISTS public boolean NOT NULL DEFAULT false`,
   `CREATE UNIQUE INDEX IF NOT EXISTS projects_public_id ON projects (id) WHERE public`,
+  // Mémoire de l'assistant : préférences que l'utilisateur lui a demandé de retenir (server/agent/memory.js).
+  `CREATE TABLE IF NOT EXISTS agent_memory (
+    username text NOT NULL,
+    key text NOT NULL,
+    value text NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (username, key)
+  )`,
 ];
