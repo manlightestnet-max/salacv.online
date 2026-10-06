@@ -15,6 +15,8 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
   let centered = -1;
   let frame = 0;
   let settle = 0;
+  let touching = false;
+  let aligning = false;
 
   const nearest = () => {
     const box = stepper.getBoundingClientRect();
@@ -41,11 +43,29 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
     }
   };
 
+  // Pas d'accroche CSS (scroll-snap) : les pastilles changent de taille en défilant, et le navigateur
+  // se raccrochait alors à l'ancienne, ce qui ramenait la roue en arrière. On recentre nous-mêmes,
+  // une fois le doigt levé et l'élan fini, puis l'étape du centre s'ouvre.
+  const offsetOf = (pill) => {
+    const box = stepper.getBoundingClientRect();
+    const r = pill.getBoundingClientRect();
+    return r.left + r.width / 2 - (box.left + box.width / 2);
+  };
   const stop = () => {
-    if (!on()) return;
+    if (!on() || touching) return;
     const i = nearest();
+    const pill = pills()[i];
+    if (!pill) return;
+    const off = offsetOf(pill);
+    if (Math.abs(off) > 2 && !aligning) {
+      aligning = true; // la fin de ce recentrage rappelle stop(), qui choisit alors l'étape
+      stepper.scrollTo({ left: stepper.scrollLeft + off, behavior: calm.matches ? 'auto' : 'smooth' });
+      if (calm.matches) setTimeout(stop);
+      return;
+    }
+    aligning = false;
     const active = pills().findIndex((p) => p.classList.contains('active'));
-    if (i !== -1 && i !== active) onSelect(i);
+    if (i !== active) onSelect(i);
   };
 
   const sync = () => {
@@ -67,6 +87,14 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
     clearTimeout(settle);
     stop();
   });
+  stepper.addEventListener('touchstart', () => ((touching = true), (aligning = false)), { passive: true });
+  const release = () => {
+    touching = false;
+    clearTimeout(settle);
+    settle = setTimeout(stop, 160); // si l'élan est déjà fini, scrollend ne viendra plus
+  };
+  stepper.addEventListener('touchend', release, { passive: true });
+  stepper.addEventListener('touchcancel', release, { passive: true });
 
   // Toucher une étape qui n'est pas au centre : la roue l'y amène (le choix se fait à l'arrêt).
   stepper.addEventListener(
@@ -77,7 +105,7 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
       if (!pill || pill.classList.contains('centered')) return;
       e.preventDefault();
       e.stopPropagation();
-      pill.scrollIntoView({ block: 'nearest', inline: 'center', behavior: calm.matches ? 'auto' : 'smooth' });
+      stepper.scrollTo({ left: stepper.scrollLeft + offsetOf(pill), behavior: calm.matches ? 'auto' : 'smooth' });
     },
     true,
   );

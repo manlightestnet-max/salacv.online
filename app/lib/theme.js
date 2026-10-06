@@ -11,7 +11,7 @@ const CHOICES = [
   { id: 'system', label: 'Système' },
 ];
 
-export const themeChoice = () => read(KEY) || 'dark';
+export const themeChoice = () => read(KEY) || 'light';
 
 export function applyTheme(choice = themeChoice()) {
   const t = choice === 'system' ? (light.matches ? 'light' : 'dark') : choice;

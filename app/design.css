@@ -347,7 +347,7 @@ html, body { overscroll-behavior: none; }
 /* --- Mobile : étapes en roue (feuille repliée), glisser entre étapes (dépliée) --------------------- */
 @media (max-width: 959px) {
   .sheet[data-state='collapsed'] .stepper.wheel {
-    scroll-snap-type: x mandatory;
+    /* Pas de scroll-snap : le recentrage est fait en JS (wheel.js). */
     padding-inline: 50%;
     scrollbar-width: none;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
@@ -355,7 +355,6 @@ html, body { overscroll-behavior: none; }
   }
   .sheet[data-state='collapsed'] .stepper.wheel::-webkit-scrollbar { display: none; }
   .sheet[data-state='collapsed'] .stepper.wheel .step-pill {
-    scroll-snap-align: center;
     transform: scale(calc(1 - var(--d, 0) * 0.2));
     opacity: calc(1 - var(--d, 0) * 0.6);
     transition: background-color 0.18s, color 0.18s;
