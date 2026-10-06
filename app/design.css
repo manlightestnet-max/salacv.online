@@ -343,3 +343,38 @@ html, body { overscroll-behavior: none; }
 }
 .agent-intro-mark { animation: breathe 3.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .assistant-mark, .agent-intro-mark { animation: none; } }
+
+/* --- Mobile : étapes en roue (feuille repliée), glisser entre étapes (dépliée) --------------------- */
+@media (max-width: 959px) {
+  .sheet[data-state='collapsed'] .stepper.wheel {
+    scroll-snap-type: x mandatory;
+    padding-inline: 50%;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
+  }
+  .sheet[data-state='collapsed'] .stepper.wheel::-webkit-scrollbar { display: none; }
+  .sheet[data-state='collapsed'] .stepper.wheel .step-pill {
+    scroll-snap-align: center;
+    transform: scale(calc(1 - var(--d, 0) * 0.2));
+    opacity: calc(1 - var(--d, 0) * 0.6);
+    transition: background-color 0.18s, color 0.18s;
+  }
+  /* Au centre : l'étape choisie (même pendant que la roue tourne). */
+  .sheet[data-state='collapsed'] .stepper.wheel .step-pill.active:not(.centered) { background: rgb(var(--raised)); color: rgb(var(--gray-700)); }
+  .sheet[data-state='collapsed'] .stepper.wheel .step-pill.centered { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
+
+  .step-scroll.swipe-next { animation: swipe-next 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+  .step-scroll.swipe-prev { animation: swipe-prev 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+}
+@keyframes swipe-next { from { opacity: 0; transform: translateX(28px); } }
+@keyframes swipe-prev { from { opacity: 0; transform: translateX(-28px); } }
+
+/* Zoom à la main : la page reste là où les doigts l'ont mise (pas de recentrage vertical). */
+.preview.free-zoom #canvases > :first-child { margin-top: 0; }
+.preview.free-zoom #canvases > :last-child { margin-bottom: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[data-state='collapsed'] .stepper.wheel .step-pill { transform: none; }
+  .step-scroll.swipe-next, .step-scroll.swipe-prev { animation: none; }
+}

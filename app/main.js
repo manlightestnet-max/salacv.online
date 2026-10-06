@@ -26,6 +26,7 @@ import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
 import { normalizeState, fromResume, toResume, checklist, hasGhost, TEMPLATES } from './state.js';
 import { listPersonas } from './lib/store.js';
+import { initStepWheel, initSwipeSteps } from './wheel.js';
 
 const $ = (id) => document.getElementById(id);
 await initSession(); // qui est connecté ? (le serveur le sait par son cookie)
@@ -185,6 +186,16 @@ $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('generate').addEventListener('click', download);
 $('gen-top').addEventListener('click', download);
 initHorizontalScroll($('stepper'));
+// Mobile : étapes en roue (feuille repliée) et glisser horizontal entre étapes (feuille dépliée).
+initStepWheel($('stepper'), { sheet, onSelect: (i) => goTo(i) });
+initSwipeSteps(stepEl, {
+  enabled: () => sheet.dataset.state === 'expanded' && !agentOpen,
+  onSwipe: (dir) => {
+    const before = stepIndex;
+    goTo(stepIndex + dir);
+    return stepIndex !== before;
+  },
+});
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
 $('zoom-fit').addEventListener('click', zoomFit);
@@ -1098,6 +1109,9 @@ function paint(doc) {
   placeLiteTpl(z);
   $('zoom-label').textContent = `${Math.round(z * 100)} %`;
   $('zoom-fit').classList.toggle('active', zoom.fit);
+  // Centrée à l'écran seulement en « Ajuster » : zoomée à la main, la page ne glisse plus vers le milieu
+  // (au dézoom elle tombait vers le bas, loin des doigts).
+  preview.classList.toggle('free-zoom', !zoom.fit && !inWs);
 }
 
 // Zoom autour d'un point : le point du CV qui est sous `anchor` (coordonnées écran ; le centre de l'aperçu par défaut,
