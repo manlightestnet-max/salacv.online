@@ -9,7 +9,7 @@ import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
 import { initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
 import { openDialog } from './dialog.js';
-import { buyPanel, followOrder, orderMessage } from './buy.js';
+import { followOrder, openShop, orderMessage, pendingOrder } from './buy.js';
 import { offerSandboxSync } from './sync.js';
 import { TEMPLATES, toResume } from './state.js';
 
@@ -212,27 +212,51 @@ function explorerView() {
 }
 
 // --- Crédits ----------------------------------------------------------------------
-// Message après un achat (payé ici, ou retour de la page LightPay avec ?order=…), affiché une fois.
+// Message après un retour de la page LightPay (?order=…), affiché une fois.
 let flash = '';
 const ORDER_PARAM = /^ord_[A-Za-z0-9_-]{16,40}$/;
+// Crédits tout juste achetés : le solde monte sous les yeux au prochain affichage.
+let gained = 0;
+
+// Payé : le solde se met à jour partout, tout de suite (pastille du haut, anneau de la page Crédits).
+function creditsArrived(order) {
+  $('credit-count').textContent = String(order.balance ?? '');
+  gained = order.credits;
+  if (location.hash === '#credits') render();
+}
+
+const openRecharge = () => openShop({ keyAccount: readSession()?.kind === 'key', onPaid: creditsArrived });
+
+// Compte de `from` à `to` dans `el` (instantané si l'utilisateur limite les animations).
+function countUp(el, from, to) {
+  if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const start = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / 700);
+    el.textContent = String(Math.round(from + (to - from) * (1 - (1 - t) ** 3)));
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 
 async function creditsView() {
   const back = new URLSearchParams(location.search).get('order');
   if (back) {
     window.history.replaceState(null, '', `${location.pathname}${location.hash}`);
-    if (ORDER_PARAM.test(back)) flash = orderMessage(await followOrder(back, 10));
+    if (ORDER_PARAM.test(back)) {
+      const order = await followOrder(back, { maxMs: 15_000 });
+      if (order.status === 'PAID') gained = order.credits;
+      else flash = orderMessage(order);
+    }
   }
   const notice = flash;
   flash = '';
   const { credits, history, offline } = await wallet.balance();
-  const buy = await buyPanel({
-    keyAccount: readSession()?.kind === 'key',
-    onDone: (order) => {
-      if (order.status !== 'PAID' || location.hash !== '#credits') return;
-      flash = orderMessage(order);
-      render();
-    },
-  });
+  const gain = gained;
+  gained = 0;
+  const amount = h('strong', {}, String(gain ? credits - gain : credits));
+  if (gain) requestAnimationFrame(() => countUp(amount, credits - gain, credits));
+  const recharge = h('button', { type: 'button', class: 'btn-primary recharge', onClick: openRecharge }, h('span', { class: 'coin', 'aria-hidden': 'true' }), 'Recharger');
   const link = inviteLink();
   const copy = h('button', { type: 'button', class: 'btn-ghost' }, 'Copier mon lien');
   copy.addEventListener('click', async () => {
@@ -256,15 +280,15 @@ async function creditsView() {
       h(
         'div',
         { class: 'panel balance' },
-        h('div', { class: 'ring', style: `--r:${credits > 0 ? 1 : 0}` }, h('div', { class: 'ring-in' }, h('strong', {}, String(credits)), h('small', {}, credits > 1 ? 'crédits' : 'crédit'))),
+        h('div', { class: `ring${gain ? ' gained' : ''}`, style: `--r:${credits > 0 ? 1 : 0}` }, h('div', { class: 'ring-in' }, amount, h('small', {}, credits > 1 ? 'crédits' : 'crédit'))),
         h(
           'div',
           { class: 'balance-text' },
           h('strong', {}, credits ? `${credits} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit'),
-          h('p', {}, credits ? 'Chaque nouvelle version de ton CV en utilise un.' : 'Sans crédit, ton PDF sort avec filigrane et le Word est bloqué.'),
+          h('p', {}, credits ? 'Un crédit par nouvelle version de ton CV.' : 'Sans crédit, ton PDF sort avec filigrane.'),
+          recharge,
         ),
       ),
-      buy,
       h(
         'div',
         { class: 'panel invite' },
@@ -499,6 +523,12 @@ async function render() {
 
 async function refreshCredits() {
   $('credit-count').textContent = String((await wallet.balance()).credits);
+}
+
+// Un paiement laissé en cours (feuille fermée, page rechargée) : on continue à le suivre en arrière-plan.
+const leftOver = pendingOrder();
+if (leftOver && !new URLSearchParams(location.search).get('order')) {
+  followOrder(leftOver).then((order) => order.status === 'PAID' && creditsArrived(order));
 }
 
 accountMenu();

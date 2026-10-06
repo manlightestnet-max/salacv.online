@@ -37,6 +37,9 @@ export function toggleTheme() {
 }
 light.addEventListener('change', () => themeChoice() === 'system' && applyTheme());
 
+// Chaque page qui charge ce module : la barre du navigateur prend tout de suite la couleur exacte du thème.
+syncBrowserBar();
+
 export function openThemePicker(onChange) {
   const buttons = CHOICES.map((c) =>
     h(
