@@ -2,12 +2,12 @@
   "version": 1,
   "template": "minimal",
   "profile": {
-    "name": "Grâce Mbuyi Kalala",
+    "name": "Grâce Mabiala Nkounkou",
     "title": "Technicienne en réseaux et télécommunications",
-    "email": "grace.mbuyi@gmail.com",
-    "phones": ["+243 81 234 5678", "+243 99 765 4321"],
-    "address": "12, av. Kasa-Vubu, Q/Matonge, C/Kalamu, Kinshasa",
-    "summary": "Technicienne en réseaux et télécommunications formée à l'ISTA Kinshasa, avec une expérience pratique en installation de réseaux, configuration d'équipements Cisco et maintenance de sites télécoms.\nRigoureuse et autonome, je cherche un stage ou un premier emploi dans un opérateur ou une entreprise d'intégration réseau."
+    "email": "grace.mabiala@gmail.com",
+    "phones": ["+242 06 612 34 56", "+242 05 543 21 09"],
+    "address": "12, rue Mbochis, Poto-Poto, Brazzaville",
+    "summary": "Technicienne en réseaux et télécommunications formée à l'ENSP de Brazzaville, avec une expérience pratique en installation de réseaux, configuration d'équipements Cisco et maintenance de sites télécoms.\nRigoureuse et autonome, je cherche un stage ou un premier emploi dans un opérateur ou une entreprise d'intégration réseau."
   },
   "sections": [
     {
@@ -16,7 +16,7 @@
       "items": [
         {
           "title": "Licence en réseaux et télécommunications",
-          "org": "ISTA Kinshasa",
+          "org": "École Nationale Supérieure Polytechnique, Brazzaville",
           "period": "2023 — 2026",
           "bullets": [
             "Routage et commutation, adressage IP, VLAN, sécurité des réseaux",
@@ -30,8 +30,8 @@
           "bullets": ["Configuration de routeurs et commutateurs, dépannage réseau"]
         },
         {
-          "title": "Diplôme d'État, option Électronique",
-          "org": "Institut Technique Salama",
+          "title": "Baccalauréat technique, série F (électronique)",
+          "org": "Lycée Technique 1er Mai, Brazzaville",
           "period": "2022 — 2023"
         }
       ]
@@ -42,7 +42,7 @@
       "items": [
         {
           "title": "Stagiaire technicienne réseaux",
-          "org": "Vodacom Congo",
+          "org": "MTN Congo",
           "period": "Juin — Sept. 2025",
           "bullets": [
             "Installation et câblage de baies réseau sur sites clients",
@@ -53,7 +53,7 @@
         },
         {
           "title": "Technicienne bénévole",
-          "org": "Club informatique ISTA",
+          "org": "Club informatique de l'ENSP",
           "period": "2023 — 2024",
           "bullets": ["Mise en place du réseau Wi-Fi de la salle informatique", "Ateliers d'initiation aux réseaux pour 60 étudiants"]
         }
@@ -80,7 +80,7 @@
         { "name": "Français", "level": "Courant" },
         { "name": "Lingala", "level": "Natif" },
         { "name": "Anglais", "level": "Intermédiaire" },
-        { "name": "Swahili", "level": "Notions" }
+        { "name": "Kituba", "level": "Courant" }
       ]
     },
     {

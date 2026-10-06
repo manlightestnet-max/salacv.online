@@ -138,7 +138,11 @@ function placeTopStack() {
 }
 // --quota-b : bas de l'invitation à se connecter (la feuille dépliée s'arrête dessous ; sans elle, tout l'écran).
 const measureTop = () => {
-  root.style.setProperty('--top-h', `${Math.ceil(topStack.getBoundingClientRect().bottom)}px`);
+  const bottom = `${Math.ceil(topStack.getBoundingClientRect().bottom)}px`;
+  root.style.setProperty('--top-h', bottom);
+  // L'aperçu est une couche à part : il ne suit la pile du haut que quand on le regarde (feuille repliée, pas de clavier).
+  // Ouvrir la feuille ou taper dans une fenêtre ne le déplace jamais.
+  if (sheet.dataset.state !== 'expanded' && !root.classList.contains('kb-open')) root.style.setProperty('--preview-top', bottom);
   const quota = document.querySelector('.quota-bar');
   root.style.setProperty('--quota-b', `${quota && !quota.hidden ? Math.ceil(quota.getBoundingClientRect().bottom) : 0}px`);
 };
@@ -392,6 +396,9 @@ function initKeyboard() {
     root.style.setProperty('--vvh', `${vv.height}px`);
     root.style.setProperty('--vvt', `${vv.offsetTop}px`);
     root.classList.toggle('kb-open', open);
+    // Couches séparées : seule une saisie DANS la feuille la fait monter au-dessus du clavier.
+    // Une saisie dans une fenêtre (modification d'un élément…) laisse la feuille et l'aperçu à leur place.
+    root.classList.toggle('kb-sheet', open && sheet.contains(document.activeElement));
   }
   vv.addEventListener('resize', sync);
   vv.addEventListener('scroll', sync);

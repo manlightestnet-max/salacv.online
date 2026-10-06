@@ -218,7 +218,7 @@ function editor(target, state, changed, close, photoShape) {
     case 'contact':
       return [
         field('Email', p, 'email', changed, { type: 'email', autocomplete: 'email' }),
-        itemsInput({ label: 'Téléphones', list: p.phones, onChange: changed, variant: 'chips', max: 3, type: 'tel', placeholder: '+243 81 234 5678' }),
+        itemsInput({ label: 'Téléphones', list: p.phones, onChange: changed, variant: 'chips', max: 3, type: 'tel', placeholder: '+242 06 612 34 56' }),
         field('Adresse', p, 'address', changed),
       ];
     case 'summary':

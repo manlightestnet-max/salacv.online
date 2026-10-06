@@ -56,6 +56,9 @@
 .btn-add:hover { background: rgb(var(--raised-hover)); color: rgb(var(--accent)); }
 .btn-add:active { transform: scale(0.98); }
 .accordion-wrap, .accordion { gap: 12px; }
+/* Nouvel élément en tête de liste : il se déplie sous le bouton. */
+.add-top .acc-card:first-child.open { animation: card-in var(--m-slow) var(--e-pop) both; }
+@keyframes card-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } }
 
 /* --- Panneau : plus de traits entre les zones -------------------------------------------------- */
 .sheet-head, .step-nav, .stepper, .mprogress, :root[data-theme] .sheet-head, :root[data-theme] .step-nav { border: 0 !important; }
@@ -105,8 +108,19 @@
 .tpl-card:active { transform: scale(0.97); }
 .tpl-card[aria-pressed='true'], :root[data-theme] .tpl-card[aria-pressed='true'] { background: rgb(var(--accent) / 0.1); box-shadow: 0 0 0 2px rgb(var(--accent)); }
 
+/* Le geste reste où il commence : arrivé en bas d'une liste, il ne se transmet jamais à la page
+   (pas d'élastique iOS ni de barre d'adresse qui bouge, donc la feuille ne part pas avec le doigt). */
+html, body { overscroll-behavior: none; }
+.step-scroll, .agent-view, .dialog-body, .sheet { overscroll-behavior: contain; }
+
 /* ===== Mobile ===================================================================================== */
 @media (max-width: 959px) {
+  /* Clavier ouvert dans une fenêtre : la fenêtre se cale dans la zone visible au-dessus du clavier (iOS compris). */
+  .kb-open .dialog-backdrop { top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100dvh); }
+  /* Clavier ouvert pour un champ de la feuille : elle s'arrête au clavier (la hauteur plein écran ne s'applique plus). */
+  html.kb-sheet .sheet, html.kb-sheet .sheet[data-state] { top: var(--vvt, 0px); height: var(--vvh, 100dvh) !important; }
+  /* Zones fixes de la feuille (pied, progression) : un glissé n'y fait rien, les touchers marchent. */
+  .step-nav, .mprogress { touch-action: none; }
   /* Pile du haut : du verre, pas de trait. Chaque élément peut se replier en remontant. */
   .top-stack .quota-bar, .top-stack .zoombar, .top-stack .topbar,
   :root[data-theme] .top-stack .quota-bar, :root[data-theme] .top-stack .zoombar, :root[data-theme] .top-stack .topbar {

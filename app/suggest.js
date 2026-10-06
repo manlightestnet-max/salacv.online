@@ -122,7 +122,7 @@ export function attachSuggest(input, kind, { onPick, onPickMany, exclude = () =>
 
   function openSearch(initial) {
     close();
-    const field = h('input', { class: 'input', type: 'search', placeholder: 'Mots-clés : réseau, comptabilité, Kinshasa…', 'data-autofocus': true, value: initial ?? '' });
+    const field = h('input', { class: 'input', type: 'search', placeholder: 'Mots-clés : réseau, comptabilité, Brazzaville…', 'data-autofocus': true, value: initial ?? '' });
     const out = h('ul', { class: 'sg-results' });
     const count = h('p', { class: 'hint' });
     const chosen = new Set(); // sélection multiple : garde les choix d'une recherche à l'autre

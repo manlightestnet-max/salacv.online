@@ -125,7 +125,8 @@ export function choicePills({ label, options, obj, key, onChange }) {
 // format du CV ; cliquer sur un résumé le rouvre.
 //   summary(item) -> [{ text, cls }]   résumé affiché quand le bloc est replié
 //   fields(item, onInput) -> nœuds     champs du bloc (construits une seule fois)
-export function accordion({ list, create, label, empty, addLabel, summary, complete, fields, onChange }) {
+// addOnTop : « + Ajouter » au-dessus de la liste, et chaque nouvel élément s'insère en tête, ouvert (formation, expérience).
+export function accordion({ list, create, label, empty, addLabel, summary, complete, fields, onChange, addOnTop = false }) {
   const wrap = h('div', { class: 'accordion' });
   const cards = [];
   let open = list.length === 1 ? 0 : -1;
@@ -204,18 +205,24 @@ export function accordion({ list, create, label, empty, addLabel, summary, compl
   // Bloc terminé (ex. niveau d'une langue choisi) : on le replie ; si c'est le dernier, un nouveau prend le relais.
   function advance(card) {
     if (complete && !complete(card.item)) return;
-    if (cards.indexOf(card) === cards.length - 1) add();
+    if (!addOnTop && cards.indexOf(card) === cards.length - 1) add();
     else setOpen(-1);
   }
 
   function add() {
     const item = create();
-    list.push(item);
     const card = makeCard(item);
-    cards.push(card);
-    wrap.append(card.el);
+    if (addOnTop) {
+      list.unshift(item);
+      cards.unshift(card);
+      wrap.prepend(card.el);
+    } else {
+      list.push(item);
+      cards.push(card);
+      wrap.append(card.el);
+    }
     renumber();
-    setOpen(cards.length - 1);
+    setOpen(cards.indexOf(card));
     onChange();
     requestAnimationFrame(() => {
       card.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -231,7 +238,8 @@ export function accordion({ list, create, label, empty, addLabel, summary, compl
   renumber();
   setOpen(open);
 
-  const el = h('div', { class: 'accordion-wrap' }, wrap, h('button', { class: 'btn-add', type: 'button', onClick: add }, `+ ${addLabel}`, h('kbd', {}, 'Ctrl ↵')));
+  const addBtn = h('button', { class: 'btn-add', type: 'button', onClick: add }, `+ ${addLabel}`, h('kbd', {}, 'Ctrl ↵'));
+  const el = h('div', { class: `accordion-wrap${addOnTop ? ' add-top' : ''}` }, addOnTop ? [addBtn, wrap] : [wrap, addBtn]);
   return { el, add };
 }
 

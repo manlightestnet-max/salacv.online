@@ -10,8 +10,8 @@ export default {
     name: { type: 'string', description: 'Nom complet' },
     title: { type: 'string', description: 'Profession ou domaine, ex. « Technicienne en réseaux et télécommunications »' },
     email: { type: 'string' },
-    phones: { type: 'array', items: { type: 'string' }, description: 'Numéros au format +243 81 234 5678' },
-    address: { type: 'string', description: 'Adresse, ex. « 12, av. Kasa-Vubu, Q/Matonge, C/Kalamu, Kinshasa »' },
+    phones: { type: 'array', items: { type: 'string' }, description: 'Numéros au format +242 06 612 34 56' },
+    address: { type: 'string', description: 'Adresse, ex. « 12, rue Mbochis, Poto-Poto, Brazzaville »' },
     link: { type: 'string', description: 'Un lien (LinkedIn, portfolio), facultatif' },
   }),
   run(run, args) {

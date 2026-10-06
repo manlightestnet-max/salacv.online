@@ -20,7 +20,7 @@ memoryStore();
 const ENV = { SALACV_MASTER_KEY: randomBytes(32).toString('base64'), SALACV_SESSION_SECRET: 'secret-de-session-pour-les-tests', SALACV_ADMIN_UID: 'uid-admin-1' };
 Object.assign(process.env, { SALACV_SESSION_SECRET: ENV.SALACV_SESSION_SECRET, SALACV_MASTER_KEY: ENV.SALACV_MASTER_KEY });
 const example = JSON.parse(await readFile(new URL('../examples/etudiant.json', import.meta.url), 'utf8'));
-const stateOf = (name = 'Grace Mbuyi') => ({ ...fromResume(example), profile: { ...fromResume(example).profile, name } });
+const stateOf = (name = 'Grace Mabiala') => ({ ...fromResume(example), profile: { ...fromResume(example).profile, name } });
 const token = (u) => issue(u, ENV);
 const visitor = (n = 1) => ({ ip: `198.51.100.${n}`, sid: `visiteur-${n}`, client: 'web' });
 const isPdf = (b64) => Buffer.from(b64, 'base64').subarray(0, 5).toString() === '%PDF-';

@@ -11,8 +11,8 @@ memoryStore();
 import { label } from '../src/i18n/index.js';
 
 const state = {
-  profile: { name: 'Grâce Mbuyi', title: 'Technicienne réseaux', email: 'g@x.cd', phones: ['+243 81'], address: 'Kinshasa', summary: 'Rigoureuse.' },
-  education: [{ period: '2023 — 2026', title: 'Licence en réseaux', org: 'ISTA', details: 'Routage\nFibre' }],
+  profile: { name: 'Grâce Mabiala', title: 'Technicienne réseaux', email: 'g@x.cg', phones: ['+242 06'], address: 'Brazzaville', summary: 'Rigoureuse.' },
+  education: [{ period: '2023 — 2026', title: 'Licence en réseaux', org: 'ENSP', details: 'Routage\nFibre' }],
   experiences: [],
   skills: ['Câblage'],
   languages: [{ name: 'Français', level: 'Courant' }],
@@ -28,8 +28,8 @@ test('traduction : chaque texte revient à sa place, nom et contacts jamais envo
   const r = await translate({ state, to: 'en' }, { callModel });
   assert.equal(r.ok, true);
   assert.equal(r.state.lang, 'en');
-  assert.ok(!sent.some((s) => /Grâce|g@x|\+243|Kinshasa/.test(s)));
-  assert.equal(r.state.profile.name, 'Grâce Mbuyi');
+  assert.ok(!sent.some((s) => /Grâce|g@x|\+242|Brazzaville/.test(s)));
+  assert.equal(r.state.profile.name, 'Grâce Mabiala');
   assert.equal(r.state.profile.title, 'EN:Technicienne réseaux');
   assert.equal(r.state.education[0].details, 'EN:Routage\nFibre');
   assert.deepEqual(r.state.skills, ['EN:Câblage']);

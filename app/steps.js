@@ -24,7 +24,7 @@ const EDU = {
   suggest: ['degrees', 'schools'],
   empty: 'Nouvelle formation',
   add: 'Ajouter une formation',
-  fields: { title: ['Diplôme ou certification', 'Licence en réseaux et télécommunications'], org: ['Établissement', 'ISTA Kinshasa'] },
+  fields: { title: ['Diplôme ou certification', 'Licence en réseaux et télécommunications'], org: ['Établissement', 'ENSP, Brazzaville'] },
   details: ['Ce que tu as appris (facultatif)', 'Routage et commutation, adressage IP\nFibre optique, systèmes GSM et 4G'],
 };
 
@@ -35,7 +35,7 @@ const EXP = {
   suggest: ['jobs', 'companies'],
   empty: 'Nouvelle expérience',
   add: 'Ajouter une expérience',
-  fields: { title: ['Poste', 'Stagiaire technicienne réseaux'], org: ['Entreprise ou organisation', 'Vodacom Congo'] },
+  fields: { title: ['Poste', 'Stagiaire technicienne réseaux'], org: ['Entreprise ou organisation', 'MTN Congo'] },
   details: ['Tes tâches', 'Installation et câblage de baies réseau\nConfiguration de routeurs Cisco'],
 };
 
@@ -51,9 +51,9 @@ function identity(ctx) {
     { class: 'step' },
     head('Identité et contacts', 'Ce qui apparaît en haut de ton CV.'),
     photoInput({ profile: p, onChange: ctx.changed, shape: ctx.photoShape }),
-    f('Nom complet', 'name', { placeholder: 'Grâce Mbuyi Kalala', autocomplete: 'name' }),
+    f('Nom complet', 'name', { placeholder: 'Grâce Mabiala Nkounkou', autocomplete: 'name' }),
     f('Profession ou domaine', 'title', { placeholder: 'Technicienne en réseaux et télécommunications', suggest: 'jobs' }),
-    f('Email', 'email', { placeholder: 'grace.mbuyi@gmail.com', type: 'email', autocomplete: 'email' }),
+    f('Email', 'email', { placeholder: 'grace.mabiala@gmail.com', type: 'email', autocomplete: 'email' }),
     itemsInput({
       label: 'Téléphones',
       list: p.phones,
@@ -61,10 +61,10 @@ function identity(ctx) {
       variant: 'chips',
       max: 3,
       type: 'tel',
-      placeholder: '+243 81 234 5678',
+      placeholder: '+242 06 612 34 56',
       hint: 'Entrée pour ajouter. Jusqu’à 3 numéros.',
     }),
-    f('Adresse', 'address', { placeholder: '12, av. Kasa-Vubu, Q/Matonge, C/Kalamu, Kinshasa' }),
+    f('Adresse', 'address', { placeholder: '12, rue Mbochis, Poto-Poto, Brazzaville' }),
     f('Lien (facultatif)', 'link', { placeholder: 'linkedin.com/in/grace' }),
     h('button', { class: 'btn-link', type: 'button', onClick: ctx.loadExample }, 'Remplir avec un exemple'),
   );
@@ -98,6 +98,9 @@ function timeline(ctx, key, copy) {
     label: copy.label,
     empty: copy.empty,
     addLabel: copy.add,
+    // Bouton en haut, nouvel élément juste dessous : toujours sous les yeux, sans défiler ni chercher.
+    // (Le CV trie de toute façon du plus récent au plus ancien : l'ordre du formulaire ne change rien au rendu.)
+    addOnTop: true,
     summary: timelineSummary,
     complete: (i) => Boolean(i.period.trim() && i.title.trim() && i.org.trim()),
     onChange: ctx.changed,

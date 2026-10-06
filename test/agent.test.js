@@ -41,7 +41,7 @@ beforeEach(() => {
 test('remplit le CV depuis un message en vrac', async () => {
   const model = scripted(
     [
-      call('set_identity', { name: 'Rais Wasongolua', title: 'Juriste', phones: ['+243 82 22 14 440'], email: 'rais@gmail.com' }),
+      call('set_identity', { name: 'Rais Wasongolua', title: 'Juriste', phones: ['+242 06 822 14 40'], email: 'rais@gmail.com' }),
       call('add_entry', { section: 'education', period: '2016 — 2017', title: 'Licence en droit privé et judiciaire', org: 'Université Protestante au Congo' }),
       call('add_entry', { section: 'experiences', period: '2017', title: 'Secrétaire juridique', org: 'Cabinet Kahisha', details: ['Gestion des courriers', 'Suivi des dossiers'] }),
       call('edit_list', { section: 'skills', items: ['Rédaction juridique', 'Microsoft Office'] }),
@@ -53,7 +53,7 @@ test('remplit le CV depuis un message en vrac', async () => {
   assert.equal(out.ok, true);
   const s = out.state;
   assert.equal(s.profile.name, 'Rais Wasongolua');
-  assert.deepEqual(s.profile.phones, ['+243 82 22 14 440']);
+  assert.deepEqual(s.profile.phones, ['+242 06 822 14 40']);
   assert.equal(s.education.length, 1, 'le bloc vide du formulaire est remplacé, pas doublé');
   assert.equal(s.education[0].org, 'Université Protestante au Congo');
   assert.equal(s.experiences[0].details, 'Gestion des courriers\nSuivi des dossiers');
@@ -63,11 +63,11 @@ test('remplit le CV depuis un message en vrac', async () => {
 });
 
 test('une modification précise garde le reste ; le modèle voit les index', async () => {
-  const start = { profile: { name: 'A' }, experiences: [{ period: '2025', title: 'Stagiaire', org: 'Vodacom', details: 'Câblage' }], skills: ['Excel'] };
+  const start = { profile: { name: 'A' }, experiences: [{ period: '2025', title: 'Stagiaire', org: 'MTN Congo', details: 'Câblage' }], skills: ['Excel'] };
   const model = scripted([call('update_entry', { section: 'experiences', index: 0, details: ['Installé et câblé des baies réseau'] })], [call('final_answer', { text: "C'est reformulé." })]);
   const out = await handle({ state: start, message: 'reformule mon stage' }, { callModel: model, env: ENV });
   const exp = out.state.experiences[0];
-  assert.deepEqual([exp.title, exp.org, exp.details], ['Stagiaire', 'Vodacom', 'Installé et câblé des baies réseau']);
+  assert.deepEqual([exp.title, exp.org, exp.details], ['Stagiaire', 'MTN Congo', 'Installé et câblé des baies réseau']);
   assert.deepEqual(out.state.skills, ['Excel']);
   assert.match(model.seen[0].at(-1).content, /"index": 0/);
 });
@@ -122,10 +122,10 @@ test('rotation : clé en 429 marquée épuisée, clé suivante utilisée ; clé 
 });
 
 test('connexion fictive : jeton signé, refus si absent, modifié ou expiré', async () => {
-  const [status, body] = await web.login({ username: 'grace.mbuyi', password: 'secret123' }, '1.2.3.4', ENV);
+  const [status, body] = await web.login({ username: 'grace.mabiala', password: 'secret123' }, '1.2.3.4', ENV);
   assert.equal(status, 200);
   assert.ok(!body.token.includes(ENV.OLLAMA_API_KEY));
-  assert.equal(verify(body.token, ENV), 'grace.mbuyi');
+  assert.equal(verify(body.token, ENV), 'grace.mabiala');
 
   const forged = `${Buffer.from('{"u":"admin","exp":9999999999}').toString('base64url')}.${body.token.split('.')[1]}`;
   for (const bad of ['', 'abc', forged, `${body.token}x`]) {

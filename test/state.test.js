@@ -18,7 +18,7 @@ test("un formulaire vide montre l'exemple entier en grisé", () => {
 test("ce que l'étudiant saisit remplace l'exemple, partie par partie", () => {
   const s = emptyState();
   s.profile.name = 'Patrick Ilunga';
-  s.profile.phones = ['+243 81 000 0000'];
+  s.profile.phones = ['+242 06 000 0000'];
   s.skills = ['Excel'];
   const r = parseResume(toResume(s, { mockup: example })).resume;
   assert.equal(r.profile.name, 'Patrick Ilunga');
@@ -55,12 +55,12 @@ test('formations et expériences classées du plus récent au plus ancien', () =
 test('une ligne par détail, compétence et loisir ; plusieurs téléphones', () => {
   const s = emptyState();
   s.profile.name = 'A';
-  s.profile.phones = ['+243 81 000 0000', ' ', '+243 99 000 0000'];
+  s.profile.phones = ['+242 06 000 0000', ' ', '+242 05 000 0000'];
   s.education[0] = { ...emptyItem(), title: 'Licence', details: 'Un\n\n  Deux  ' };
   s.skills = ['Excel', '', 'Anglais '];
   s.hobbies = ['Football'];
   const r = toResume(s);
-  assert.deepEqual(r.profile.phones, ['+243 81 000 0000', '+243 99 000 0000']);
+  assert.deepEqual(r.profile.phones, ['+242 06 000 0000', '+242 05 000 0000']);
   assert.deepEqual(r.sections[0].items[0].bullets, ['Un', 'Deux']);
   assert.deepEqual(r.sections[1], { type: 'bullets', title: SECTION_TITLES.skills, items: ['Excel', 'Anglais'] });
   assert.deepEqual(r.sections[2].items, ['Football']);
@@ -72,10 +72,10 @@ test('la vérification bloque sans nom, profession, contact ni formation', () =>
 });
 
 test('un ancien brouillon (compétences en texte) est converti en listes', () => {
-  const s = normalizeState({ profile: { name: 'A', phones: ['', '+243 81'] }, skills: 'Excel\nWord', hobbies: 'Football', languages: [{ name: 'Lingala', level: 'Natif' }] });
+  const s = normalizeState({ profile: { name: 'A', phones: ['', '+242 06'] }, skills: 'Excel\nWord', hobbies: 'Football', languages: [{ name: 'Lingala', level: 'Natif' }] });
   assert.deepEqual(s.skills, ['Excel', 'Word']);
   assert.deepEqual(s.hobbies, ['Football']);
-  assert.deepEqual(s.profile.phones, ['+243 81']);
+  assert.deepEqual(s.profile.phones, ['+242 06']);
   assert.equal(s.languages[0].name, 'Lingala');
   assert.deepEqual(s.education, emptyState().education);
 });

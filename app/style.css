@@ -673,8 +673,8 @@ kbd {
 /* --- Clavier ouvert (mobile) ---------------------------------------------- */
 
 @media (max-width: 959px) {
-  .kb-open .sheet,
-  .kb-open .sheet[data-state] {
+  .kb-sheet .sheet,
+  .kb-sheet .sheet[data-state] {
     bottom: var(--kb, 0px);
     height: calc(var(--vvh, 100dvh) - 4px);
     transform: none;
@@ -682,10 +682,11 @@ kbd {
     transition: none;
   }
   /* Toute la place au champ : modèles, étapes et pied réapparaissent clavier fermé. */
-  .kb-open .templates,
-  .kb-open .stepper,
-  .kb-open .sheet-grip,
-  .kb-open .step-nav { display: none; }
+  .kb-sheet .templates,
+  .kb-sheet .stepper,
+  .kb-sheet .sheet-grip,
+  .kb-sheet .step-nav,
+  .kb-sheet .mprogress { display: none; }
 }
 
 /* --- Période ---------------------------------------------------------------- */
@@ -1313,10 +1314,11 @@ button.logo-mark { border: 0; cursor: pointer; }
   .pro .sheet-head { border-radius: 16px; }
 }
 
-/* --- Mobile, clavier ouvert : la sheet colle exactement à la zone visible, au-dessus de tout. */
+/* --- Mobile, clavier ouvert POUR UN CHAMP DE LA FEUILLE (kb-sheet) : la feuille colle à la zone visible.
+   Clavier ouvert dans une fenêtre (kb-open seul) : la feuille et l'aperçu ne bougent pas, la fenêtre se cale au-dessus du clavier. */
 @media (max-width: 959px) {
-  .kb-open .sheet, .kb-open .sheet[data-state] {
-    top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100dvh); z-index: 80;
+  .kb-sheet .sheet, .kb-sheet .sheet[data-state] {
+    top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100dvh); z-index: 40;
   }
   .kb-open .zoombar, .kb-open .topbar, .kb-open .qe-bar, .kb-open .step-fab, .kb-open .ws-picker { display: none !important; }
 }
@@ -1561,7 +1563,7 @@ button.logo-mark { border: 0; cursor: pointer; }
   .top-stack .quota-msg { font-size: 12.5px; }
   .top-stack .quota-login { height: 32px; padding: 0 12px; font-size: 12.5px; }
   .top-stack .topbar { animation: none; }
-  #canvases { padding-top: calc(var(--top-h, 56px) + 10px); }
+  #canvases { padding-top: calc(var(--preview-top, 56px) + 10px); }
 
   /* Plein écran : seule la barre d'outils reste (les sorties sont animées dans design.css). */
 
