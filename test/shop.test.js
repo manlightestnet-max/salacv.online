@@ -59,9 +59,10 @@ test('boutique fermée tant que la clé et le wallet LightPay ne sont pas régl�
 test('achat : session LightPay au prix promo, crédits ajoutés une seule fois (webhook + client)', async () => {
   await setSetting('lightpay.keySandbox', 'sec_test_abc', ENV);
   await setSetting('lightpay.payeeSandbox', 'conn_salacv', ENV);
+  await setSetting('lightpay.testers', 'ana@example.com, Cleo@Example.com', ENV);
   await savePacks([{ id: 'c5', credits: 5, price: 500, promoPrice: 400, active: true }, { id: 'c10', credits: 10, price: 1500, promoPrice: null, active: false }]);
 
-  const [, shop] = await shopRoute(null, { env: ENV });
+  const [, shop] = await shopRoute(token('ana@example.com'), { env: ENV });
   assert.equal(shop.open, true);
   assert.deepEqual(shop.packs.map((p) => [p.id, p.price, p.promoPrice]), [['c5', 500, 400]]); // pack retiré : invisible
 
@@ -113,4 +114,22 @@ test('achat : un montant qui ne correspond pas ou une session expirée ne crédi
   assert.equal(o.balance, start);
   const [row] = await query('SELECT status FROM credit_orders WHERE id = $1', [b.order]);
   assert.equal(row.status, 'EXPIRED');
+});
+
+test('en test, seuls les comptes de test achètent : les autres voient la recharge indisponible', async () => {
+  const [, forTester] = await shopRoute(token('ana@example.com'), { env: ENV });
+  assert.equal(forTester.open, true);
+  const [, forOther] = await shopRoute(token('dan@example.com'), { env: ENV });
+  assert.equal(forOther.open, false);
+  const [, forVisitor] = await shopRoute(null, { env: ENV });
+  assert.equal(forVisitor.open, false);
+  const [status, r] = await buyRoute({ packId: 'c5' }, token('dan@example.com'), req, { env: ENV });
+  assert.equal(status, 503);
+  assert.match(r.error, /momentanément indisponible/);
+
+  await setSetting('lightpay.keyProduction', 'sec_live_xyz', ENV);
+  await setSetting('lightpay.payeeProduction', 'conn_live', ENV);
+  await setSetting('lightpay.env', 'production', ENV);
+  assert.equal((await shopRoute(token('dan@example.com'), { env: ENV }))[1].open, true); // en réel : tout le monde
+  await setSetting('lightpay.env', 'sandbox', ENV);
 });

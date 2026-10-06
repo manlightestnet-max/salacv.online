@@ -266,6 +266,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
       if ((key.startsWith('quota.') || key.startsWith('grant.')) && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
       if (key === 'lightpay.env' && !['sandbox', 'production'].includes(String(payload.value))) return [400, { ok: false, error: 'Environnement : sandbox ou production.' }];
+      if (key === 'lightpay.testers' && String(payload.value).split(/[\s,;]+/).filter(Boolean).some((e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))) return [400, { ok: false, error: 'Comptes de test : des e-mails séparés par des virgules.' }];
       if ((key === 'lightpay.apiUrl' || key === 'lightpay.checkoutUrl') && !/^https:\/\/[^\s/]+$/.test(String(payload.value).replace(/\/$/, ''))) return [400, { ok: false, error: 'Adresse https attendue, sans chemin.' }];
       if (key === 'lightpay.keySandbox' && payload.value && !String(payload.value).startsWith('sec_test_')) return [400, { ok: false, error: 'La clé test commence par sec_test_.' }];
       if (key === 'lightpay.keyProduction' && payload.value && !String(payload.value).startsWith('sec_live_')) return [400, { ok: false, error: 'La clé live commence par sec_live_.' }];

@@ -72,8 +72,15 @@ export async function lightpayConfig(env = process.env, forced = null) {
     payee: await getSetting(live ? 'lightpay.payeeProduction' : 'lightpay.payeeSandbox', env),
   };
   cfg.ready = Boolean(cfg.key && cfg.payee && cfg.apiUrl);
+  cfg.testers = (await getSetting('lightpay.testers', env))
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
   return cfg;
 }
+
+// En test, la boutique n'est ouverte qu'aux comptes listés (l'admin les choisit) ; en réel, à tous.
+export const canBuy = (cfg, username) => cfg.ready && (cfg.env === 'production' || cfg.testers.includes(String(username ?? '').toLowerCase()));
 
 export class LightPayError extends Error {
   constructor(message, status, code) {
@@ -156,8 +163,9 @@ const orderView = (o) => ({ id: o.id, status: o.status, credits: Number(o.credit
 // Public : les packs en vente (prix, promo) et l'adresse des pages LightPay (pour lightpay.js).
 export async function shopRoute(token, { env = process.env } = {}) {
   const cfg = await lightpayConfig(env);
+  const username = await userOf(token, env);
   const packs = (await listPacks()).filter((p) => p.active).map((p) => ({ id: p.id, credits: p.credits, price: p.price, promoPrice: p.promoPrice && p.promoPrice < p.price ? p.promoPrice : null }));
-  return [200, { ok: true, open: cfg.ready, checkoutUrl: cfg.checkoutUrl, test: cfg.env !== 'production', packs }];
+  return [200, { ok: true, open: canBuy(cfg, username), checkoutUrl: cfg.checkoutUrl, test: cfg.env !== 'production', packs }];
 }
 
 export async function buyRoute(payload, token, req, { env = process.env } = {}) {
@@ -167,7 +175,7 @@ export async function buyRoute(payload, token, req, { env = process.env } = {}) 
   const pack = (await listPacks()).find((p) => p.id === String(payload.packId ?? '') && p.active);
   if (!pack) return [404, { ok: false, error: 'Ce pack n’est plus en vente.' }];
   const cfg = await lightpayConfig(env);
-  if (!cfg.ready) return [503, { ok: false, error: 'Le paiement n’est pas encore ouvert. Réessaie plus tard.' }];
+  if (!canBuy(cfg, username)) return [503, { ok: false, error: 'La recharge est momentanément indisponible. Réessaie plus tard.' }];
 
   const id = `ord_${crypto.randomBytes(15).toString('base64url')}`;
   const amount = effectivePrice(pack);

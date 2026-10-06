@@ -146,7 +146,7 @@ export async function openShop({ keyAccount = false, onPaid } = {}) {
   const info = await shop.packs();
   if (!info.ok) return show(state('error', 'Boutique indisponible', info.error));
   tag.hidden = !info.test;
-  if (!info.open || !info.packs?.length) return show(state('info', 'Bientôt disponible', 'La recharge de crédits ouvre très vite.'));
+  if (!info.open || !info.packs?.length) return show(state('info', 'Momentanément indisponible', 'La recharge revient très vite. Réessaie un peu plus tard.'));
 
   const packs = [...info.packs].sort((a, b) => a.credits - b.credits);
   const each = (p) => priceOf(p) / p.credits;

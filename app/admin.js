@@ -837,7 +837,7 @@ async function shopView() {
   // LightPay : environnement, clés, wallet qui reçoit l'argent.
   const lp = r.lightpay;
   const envSel = h('select', { class: 'admin-input', 'aria-label': 'Environnement' }, ['sandbox', 'production'].map((v) => h('option', { value: v, selected: v === setting('lightpay.env').value || null }, v === 'sandbox' ? 'Test (sandbox)' : 'Réel (production)')));
-  const fields = ['lightpay.appId', 'lightpay.apiUrl', 'lightpay.checkoutUrl', 'lightpay.keySandbox', 'lightpay.keyProduction'].map((k) => {
+  const fields = ['lightpay.appId', 'lightpay.apiUrl', 'lightpay.checkoutUrl', 'lightpay.keySandbox', 'lightpay.keyProduction', 'lightpay.testers'].map((k) => {
     const s = setting(k);
     return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.unreadable ? 'Illisible (ancienne clé maîtresse) — à ressaisir' : s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
   });

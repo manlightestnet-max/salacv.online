@@ -29,6 +29,8 @@ export const DEFINITIONS = {
   'lightpay.keyProduction': { default: '', secret: true, public: false, label: 'LightPay : clé secrète live (sec_live_…)' },
   'lightpay.payeeSandbox': { default: '', secret: false, public: false, label: 'LightPay : wallet de salacv en test (conn_…)' },
   'lightpay.payeeProduction': { default: '', secret: false, public: false, label: 'LightPay : wallet de salacv en réel (conn_…)' },
+  // En test, seuls ces comptes voient la boutique ; les autres la voient « momentanément indisponible ».
+  'lightpay.testers': { default: '', secret: false, public: false, label: 'LightPay : comptes de test (e-mails, séparés par des virgules)' },
 };
 
 const known = (key) => {
