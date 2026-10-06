@@ -356,3 +356,7 @@ a { color: inherit; }
   .checking .shop-badge { animation-duration: 3s; }
 }
 .flash { margin-bottom: 0.75rem; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(var(--surface)); font-size: 0.86rem; }
+
+/* Logo de la charte salacv.online : la page cornée bleue (app/public/brand.svg). */
+.brand-mark, .ad-mark, .auth-mark, .welcome-mark { background: none !important; border-radius: 0 !important; object-fit: contain; }
+.brand-tld { color: rgb(var(--accent)); font-weight: 600; }

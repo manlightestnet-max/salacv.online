@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <title>salacv — connexion</title>
+  <link rel="icon" href="/brand.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#f8fafc">
   <script>
     try { var t = localStorage.getItem('salacv:theme') || 'light'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t; var m = document.querySelector('meta[name=theme-color]'); if (m) m.content = document.documentElement.dataset.theme === 'dark' ? '#0b0d11' : '#f8fafc'; } catch {}
@@ -15,7 +19,7 @@
 <body>
   <div class="auth-layout">
     <main class="auth-side">
-      <a class="auth-brand" href="/"><span class="auth-mark" aria-hidden="true">S</span><span>salacv</span></a>
+      <a class="auth-brand" href="/"><img class="auth-mark" src="/brand.svg" alt="" width="30" height="30"><span>salacv<span class="brand-tld">.online</span></span></a>
       <div class="auth-card" aria-live="polite">
         <h1 id="auth-title">Connexion</h1>
         <p id="auth-text" class="auth-text">Connecte-toi avec ton compte Google pour retrouver ton CV et tes crédits.</p>

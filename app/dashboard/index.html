@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>salacv — mes CV</title>
+  <link rel="icon" href="/brand.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#f8fafc">
   <script>
     try { var t = localStorage.getItem('salacv:theme') || 'light'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t; var m = document.querySelector('meta[name=theme-color]'); if (m) m.content = document.documentElement.dataset.theme === 'dark' ? '#0b0d11' : '#f8fafc'; } catch {}
@@ -14,7 +18,7 @@
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="/" aria-label="salacv, accueil"><span class="brand-mark">S</span>salacv</a>
+    <a class="brand" href="/" aria-label="salacv.online, accueil"><img class="brand-mark" src="/brand.svg" alt="" width="28" height="28">salacv<span class="brand-tld">.online</span></a>
     <nav class="tabs" aria-label="Sections">
       <a href="#projets" data-tab="projets">Mes CV</a>
       <a href="#personnalites" data-tab="personnalites">Personnalités</a>

@@ -377,3 +377,7 @@ html, body { overscroll-behavior: none; }
   .sheet[data-state='collapsed'] .stepper.wheel .step-pill { transform: none; }
   .step-scroll.swipe-next, .step-scroll.swipe-prev { animation: none; }
 }
+
+/* Studio : le bouton « Mes CV » porte le logo de la charte. */
+.logo-mark:has(img) { background: none !important; padding: 0; overflow: visible; }
+.logo-mark img { width: 30px; height: 30px; display: block; }

@@ -5,6 +5,10 @@
   <meta name="theme-color" content="#f8fafc">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>salacv — crée ton CV</title>
+  <link rel="icon" href="/brand.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
   <script>
     // Thème appliqué avant le premier rendu.
     try { var t = localStorage.getItem('salacv:theme') || 'light'; document.documentElement.dataset.theme = t === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t; var m = document.querySelector('meta[name=theme-color]'); if (m) m.content = document.documentElement.dataset.theme === 'dark' ? '#0b0d11' : '#f8fafc'; } catch {}
@@ -77,7 +81,7 @@
   <section id="sheet" class="sheet" data-state="collapsed" aria-label="Modifier ton CV">
     <div id="grip" class="sheet-grip" aria-hidden="true"><span></span></div>
     <header id="sheet-head" class="sheet-head">
-      <button id="switch" class="logo-mark" type="button" aria-label="Mes CV : changer de CV" title="Mes CV (5 récents)">S</button>
+      <button id="switch" class="logo-mark" type="button" aria-label="Mes CV : changer de CV" title="Mes CV (5 récents)"><img src="/brand.svg" alt="" width="30" height="30"></button>
       <div class="sheet-title">
         <!-- Dépliée : le CV. Repliée (mobile) : l'étape en cours et ce qui lui manque. Les deux se relaient en glissant. -->
         <div class="title-cv">

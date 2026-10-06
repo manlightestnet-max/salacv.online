@@ -12,3 +12,7 @@ body.welcome { display: grid; place-items: center; padding: 24px; overflow: auto
 .welcome-skip { align-self: center; padding: 6px 4px; font-size: 13.5px; font-weight: 500; color: rgb(var(--gray-700)); text-decoration: underline; text-underline-offset: 3px; }
 .welcome-skip:hover { color: rgb(var(--gray-900)); }
 .welcome-skip[hidden] { display: none; }
+
+/* Logo de la charte salacv.online : la page cornée bleue (app/public/brand.svg). */
+.brand-mark, .ad-mark, .auth-mark, .welcome-mark { background: none !important; border-radius: 0 !important; object-fit: contain; }
+.brand-tld { color: rgb(var(--accent)); font-weight: 600; }

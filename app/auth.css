@@ -85,3 +85,7 @@ img.auth-paper { animation: fade 0.5s ease both; }
 @media (prefers-reduced-motion: reduce) {
   .auth-col, .auth-card, .auth-paper.is-empty { animation: none; }
 }
+
+/* Logo de la charte salacv.online : la page cornée bleue (app/public/brand.svg). */
+.brand-mark, .ad-mark, .auth-mark, .welcome-mark { background: none !important; border-radius: 0 !important; object-fit: contain; }
+.brand-tld { color: rgb(var(--accent)); font-weight: 600; }
