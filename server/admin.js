@@ -15,6 +15,7 @@ import * as pool from './keys/pool.js';
 import { SecretsError } from './crypto.js';
 import { verifyFirebaseIdToken } from './accounts/firebase.js';
 import { RateLimiter } from './ratelimit.js';
+import { RecoveryError, recoverMaster, recoveryStatus, saveRecovery } from './recovery.js';
 import { listSettings, setSetting, DEFINITIONS } from './settings.js';
 import { r2Configured } from './r2.js';
 import { db } from './db/index.js';
@@ -75,6 +76,8 @@ export async function admin(payload, token, env = process.env, opts = {}) {
 
 const ADMIN_TTL = 8 * 3600; // une session admin dure 8 heures
 const adminLoginLimiter = new RateLimiter(10);
+// Phrase de récupération : peu d'essais par minute (chaque essai coûte un scrypt).
+const recoveryLimiter = new RateLimiter(5);
 
 // Les UID Firebase autorisés (SALACV_ADMIN_UID), comparés en temps constant.
 const isAdminUid = (uid, env) =>
@@ -180,7 +183,33 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
 
     // --- Clés des fournisseurs IA : pool partagé, attribution à un utilisateur, réglages -------
     case 'keys':
-      return [200, { ok: true, r2: await r2Configured(env), keys: await pool.listKeys(), providers: pool.providers(), settings: await listSettings(env), users: (await listUsers()).map((u) => u.username) }];
+      return [200, { ok: true, r2: await r2Configured(env), keys: await pool.listKeys({ env }), providers: pool.providers(), settings: await listSettings(env), users: (await listUsers()).map((u) => u.username), recovery: await recoveryStatus(env) }];
+    // --- Phrase de récupération de la clé maîtresse ----------------------------------------------
+    case 'saveRecovery': {
+      if (String(payload.passphrase ?? '') !== String(payload.confirm ?? '')) return [400, { ok: false, error: 'Les deux phrases ne sont pas identiques.' }];
+      try {
+        const recovery = await saveRecovery(payload.passphrase, env);
+        await log('Phrase de récupération enregistrée', 'copie chiffrée de la clé maîtresse mise à jour');
+        return [200, { ok: true, recovery }];
+      } catch (err) {
+        if (err instanceof RecoveryError) return [400, { ok: false, error: err.message }];
+        throw err;
+      }
+    }
+    case 'recoverMaster': {
+      if (!recoveryLimiter.allow('admin')) return [429, { ok: false, error: 'Trop d’essais. Attends une minute.' }];
+      try {
+        const keys = await recoverMaster(String(payload.passphrase ?? ''));
+        await log('Clé maîtresse récupérée', 'avec la phrase de récupération');
+        return [200, { ok: true, ...keys }];
+      } catch (err) {
+        if (err instanceof RecoveryError) {
+          await log('Récupération refusée', err.message);
+          return [400, { ok: false, error: err.message }];
+        }
+        throw err;
+      }
+    }
     case 'addKey': {
       const owner = payload.owner ? String(payload.owner) : null;
       if (owner && !(await getUser(owner))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];

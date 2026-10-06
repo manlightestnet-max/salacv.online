@@ -36,11 +36,22 @@ const known = (key) => {
   return DEFINITIONS[key];
 };
 
+// Un secret chiffré avec une autre clé maîtresse (perdue, changée) ne peut plus être lu : il compte comme
+// non renseigné (le service concerné se dit « non configuré ») au lieu de casser tout le serveur ; l'admin le ressaisit.
+const readSecret = (value, key, env) => {
+  try {
+    return { value: open(value, env), unreadable: false };
+  } catch (err) {
+    console.warn(`[réglages] ${key} illisible : ${err.message}`);
+    return { value: '', unreadable: true };
+  }
+};
+
 export async function getSetting(key, env = process.env) {
   const def = known(key);
   const rows = await query('SELECT value, secret FROM settings WHERE key = $1', [key]);
   if (!rows.length) return def.default;
-  return rows[0].secret ? open(rows[0].value, env) : rows[0].value;
+  return rows[0].secret ? readSecret(rows[0].value, key, env).value || def.default : rows[0].value;
 }
 
 export async function setSetting(key, value, env = process.env) {
@@ -62,8 +73,19 @@ export async function listSettings(env = process.env) {
   const rows = new Map((await query('SELECT key, value, secret FROM settings')).map((r) => [r.key, r]));
   return Object.entries(DEFINITIONS).map(([key, def]) => {
     const row = rows.get(key);
-    const raw = row ? (row.secret ? open(row.value, env) : row.value) : def.default;
-    return { key, label: def.label, secret: def.secret, public: def.public, set: Boolean(row), value: def.secret ? '' : raw, hint: def.secret && raw ? `…${last4(raw)}` : '' };
+    const read = row?.secret ? readSecret(row.value, key, env) : { value: row ? row.value : def.default, unreadable: false };
+    const raw = read.value;
+    return {
+      key,
+      label: def.label,
+      secret: def.secret,
+      public: def.public,
+      set: Boolean(row) && !read.unreadable,
+      // Chiffré avec une ancienne clé maîtresse : à ressaisir.
+      unreadable: read.unreadable,
+      value: def.secret ? '' : raw,
+      hint: def.secret && raw ? `…${last4(raw)}` : '',
+    };
   });
 }
 

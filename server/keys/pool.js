@@ -55,11 +55,22 @@ export async function addKey({ provider, secret, label = '', owner = null, creat
   return view(rows[0]);
 }
 
-export async function listKeys({ owner } = {}) {
+// `env` (admin) : signale aussi les clés chiffrées avec une ancienne clé maîtresse (illisibles, jamais utilisées).
+export async function listKeys({ owner, env } = {}) {
+  const cols = env ? `${COLUMNS}, secret_enc` : COLUMNS;
   const rows = owner === undefined
-    ? await query(`SELECT ${COLUMNS} FROM api_keys ORDER BY owner NULLS FIRST, id`)
-    : await query(`SELECT ${COLUMNS} FROM api_keys WHERE owner = $1 ORDER BY id`, [owner]);
-  return rows.map(view);
+    ? await query(`SELECT ${cols} FROM api_keys ORDER BY owner NULLS FIRST, id`)
+    : await query(`SELECT ${cols} FROM api_keys WHERE owner = $1 ORDER BY id`, [owner]);
+  return rows.map((r) => {
+    if (!env) return view(r);
+    let unreadable = false;
+    try {
+      open(r.secret_enc, env);
+    } catch {
+      unreadable = true;
+    }
+    return { ...view(r), unreadable };
+  });
 }
 
 // Attribue une clé à un utilisateur ; owner = null la remet dans le pool partagé.

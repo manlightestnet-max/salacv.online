@@ -108,6 +108,12 @@ Les clés d'environnement (`OLLAMA_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`…
 
 ### Clés IA, rotation et accès
 
+- **Clé maîtresse et phrase de récupération** : `SALACV_MASTER_KEY` chiffre tous les secrets de l'admin. Admin → Clés IA →
+  « Phrase de récupération » en garde une copie en base, chiffrée par ta phrase (scrypt + AES-256-GCM ; la phrase n'est
+  enregistrée nulle part). Clé perdue : la phrase la rend (même carte, ou `node scripts/recover-master.mjs` avec
+  `DATABASE_URL`). Refais la sauvegarde à chaque changement de clé (statut « Ancienne clé »). Un secret chiffré avec une
+  autre clé n'est plus lisible : il est signalé « Illisible — à ressaisir » et compte comme non configuré.
+
 salacv fournit l'IA (Ollama Cloud, avec Gemini et Groq en secours) : **les clients n'ont jamais de clé à gérer ni à voir.**
 Tout se règle par l'admin, dans l'onglet « Clés IA » :
 

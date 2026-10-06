@@ -544,6 +544,90 @@ async function keysView() {
   const notice2 = (text) => {
     const d = openDialog({ title: 'Impossible', content: h('p', { class: 'dialog-text' }, text), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
   };
+  // Secrets chiffrés avec une ancienne clé maîtresse : ils ne servent plus, il faut les ressaisir (ou supprimer les clés).
+  const lostSettings = r.settings.filter((s) => s.unreadable);
+  const lostKeys = r.keys.filter((k) => k.unreadable);
+  const lostNotice =
+    lostSettings.length || lostKeys.length
+      ? notice(
+      `La clé maîtresse a changé : ${[
+        lostKeys.length && `${lostKeys.length} clé${lostKeys.length > 1 ? 's' : ''} IA`,
+        lostSettings.length && `${lostSettings.length} réglage${lostSettings.length > 1 ? 's' : ''} secret${lostSettings.length > 1 ? 's' : ''} (${lostSettings.map((s) => s.label).join(', ')})`,
+      ]
+        .filter(Boolean)
+        .join(' et ')} ne peuvent plus être lus. Ressaisis-les ; supprime les clés marquées « Illisible » et ajoute-les à nouveau.`,
+          'error',
+        )
+      : null;
+
+  // Phrase de récupération : sauvegarde chiffrée de la clé maîtresse, rendue seulement avec la phrase.
+  const rec = r.recovery ?? { saved: false };
+  const showKeys = (k) => {
+    const row = (name, value) =>
+      h('div', { class: 'ad-label' }, name, h('code', { class: 'admin-input', style: 'user-select:all;overflow-wrap:anywhere;height:auto;padding:.5rem .6rem' }, value));
+    const d = openDialog({
+      title: 'Clé maîtresse récupérée',
+      content: [
+        h('p', { class: 'dialog-text' }, 'Remets ces valeurs dans les variables d’environnement (Vercel → Settings → Environment Variables), puis redéploie. Ne les copie nulle part ailleurs.'),
+        row('SALACV_MASTER_KEY', k.masterKey),
+        k.sessionSecret && row('SALACV_SESSION_SECRET', k.sessionSecret),
+      ],
+      footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'Fermer')],
+    });
+  };
+  const pass1 = h('input', { class: 'admin-input', type: 'password', autocomplete: 'new-password', placeholder: 'Phrase de récupération (12 caractères minimum)', 'aria-label': 'Phrase de récupération' });
+  const pass2 = h('input', { class: 'admin-input', type: 'password', autocomplete: 'new-password', placeholder: 'La même, une seconde fois', 'aria-label': 'Confirmer la phrase' });
+  const passRecover = h('input', { class: 'admin-input', type: 'password', autocomplete: 'off', placeholder: 'Ta phrase de récupération', 'aria-label': 'Phrase de récupération' });
+  const recoveryCard = card(
+    'Phrase de récupération',
+    h('span', { class: rec.saved && rec.current ? 'tag' : 'tag danger' }, !rec.saved ? 'Non définie' : rec.current ? 'À jour' : 'Ancienne clé'),
+    h(
+      'div',
+      { class: 'ad-form' },
+      h(
+        'p',
+        { class: 'ad-sub' },
+        'Une copie de la clé maîtresse (et du secret de session) est gardée en base, chiffrée par ta phrase. La phrase n’est enregistrée nulle part : note-la hors ligne. Si la clé maîtresse est perdue, ta phrase la rend.',
+      ),
+      rec.saved && h('p', { class: 'ad-sub' }, `Sauvegarde du ${dateTime(rec.at)}${rec.current ? ', correspond à la clé en service.' : ' : elle contient une AUTRE clé que celle en service (la clé a changé depuis). Récupère-la si c’est l’ancienne que tu cherches, ou refais la sauvegarde.'}`),
+      pass1,
+      pass2,
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn-primary',
+          onClick: async () => {
+            const res = await api('saveRecovery', { passphrase: pass1.value, confirm: pass2.value });
+            pass1.value = '';
+            pass2.value = '';
+            res.ok ? render() : notice2(res.error);
+          },
+        },
+        rec.saved ? 'Refaire la sauvegarde avec cette phrase' : 'Enregistrer la phrase',
+      ),
+      rec.saved &&
+        h(
+          'div',
+          { class: 'ad-form', style: 'margin-top:.75rem' },
+          h('strong', {}, 'Récupérer la clé maîtresse'),
+          passRecover,
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn-ghost',
+              onClick: async () => {
+                const res = await api('recoverMaster', { passphrase: passRecover.value });
+                passRecover.value = '';
+                res.ok ? showKeys(res) : notice2(res.error);
+              },
+            },
+            'Récupérer',
+          ),
+        ),
+    ),
+  );
 
   const quotaFields = ['quota.anonTokens', 'quota.ipTokens'].map((k) => ({ k, input: h('input', { class: 'admin-input', type: 'number', min: 0, step: 1000, value: setting(k).value, 'aria-label': setting(k).label }) }));
   const quotaCard = card(
@@ -559,7 +643,7 @@ async function keysView() {
   );
   const r2Fields = ['r2.accountId', 'r2.accessKeyId', 'r2.secretAccessKey', 'r2.bucket'].map((k) => {
     const s = setting(k);
-    return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
+    return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.unreadable ? 'Illisible (ancienne clé maîtresse) — à ressaisir' : s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
   });
   const r2Card = card(
     'Stockage R2 (CV et PDF des clients)',
@@ -652,7 +736,7 @@ async function keysView() {
       h(
         'div',
         { class: 'row-main' },
-        h('strong', {}, `${k.provider} …${k.last4}`, k.label && h('span', { class: 'tag' }, k.label), k.public && h('span', { class: 'tag' }, 'Public'), k.disabled && h('span', { class: 'tag danger' }, 'Désactivée'), k.exhaustedToday && h('span', { class: 'tag' }, 'Épuisée aujourd’hui')),
+        h('strong', {}, `${k.provider} …${k.last4}`, k.unreadable && h('span', { class: 'tag danger' }, 'Illisible'), k.label && h('span', { class: 'tag' }, k.label), k.public && h('span', { class: 'tag' }, 'Public'), k.disabled && h('span', { class: 'tag danger' }, 'Désactivée'), k.exhaustedToday && h('span', { class: 'tag' }, 'Épuisée aujourd’hui')),
         h('small', {}, `${k.owner ? `Attribuée à ${k.owner}` : 'Pool partagé'}${k.disabledReason ? ` · ${k.disabledReason}` : ''}`),
       ),
       !k.owner && h('button', { type: 'button', class: 'btn-ghost', onClick: async () => { const res = await api('setKeyPublic', { id: k.id, public: !k.public }); res.ok ? render() : notice2(res.error); } }, k.public ? 'Retirer du public' : 'Rendre public'),
@@ -666,6 +750,8 @@ async function keysView() {
     'Clés IA',
     'Les clés servent aux clients connectés, en rotation ; celles étiquetées « Public » servent aussi aux visiteurs non connectés, dans leur quota : première clé utilisable, mise de côté sur quota (429) ou si elle est refusée. Un client à qui tu attribues des clés n’utilise que celles-là.',
     null,
+    lostNotice,
+    recoveryCard,
     quotaCard,
     r2Card,
     settingsCard,
@@ -753,7 +839,7 @@ async function shopView() {
   const envSel = h('select', { class: 'admin-input', 'aria-label': 'Environnement' }, ['sandbox', 'production'].map((v) => h('option', { value: v, selected: v === setting('lightpay.env').value || null }, v === 'sandbox' ? 'Test (sandbox)' : 'Réel (production)')));
   const fields = ['lightpay.appId', 'lightpay.apiUrl', 'lightpay.checkoutUrl', 'lightpay.keySandbox', 'lightpay.keyProduction'].map((k) => {
     const s = setting(k);
-    return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
+    return { k, secret: s.secret, input: h('input', { class: 'admin-input', type: s.secret ? 'password' : 'text', autocomplete: 'off', value: s.secret ? '' : s.value, placeholder: s.secret ? (s.unreadable ? 'Illisible (ancienne clé maîtresse) — à ressaisir' : s.set ? `Enregistrée (${s.hint}) — laisse vide pour la garder` : 'À renseigner') : s.label, 'aria-label': s.label }) };
   });
   const saveLp = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer LightPay');
   saveLp.addEventListener('click', async () => {
