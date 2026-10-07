@@ -459,7 +459,21 @@ async function templatesView() {
       ),
     ),
   );
-  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, card(`${list.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')), upload, skillCard);
+  // Modèle par défaut : les visiteurs arrivent dessus (landing, nouveau CV) ; un compte reprend son dernier modèle.
+  const pick = h('select', { class: 'admin-input', 'aria-label': 'Modèle par défaut' }, list.map((t) => h('option', { value: t.id, selected: t.id === r.defaultTemplate || null }, t.name)));
+  const saved = h('span', { class: 'ad-sub', hidden: true }, 'Enregistré.');
+  pick.addEventListener('change', async () => {
+    const out = await api('setSetting', { key: 'studio.defaultTemplate', value: pick.value });
+    if (!out.ok) return alert(out.error);
+    saved.hidden = false;
+    setTimeout(() => (saved.hidden = true), 1800);
+  });
+  const defaultCard = card(
+    'Modèle par défaut',
+    saved,
+    h('div', { class: 'ad-form' }, h('p', { class: 'ad-sub' }, 'Les visiteurs arrivent sur ce modèle : en tête de la landing et pour un nouveau CV. Un compte connecté reprend le dernier modèle qu’il a utilisé.'), pick),
+  );
+  return page('Modèles', 'Disponible ou non, et pour qui : tous, Lite (étudiants) ou Pro. Un CV qui utilise déjà un modèle retiré le garde.', null, defaultCard, card(`${list.length} modèles`, null, rowsOf(rows, 'Aucun modèle.')), upload, skillCard);
 }
 
 // --- Skills de l'agent ----------------------------------------------------------------------

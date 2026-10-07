@@ -436,3 +436,11 @@ a { color: inherit; }
   .orbit, .balance-text .recharge::after, .history li, .credit-grid > .panel, .skel, .credit-pill.bump, .tab-icon { animation: none !important; transition: none !important; }
   .toolbar-progress::after { animation-duration: 2.5s; }
 }
+
+/* Barre du haut et barre de navigation : opaques, rien ne passe dessous (pas de verre). */
+.top { background: rgb(var(--canvas)) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.bottom-tabs { background: rgb(var(--surface)) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+/* Mes CV : la miniature scintille tant que le moteur ne l'a pas dessinée. */
+canvas.paper.pending { background: linear-gradient(100deg, rgb(var(--gray-100)) 30%, rgb(var(--gray-200)) 50%, rgb(var(--gray-100)) 70%); background-size: 200% 100%; animation: skel 1.3s linear infinite; aspect-ratio: 595 / 842; width: 100%; height: auto; }
+@media (prefers-reduced-motion: reduce) { canvas.paper.pending { animation: none; } }

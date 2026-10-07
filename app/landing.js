@@ -152,13 +152,22 @@ function renderMarquee() {
   $('marquee-track').replaceChildren(...cards, ...copies);
 }
 
-loadEngine()
-  .then((e) => {
+// Le héros commence sur le modèle choisi dans l'admin (« nos cartes ») ; les autres défilent ensuite.
+let firstTemplate = 0;
+const configReady = post('config')
+  .then((r) => {
+    const i = papers.findIndex((p) => p.id === r.config?.['studio.defaultTemplate']);
+    if (i > 0) firstTemplate = i;
+  })
+  .catch(() => {});
+
+Promise.all([loadEngine(), configReady])
+  .then(([e]) => {
     engine = e;
     stage.querySelector('.paper-skeleton')?.remove();
     stage.append(...papers.map((p) => p.canvas));
     renderHero();
-    show(0);
+    show(firstTemplate);
     restart();
     renderMarquee();
   })

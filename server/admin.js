@@ -265,6 +265,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       const key = String(payload.key ?? '');
       if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
       if ((key.startsWith('quota.') || key.startsWith('grant.')) && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
+      if (key === 'studio.defaultTemplate' && !/^[a-z0-9-]{1,40}$/.test(String(payload.value))) return [400, { ok: false, error: 'Modèle inconnu.' }];
       if (key === 'lightpay.env' && !['sandbox', 'production'].includes(String(payload.value))) return [400, { ok: false, error: 'Environnement : sandbox ou production.' }];
       if (key === 'lightpay.testers' && String(payload.value).split(/[\s,;]+/).filter(Boolean).some((e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))) return [400, { ok: false, error: 'Comptes de test : des e-mails séparés par des virgules.' }];
       if ((key === 'lightpay.apiUrl' || key === 'lightpay.checkoutUrl') && !/^https:\/\/[^\s/]+$/.test(String(payload.value).replace(/\/$/, ''))) return [400, { ok: false, error: 'Adresse https attendue, sans chemin.' }];
@@ -277,7 +278,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     case 'cvs':
       return [200, { ok: true, cvs: await s.range('cvs', Math.min(Number(payload.limit) || 200, MAX_CVS)) }];
     case 'templates':
-      return [200, { ok: true, templates: await s.get('templates', {}), specs: await s.get('templateSpecs', []) }];
+      return [200, { ok: true, templates: await s.get('templates', {}), specs: await s.get('templateSpecs', []), defaultTemplate: await getSetting('studio.defaultTemplate', env) }];
     case 'setTemplate': {
       const id = String(payload.id ?? '');
       if (!/^[a-z0-9-]{1,40}$/.test(id)) return [400, { ok: false, error: 'Modèle inconnu.' }];

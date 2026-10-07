@@ -19,6 +19,8 @@ export const DEFINITIONS = {
   'firebase.apiKey': { default: '', secret: false, public: true, label: 'Firebase : clé web (apiKey)' },
   'firebase.authDomain': { default: 'lightpay-a5f01.firebaseapp.com', secret: false, public: true, label: 'Firebase : authDomain' },
   'firebase.projectId': { default: 'lightpay-a5f01', secret: false, public: true, label: 'Firebase : projectId' },
+  // Modèle sur lequel arrivent les visiteurs (landing et nouveau CV) ; un compte reprend son dernier modèle.
+  'studio.defaultTemplate': { default: 'minimal', secret: false, public: true, label: 'Modèle par défaut des visiteurs' },
   // Paiement des crédits par LightPay. Les clés secrètes sont chiffrées ; payee = la connexion LightPay du wallet de
   // salacv (obtenue par « Connecter le wallet » dans l'admin), une par environnement.
   'lightpay.env': { default: 'sandbox', secret: false, public: false, label: 'LightPay : environnement (sandbox ou production)' },

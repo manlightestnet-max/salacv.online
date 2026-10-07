@@ -1941,16 +1941,30 @@ function openPlans() {
 // /studio/?p=<id> ouvre un de SES CV ; le CV de quelqu'un d'autre seulement s'il est public (on en fait une copie).
 // ?new (et ?name=, ?template=) en crée un : c'est l'entrée depuis la landing. Sinon le plus récent.
 // Un visiteur passe toujours par la landing : lien privé, lien inconnu ou studio sans CV en cours → accueil.
+// Modèle choisi dans l'admin pour les visiteurs (réglage public) ; à défaut, celui du moteur.
+async function defaultTemplate() {
+  try {
+    const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const { config } = await res.json();
+    return config?.['studio.defaultTemplate'] || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function openProject(ids = {}) {
   const q = new URLSearchParams(location.search);
   const raw = q.get('p');
   const pid = raw ? (ids[raw] ?? raw) : null;
   const logged = Boolean(getSession());
-  const fresh = () => createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: q.get('template') ?? undefined, persona: q.get('persona') ?? undefined });
+  // Modèle d'un nouveau CV : celui demandé, sinon le dernier utilisé par ce compte, sinon celui choisi dans l'admin.
+  const lastTemplate = logged ? listProjects()[0]?.state.template : undefined;
+  const startTemplate = async () => q.get('template') ?? lastTemplate ?? (await defaultTemplate());
+  const fresh = async () => createProject({ name: (q.get('name') ?? '').trim().slice(0, 80), template: await startTemplate(), persona: q.get('persona') ?? undefined });
   let p = null;
   if (pid) p = getProject(pid) ?? (await openShared(pid, logged));
-  else if (q.has('new')) p = fresh();
-  else p = listProjects()[0] ?? (logged || window.desktop?.isDesktop ? fresh() : null);
+  else if (q.has('new')) p = await fresh();
+  else p = listProjects()[0] ?? (logged || window.desktop?.isDesktop ? await fresh() : null);
   if (!p) {
     location.replace(logged ? '/dashboard/' : '/');
     await new Promise(() => {}); // la page change

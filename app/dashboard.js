@@ -57,10 +57,11 @@ $('theme').addEventListener('click', () => openThemePicker());
 
 // Peint (maintenant ou au chargement du moteur) le CV dans le canvas.
 function thumb(resume, width) {
-  const canvas = h('canvas', { class: 'paper', 'aria-hidden': 'true' });
+  const canvas = h('canvas', { class: 'paper pending', 'aria-hidden': 'true' });
   const paint = () => {
     const r = layoutResume(resume, engine.fonts);
     if (r.ok) drawDoc(engine, canvas, r.doc, width);
+    canvas.classList.remove('pending');
   };
   if (engine) requestAnimationFrame(paint);
   else pending.push(paint);
