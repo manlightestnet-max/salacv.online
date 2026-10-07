@@ -68,4 +68,5 @@ test('coûts : tokens par fournisseur et par usage, en FCFA selon les prix saisi
   assert.equal(c.alerting, true);
   assert.equal(c.lines.find((l) => l.kind === 'import').provider, 'gemini');
   assert.equal((await query('SELECT provider FROM ai_usage WHERE kind = $1', ['agent']))[0].provider, 'ollama');
+  assert.deepEqual(c.imports, { total: 1, ok: 1, avgTokens: 100_000, costMonth: 200 });
 });

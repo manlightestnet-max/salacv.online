@@ -51,6 +51,12 @@ export async function aiCosts(env = process.env) {
   const [rev] = await query(
     `SELECT COALESCE(SUM(amount), 0)::int AS revenue FROM credit_orders WHERE status = 'PAID' AND env = 'production' AND paid_at >= now() - interval '30 days'`,
   ).catch(() => [{ revenue: 0 }]);
+  // Imports de CV (30 jours) : combien, combien réussis, tokens moyens, coût.
+  const [imp] = await query(
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE ok)::int AS ok, COALESCE(AVG(tokens), 0)::int AS avg FROM ai_usage WHERE kind = 'import' AND at >= now() - interval '30 days'`,
+  ).catch(() => [{ total: 0, ok: 0, avg: 0 }]);
+  const importLines = lines.filter((l) => l.kind === 'import');
+  const imports = { total: imp?.total ?? 0, ok: imp?.ok ?? 0, avgTokens: imp?.avg ?? 0, costMonth: importLines.reduce((a, l) => a + l.costMonth, 0) };
   const alert = await getNumberSetting('ai.alertDailyFcfa', env);
   const costToday = sum('costToday');
   return {
@@ -63,6 +69,7 @@ export async function aiCosts(env = process.env) {
     alert,
     alerting: alert > 0 && costToday >= alert,
     priced: Object.values(price).some((p) => p > 0),
+    imports,
     resetCost: await getSetting('ai.resetCost', env),
   };
 }

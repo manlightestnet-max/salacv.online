@@ -122,6 +122,65 @@ function languagesDemo(root, engine, example) {
   return { redraw: draw };
 }
 
+// --- 3. Importer un ancien CV ----------------------------------------------------------------------------------
+// L'exemple dans un modèle « ancien » (cahier) est relu : une ligne balaie la page, les sections lues apparaissent
+// (comptées sur l'exemple), une valeur reste à vérifier comme dans l'app, puis le CV renaît dans un autre modèle.
+function importDemo(root, engine, example) {
+  const before = h('canvas', { class: 'demo-paper' });
+  const after = h('canvas', { class: 'demo-paper' });
+  const [edu, exp, skills, langs] = example.sections;
+  const found = [
+    ['Identité', 'ok'],
+    [`Formation · ${edu.items.length}`, 'ok'],
+    [`Expérience · ${exp.items.length}`, 'ok'],
+    [`Compétences · ${skills.items.length}`, 'ok'],
+    [`Langues · ${langs.items.length}`, 'ok'],
+    ['Téléphone : à vérifier', 'verify'],
+  ];
+  const chips = found.map(([t, k]) => h('li', { class: `imp-demo-chip ${k}` }, t));
+  const oldCard = h('figure', { class: 'imp-demo-card old' }, h('div', { class: 'imp-demo-scan' }, before), h('figcaption', {}, 'Ton ancien CV'));
+  const newCard = h('figure', { class: 'imp-demo-card new' }, after, h('figcaption', {}, 'Ton nouveau CV'));
+  root.append(oldCard, h('ul', { class: 'imp-demo-chips', 'aria-hidden': 'true' }, chips), newCard);
+  const draw = () => {
+    const w = Math.round(oldCard.clientWidth);
+    for (const [canvas, template] of [[before, 'cahier'], [after, 'marine']]) {
+      const r = layoutResume({ ...example, template }, engine.fonts);
+      if (r.ok) drawDoc(engine, canvas, r.doc, w);
+    }
+  };
+  draw();
+  if (reduced()) {
+    root.classList.add('done');
+    return { redraw: draw };
+  }
+  let visible = false;
+  let running = false;
+  async function loop() {
+    if (running) return;
+    running = true;
+    while (visible) {
+      root.classList.remove('done', 'reading');
+      chips.forEach((c) => c.classList.remove('in'));
+      await nap(600);
+      root.classList.add('reading');
+      await nap(1700);
+      for (const c of chips) {
+        if (!visible) break;
+        c.classList.add('in');
+        await nap(320);
+      }
+      root.classList.add('done');
+      await nap(3600);
+    }
+    running = false;
+  }
+  new IntersectionObserver(([e]) => {
+    visible = e.isIntersecting;
+    if (visible) loop();
+  }, { threshold: 0.3 }).observe(root);
+  return { redraw: draw };
+}
+
 export function initShowcase(engine, example) {
   const fill = document.getElementById('demo-fill');
   const langs = document.getElementById('demo-langs');
@@ -130,9 +189,11 @@ export function initShowcase(engine, example) {
   if (names) names.textContent = LANGS.map(langName).join(', ');
   const a = autofillDemo(fill, engine, example);
   const b = languagesDemo(langs, engine, example);
+  const imp = document.getElementById('demo-import');
+  const c = imp ? importDemo(imp, engine, example) : null;
   let t;
   window.addEventListener('resize', () => {
     clearTimeout(t);
-    t = setTimeout(() => (a.redraw(), b.redraw()), 150);
+    t = setTimeout(() => (a.redraw(), b.redraw(), c?.redraw()), 150);
   });
 }

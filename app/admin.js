@@ -345,7 +345,7 @@ async function aiView() {
     }
     render();
   });
-  const KIND = { agent: 'Assistant', translate: 'Traduction', import: 'Import de CV' };
+  const KIND = { agent: 'Assistant', translate: 'Traduction', import: 'Import de CV', 'skill-test': 'Test de skill (admin)' };
   const costLines = c.lines.map((l) =>
     h(
       'div',
@@ -375,7 +375,20 @@ async function aiView() {
       savePrices,
     ),
   );
-  return page('IA des comptes', 'Combien d’IA chaque compte reçoit, ce que l’agent a le droit de dépenser, et ce que ça coûte. Les réglages d’un compte précis sont dans Utilisateurs.', null, costCard, rulesCard, tuneCard, packsCard);
+  const im = c.imports;
+  const importCard = card(
+    'Imports de CV (30 jours)',
+    null,
+    h(
+      'div',
+      { class: 'stat-grid' },
+      statCell('Imports', tokens(im.total), 'PDF et photos'),
+      statCell('Réussis', im.total ? `${Math.round((im.ok / im.total) * 100)} %` : '—', `${tokens(im.ok)} sur ${tokens(im.total)}`),
+      statCell('Tokens moyens', tokens(im.avgTokens), 'par import'),
+      statCell('Coût', c.priced ? fcfa(im.costMonth) : '—', c.priced ? '30 jours' : 'renseigne les prix'),
+    ),
+  );
+  return page('IA des comptes', 'Combien d’IA chaque compte reçoit, ce que l’agent a le droit de dépenser, et ce que ça coûte. Les réglages d’un compte précis sont dans Utilisateurs.', null, costCard, importCard, rulesCard, tuneCard, packsCard);
 }
 
 // --- Contact ------------------------------------------------------------------------------
