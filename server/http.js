@@ -79,6 +79,10 @@ export const ROUTES = {
     const ctx = context(req);
     return withCookie(web.agent(payload, tokenOf(req), { ctx }), ctx);
   },
+  import: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(web.importCv(payload, tokenOf(req), { ctx }), ctx);
+  },
   translate: (payload, req) => {
     const ctx = context(req);
     return withCookie(web.translate(payload, tokenOf(req), { ctx }), ctx);
@@ -143,7 +147,7 @@ export const ROUTES = {
 
 // Taille maximale du corps par route (les ressources de l'admin sont plus lourdes).
 // agent : une image réduite (≈ 1,6 Mo en base64 au plus, voir agent/vision.js) en plus du CV.
-const MAX_BODY = { admin: 2 * 1024 * 1024, render: MAX_RENDER_BODY, projects: MAX_PROJECTS_BODY, agent: 2 * 1024 * 1024 };
+const MAX_BODY = { admin: 2 * 1024 * 1024, render: MAX_RENDER_BODY, projects: MAX_PROJECTS_BODY, agent: 2 * 1024 * 1024, import: 4 * 1024 * 1024 };
 const limit = (name) => MAX_BODY[name] ?? web.MAX_BODY;
 
 export async function serve(name, req, res) {

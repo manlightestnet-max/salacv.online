@@ -21,7 +21,8 @@ import { h, icon, fieldIndex, setInputError } from './dom.js';
 import { STEPS, reviewIssues, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
-import { initAiMeter, initQuotaBar } from './quotabar.js';
+import { initAiMeter, initQuotaBar, publishQuota } from './quotabar.js';
+import { openImport } from './import/flow.js';
 import { getSession, initSession } from './session.js';
 import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
@@ -81,6 +82,7 @@ const ZOOM = { min: 0.25, max: 4, step: 1.2 };
 const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
+const ASKED_IMPORT = new URLSearchParams(location.search).has('import'); // « Importer mon CV » (landing, tableau de bord)
 // Les CV du compte (R2 / base) — ou, pour un visiteur, son bac à sable — sont chargés avant tout.
 await trackWait(initStore()); // la fine barre court sous la barre d'app pendant ce chargement
 const synced = await offerSandboxSync(); // connecté avec des CV faits sans compte sur cet appareil : les ajouter ?
@@ -174,6 +176,8 @@ preview.addEventListener('click', (e) => {
 });
 renderStep();
 initEngine();
+// Arrivé pour importer un CV : la fenêtre s'ouvre dès que la page est prête.
+if (ASKED_IMPORT) setTimeout(startImport, 0);
 
 // Lune / soleil, à côté du bouton du panneau : un clic, le thème bascule.
 const themeLabel = () => (root.dataset.theme === 'light' ? '☾ Passer en sombre' : '☀ Passer en clair');
@@ -595,6 +599,7 @@ function openAgent() {
       schedule();
     },
     onClose: closeAgent,
+    importCv: () => startImport(),
     // Chaque CV a sa conversation, gardée avec lui (compte : serveur ; visiteur : son bac à sable).
     getChat: () => project.chat ?? [],
     setChat: (chat) => {
@@ -1596,6 +1601,36 @@ const langBar = createLangBar({
 
 // Petit message en haut, à la place de l'aide, quelques secondes.
 let toastTimer;
+// --- Importer un CV existant (PDF ou photo) ----------------------------------------------------------
+// Compte Google obligatoire (gratuit) : l'import coûte de l'IA et le CV est gardé sur le compte. Un CV déjà rempli
+// n'est jamais écrasé : l'import part dans un nouveau CV.
+function startImport() {
+  if (!getSession()) return location.assign(`/auth/?next=${encodeURIComponent('/studio/?new&import')}`);
+  const filled = state.profile.name.trim() || state.education.some((e) => e.title.trim()) || state.experiences.some((e) => e.title.trim());
+  if (filled) {
+    const d = openDialog({
+      title: 'Importer dans un nouveau CV',
+      content: h('p', { class: 'dlg-text' }, 'Ce CV est déjà rempli : l’import crée un nouveau CV, celui-ci ne change pas.'),
+      footer: [
+        h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler'),
+        h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => location.assign('/studio/?new&import') }, 'Nouveau CV'),
+      ],
+    });
+    return;
+  }
+  openImport({ onQuota: publishQuota, onDone: applyImported });
+}
+
+// Le CV vérifié devient le contenu du CV ; le modèle, la langue et la photo restent. Puis le choix du modèle.
+function applyImported(imported) {
+  const { photo } = state.profile;
+  state = normalizeState({ ...state, ...imported, profile: { ...imported.profile, photo }, template: state.template, lang: state.lang });
+  schedule();
+  if (!agentOpen) renderStep();
+  toast('CV importé. Choisis maintenant ton modèle.');
+  openCvDialog({ templates: true });
+}
+
 function toast(text) {
   const note = $('ghost-note');
   clearTimeout(toastTimer);

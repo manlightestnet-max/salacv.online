@@ -23,6 +23,7 @@
     "firebase": "^12.19.0",
     "jose": "^6.2.12",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.7.284",
     "zod": "^4.6.5"
   },
   "devDependencies": {

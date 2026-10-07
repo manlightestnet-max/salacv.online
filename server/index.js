@@ -14,6 +14,7 @@ const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8', // pdf.js (import de CV) : son worker est un module
   '.css': 'text/css; charset=utf-8',
   '.wasm': 'application/wasm',
   '.ttf': 'font/ttf',

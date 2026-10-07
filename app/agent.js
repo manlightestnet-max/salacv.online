@@ -34,6 +34,7 @@ async function shrinkImage(file) {
 
 const SUGGESTIONS = [
   { label: 'Remplir mon CV', text: "Voici mes infos à mettre dans mon CV : je m'appelle …, j'ai étudié … à … de … à …, j'ai fait un stage chez … où j'ai …" },
+  { label: 'Importer mon CV', importCv: true },
   { label: 'Depuis une photo', image: true },
   { label: 'Que manque-t-il ?', text: 'Qu’est-ce qui manque à mon CV ? Ne modifie rien, dis-le-moi.' },
   { label: 'Écrire mon profil', text: 'Écris mon profil professionnel à partir de mon CV.' },
@@ -272,7 +273,7 @@ export function createAgentPanel(ctx) {
       'div',
       { class: 'agent-suggestions' },
       SUGGESTIONS.map((s) =>
-        h('button', { class: 'agent-chip', type: 'button', onClick: () => (s.image ? file.click() : ((input.value = s.text), input.focus(), autosize(), (send.disabled = false))) }, s.label),
+        h('button', { class: 'agent-chip', type: 'button', onClick: () => (s.importCv ? ctx.importCv?.() : s.image ? file.click() : ((input.value = s.text), input.focus(), autosize(), (send.disabled = false))) }, s.label),
       ),
     );
     suggestions.hidden = chat.length > 0;

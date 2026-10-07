@@ -8,6 +8,7 @@
 import { checkCredentials, issue, verify } from './auth.js';
 import { settings } from './config.js';
 import { handle } from './run.js';
+import { importCv as importHandler } from '../cvimport/extract.js';
 import { translate as translateCv } from './translate.js';
 import { adminTokenFor, collect } from '../admin.js';
 import { RateLimiter } from '../ratelimit.js';
@@ -127,6 +128,8 @@ async function runAi(kind, payload, token, { env, callModel, ctx }, loginMessage
 }
 
 export const agent = (payload, token, opts = {}) => runAi('agent', payload, token, { env: process.env, ...opts }, "Connecte-toi pour utiliser l'assistant.", handle);
+// Import d'un CV (PDF ou photo) : un appel à l'IA, compté dans la réserve du compte (compte Google obligatoire).
+export const importCv = (payload, token, opts = {}) => runAi('import', payload, token, { env: process.env, ...opts }, 'Connecte-toi avec Google pour importer ton CV.', importHandler);
 export const translate = (payload, token, opts = {}) => runAi('translate', payload, token, { env: process.env, ...opts }, 'Connecte-toi pour traduire ton CV.', translateCv);
 
 // Qui suis-je ? (le navigateur ne voit jamais le jeton, il demande son identité au serveur)
