@@ -4,6 +4,7 @@ import { callLLM, LLMError } from './llm/client.js';
 import { allKeys } from './llm/providers.js';
 import { build } from './prompt.js';
 import { runLoop } from './loop.js';
+import { checkImage, readImage, withImageText } from './vision.js';
 import { redact } from './secrets.js';
 import { compact, normalize } from './state.js';
 import { byName, specs } from './tools/index.js';
@@ -62,9 +63,23 @@ function cleanContext(raw) {
 
 // payload = { state, message, history?, scope?, context? }. callModel est injectable (tests sans réseau).
 // username : compte connecté (mémoire, crédits) ou null pour un visiteur.
-export async function handle(payload, { callModel, env = process.env, keySource = null, username = null } = {}) {
-  const message = String(payload?.message ?? '').trim();
-  if (!message) return { ok: false, status: 400, error: 'Message vide.' };
+export async function handle(payload, { callModel, readModel, env = process.env, keySource = null, username = null } = {}) {
+  let message = String(payload?.message ?? '').trim();
+  const pic = checkImage(payload?.image);
+  if (!pic.ok) return { ok: false, status: 400, error: pic.error };
+  if (!message && !pic.image) return { ok: false, status: 400, error: 'Message vide.' };
+  // Image jointe : lue une seule fois (texte), puis l'agent travaille sur ce texte comme sur un message.
+  if (pic.image) {
+    let text;
+    try {
+      text = await readImage(pic.image, { env, keySource, timeoutMs: settings.llmTimeoutMs * 2, callModel: readModel });
+    } catch (err) {
+      console.error(`[vision] ${redact(err.message, [...(keySource?.secrets() ?? []), ...allKeys(env)])}`);
+      return { ok: false, status: 503, error: err.userMessage ?? 'Je n’ai pas pu lire cette image. Réessaie, ou écris tes informations.' };
+    }
+    if (!text) return { ok: false, status: 502, error: 'Je n’ai rien pu lire sur cette image. Essaie une photo plus nette.' };
+    message = withImageText(message, text);
+  }
 
   const context = cleanContext(payload?.context);
   const memory = username ? await listMemory(username).catch(() => []) : [];

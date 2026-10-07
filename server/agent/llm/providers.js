@@ -3,9 +3,10 @@
 // <NOM>_API_KEY, ex. OLLAMA_API_KEY. Le premier fournisseur ayant une clé est utilisé,
 // les suivants servent de secours. URL et modèle : <NOM>_BASE_URL, <NOM>_MODEL.
 export const PROVIDERS = [
-  { name: 'ollama', baseUrl: 'https://ollama.com/v1', model: 'gemma4:31b-cloud' },
-  { name: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' },
-  { name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
+  // vision : le modèle lit aussi les images (image jointe à l'assistant). Groq (Llama 3.3) ne les lit pas.
+  { name: 'ollama', baseUrl: 'https://ollama.com/v1', model: 'gemma4:31b-cloud', vision: true },
+  { name: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash', vision: true },
+  { name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', vision: false },
 ];
 
 // Clés épuisées (429) aujourd'hui, partagées par toutes les requêtes du process.
@@ -32,10 +33,11 @@ export function resolveProvider(provider, env) {
   return { ...provider, baseUrl: env[`${prefix}_BASE_URL`] || provider.baseUrl, model: env[`${prefix}_MODEL`] || provider.model };
 }
 
-// Prochain couple fournisseur + clé utilisable, ou null.
-export function nextKey(env = process.env) {
+// Prochain couple fournisseur + clé utilisable, ou null. accept : filtre sur le fournisseur (ex. vision).
+export function nextKey(env = process.env, accept = () => true) {
   const day = today();
   for (const provider of PROVIDERS) {
+    if (!accept(provider)) continue;
     const key = keysFor(provider.name, env).find((k) => exhausted.get(k) !== day);
     if (key) return { provider: resolveProvider(provider, env), key };
   }

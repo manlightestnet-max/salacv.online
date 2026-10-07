@@ -571,3 +571,19 @@ html, body { overscroll-behavior: none; }
 @media (prefers-reduced-motion: reduce) {
   .appbar, .templates.in-dialog .tpl-paper, .tpl-check { transition: none; }
 }
+
+/* ===== Assistant : joindre une image (galerie ou photo) ============================================= */
+.agent-attach { flex: none; display: grid; place-items: center; width: 38px; height: 38px; margin-right: 2px; border: 0; border-radius: 50%; color: rgb(var(--gray-600)); background: transparent; cursor: pointer; transition: background-color 0.15s, color 0.15s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.agent-attach:hover { color: rgb(var(--accent)); background: rgb(var(--accent) / 0.1); }
+.agent-attach:active { transform: scale(0.9); }
+.agent-compose-row, :root[data-theme] .agent-compose-row { padding-left: 4px !important; }
+.agent-tray { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 6px 6px 6px; border-radius: 16px; background: rgb(var(--raised)); animation: tray-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.agent-tray[hidden] { display: none; }
+.agent-tray img { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; flex: none; }
+.agent-tray span { flex: 1; min-width: 0; font-size: 12.5px; color: rgb(var(--gray-600)); }
+.agent-tray-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: rgb(var(--gray-600)); cursor: pointer; }
+.msg-image { display: block; max-width: 180px; max-height: 220px; margin-bottom: 6px; border-radius: 12px; object-fit: cover; }
+.msg-attached { display: inline-block; margin-bottom: 4px; font-size: 11px; font-weight: 600; opacity: 0.85; }
+.msg-typing[data-label]::after { content: attr(data-label); margin-left: 8px; font-size: 12px; color: rgb(var(--gray-500)); }
+@keyframes tray-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .agent-tray, .agent-attach { animation: none; transition: none; } }

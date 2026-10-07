@@ -20,9 +20,12 @@ export function tokensOf(json, messages) {
 const isRateLimit = (status, detail) => status === 429 || /rate limit|quota|resource_exhausted/i.test(detail);
 
 // keySource : le pool de clés de l'utilisateur (voir server/keys/pool.js) ; sans lui, les clés d'environnement.
-export async function callLLM(messages, tools, { temperature = 0.3, timeoutMs = 60000, env = process.env, fetchImpl = fetch, keySource = null } = {}) {
+// vision : la requête contient une image ; seuls les fournisseurs qui les lisent sont essayés.
+export async function callLLM(messages, tools, { temperature = 0.3, timeoutMs = 60000, env = process.env, fetchImpl = fetch, keySource = null, vision = false } = {}) {
+  const accept = vision ? (p) => p.vision === true : () => true;
   for (;;) {
-    const next = keySource ? keySource.next() : nextKey(env);
+    const next = keySource ? keySource.next(accept) : nextKey(env, accept);
+    if (!next && vision) throw new LLMError('aucun fournisseur ne lit les images', { userMessage: 'La lecture d’images est momentanément indisponible. Écris tes informations, je m’occupe du reste.' });
     if (!next) {
       throw new LLMError('aucun fournisseur disponible (clés absentes ou toutes épuisées)', {
         userMessage:

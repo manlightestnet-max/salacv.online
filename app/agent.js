@@ -11,8 +11,30 @@ import { forgetSession, getSession } from './session.js';
 
 const HISTORY_SENT = 6; // derniers échanges envoyés pour les demandes de suivi
 
+// Image jointe : réduite dans le navigateur avant l'envoi (moins de données, moins de tokens), en JPEG.
+const IMAGE_MAX_SIDE = 1600;
+async function shrinkImage(file) {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) throw new Error('Image illisible.');
+  const ratio = Math.min(1, IMAGE_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * ratio);
+  canvas.height = Math.round(bitmap.height * ratio);
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#fff'; // une capture transparente reste lisible
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  for (const quality of [0.85, 0.7, 0.55]) {
+    const url = canvas.toDataURL('image/jpeg', quality);
+    if (url.length < 1_500_000) return url;
+  }
+  throw new Error('Image trop lourde.');
+}
+
 const SUGGESTIONS = [
   { label: 'Remplir mon CV', text: "Voici mes infos à mettre dans mon CV : je m'appelle …, j'ai étudié … à … de … à …, j'ai fait un stage chez … où j'ai …" },
+  { label: 'Depuis une photo', image: true },
   { label: 'Que manque-t-il ?', text: 'Qu’est-ce qui manque à mon CV ? Ne modifie rien, dis-le-moi.' },
   { label: 'Écrire mon profil', text: 'Écris mon profil professionnel à partir de mon CV.' },
   { label: 'Générer mon CV', text: 'Génère mon CV en PDF.' },
@@ -109,7 +131,8 @@ export function createAgentPanel(ctx) {
 
   function bubble(msg) {
     // Réponses de l'agent en markdown ; messages de l'étudiant en texte brut.
-    const body = msg.role === 'assistant' && !msg.error ? markdown(msg.text) : [h('p', {}, msg.text)];
+    const body = msg.role === 'assistant' && !msg.error ? markdown(msg.text) : [msg.text && h('p', {}, msg.text)];
+    if (msg.attached) body.unshift(h('span', { class: 'msg-attached' }, 'Image jointe'));
     const node = h('div', { class: `msg msg-${msg.role}${msg.error ? ' msg-error' : ''}` }, body);
     if (msg.changes?.length) {
       node.append(
@@ -145,6 +168,44 @@ export function createAgentPanel(ctx) {
     const list = h('div', { class: 'agent-messages', 'aria-live': 'polite' });
     const input = h('textarea', { class: 'agent-input', rows: 1, placeholder: 'Écris à l’assistant…', 'aria-label': "Message pour l'assistant" });
     const send = h('button', { class: 'agent-send', type: 'submit', 'aria-label': 'Envoyer', title: 'Envoyer' });
+    // Joindre une image : galerie ou appareil photo ; l'IA la lit, remplit et demande ce qui manque.
+    let image = null; // { url (données réduites), preview (adresse locale) }
+    const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/heic,image/heif', hidden: true });
+    const attach = h('button', { class: 'agent-attach', type: 'button', 'aria-label': 'Joindre une image', title: 'Joindre une image (ancien CV, diplôme, capture…)' });
+    attach.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 2.5-2.5L20 18"/></svg>';
+    attach.addEventListener('pointerdown', (e) => e.preventDefault());
+    attach.addEventListener('click', () => file.click());
+    const tray = h('div', { class: 'agent-tray', hidden: true });
+    function setImage(next) {
+      if (image?.preview) URL.revokeObjectURL(image.preview);
+      image = next;
+      tray.hidden = !image;
+      tray.replaceChildren(
+        ...(image
+          ? [
+              h('img', { src: image.preview, alt: 'Image jointe' }),
+              h('span', {}, image.url ? 'Image prête : envoie-la, avec une consigne si tu veux.' : 'Préparation de l’image…'),
+              h('button', { type: 'button', class: 'agent-tray-x', 'aria-label': 'Retirer l’image', onClick: () => (setImage(null), autosize()) }, '✕'),
+            ]
+          : []),
+      );
+      autosize();
+    }
+    file.addEventListener('change', async () => {
+      const f = file.files?.[0];
+      file.value = '';
+      if (!f) return;
+      const preview = URL.createObjectURL(f);
+      setImage({ url: null, preview });
+      try {
+        const url = await shrinkImage(f);
+        if (image?.preview === preview) setImage({ url, preview });
+      } catch (err) {
+        URL.revokeObjectURL(preview);
+        setImage(null);
+        push({ role: 'assistant', text: `${err.message} Essaie une autre photo ou une capture d’écran.`, error: true });
+      }
+    });
     send.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>';
     // Toucher Envoyer ne retire pas le focus du champ : le clavier reste ouvert et le message part au premier toucher
     // (avant, le premier toucher ne faisait que fermer le clavier, la mise en page bougeait et l'envoi était perdu).
@@ -164,7 +225,7 @@ export function createAgentPanel(ctx) {
       'div',
       { class: 'agent-suggestions' },
       SUGGESTIONS.map((s) =>
-        h('button', { class: 'agent-chip', type: 'button', onClick: () => ((input.value = s.text), input.focus(), autosize(), send.disabled = false) }, s.label),
+        h('button', { class: 'agent-chip', type: 'button', onClick: () => (s.image ? file.click() : ((input.value = s.text), input.focus(), autosize(), (send.disabled = false))) }, s.label),
       ),
     );
     suggestions.hidden = chat.length > 0;
@@ -172,7 +233,7 @@ export function createAgentPanel(ctx) {
     function autosize() {
       input.style.height = 'auto';
       input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
-      send.disabled = pending || !input.value.trim();
+      send.disabled = pending || (!input.value.trim() && !image?.url);
     }
     const scrollDown = () => requestAnimationFrame(() => list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' }));
 
@@ -191,9 +252,13 @@ export function createAgentPanel(ctx) {
     async function submit(e) {
       e?.preventDefault();
       const text = input.value.trim();
-      if (!text || pending) return;
+      const sentImage = image?.url ?? null;
+      if ((!text && !sentImage) || pending || (image && !image.url)) return;
       const history = chat.slice(-HISTORY_SENT).map((m) => ({ role: m.role, text: m.text }));
-      push({ role: 'user', text });
+      const mine = push({ role: 'user', text, ...(sentImage ? { attached: true } : {}) });
+      // L'aperçu reste dans la bulle le temps de la session ; l'image n'est gardée ni dans la conversation ni sur le serveur.
+      if (sentImage) mine.prepend(h('img', { class: 'msg-image', src: sentImage, alt: 'Image jointe' }));
+      setImage(null);
       input.value = '';
       autosize();
       suggestions.hidden = true;
@@ -205,7 +270,8 @@ export function createAgentPanel(ctx) {
       scrollDown();
 
       const snap = ctx.snapshot?.();
-      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history, context: ctx.getContext?.() });
+      if (sentImage) typing.dataset.label = 'Je lis ton image…';
+      const { status, data } = await post('/api/agent', { state: ctx.getState(), message: text, history, context: ctx.getContext?.(), ...(sentImage ? { image: sentImage } : {}) });
       typing.remove();
       pending = false;
       autosize();
@@ -245,7 +311,7 @@ export function createAgentPanel(ctx) {
       { class: 'agent-inner' },
       header(session ? 'Ce CV' : 'Visiteur', session ? null : h('a', { class: 'agent-login-link', href: here() }, 'Se connecter')),
       list,
-      h('form', { class: 'agent-compose', onSubmit: submit }, suggestions, h('div', { class: 'agent-compose-row' }, input, send)),
+      h('form', { class: 'agent-compose', onSubmit: submit }, suggestions, tray, h('div', { class: 'agent-compose-row' }, attach, file, input, send)),
     );
   }
 

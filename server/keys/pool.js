@@ -148,8 +148,9 @@ export async function keySourceFor(username, env = process.env, { anonymous = fa
     mode,
     lastUsedId: null,
     tokens: 0,
-    next() {
-      const e = list.find((k) => !skip.has(k.secret));
+    // accept : filtre sur le fournisseur (ex. seulement ceux qui lisent les images).
+    next(accept = () => true) {
+      const e = list.find((k) => !skip.has(k.secret) && accept(providerOf(k.provider)));
       return e ? { provider: providerOf(e.provider), key: e.secret, id: e.id } : null;
     },
     async exhaust(entry) {
