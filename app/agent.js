@@ -8,6 +8,8 @@ import { markdown } from './markdown.js';
 import { loginPanel } from './login.js';
 import { publishQuota } from './quotabar.js';
 import { forgetSession, getSession } from './session.js';
+import { MIME, callRender, save, slug, toBlob } from './export.js';
+import { formatCredits } from './lib/store.js';
 
 const HISTORY_SENT = 6; // derniers échanges envoyés pour les demandes de suivi
 
@@ -70,6 +72,7 @@ export function createAgentPanel(ctx) {
   let chat = [...(ctx.getChat?.() ?? [])]; // la conversation de CE CV
   let pending = false;
   let undo = null; // { snap, node } : la dernière modification annulable
+  let askFn = null; // envoyer une demande venue d'ailleurs (landing : « Dis-moi qui tu es »)
 
   const root = h('div', { class: 'agent' });
 
@@ -105,29 +108,85 @@ export function createAgentPanel(ctx) {
   // --- Discussion ------------------------------------------------------------------
 
   // Crédits ou génération : une petite carte d'action sous la réponse.
+  // Générer dans le chat : l'utilisateur touche « Générer », la carte montre l'avancement, puis « Télécharger ».
+  // Le serveur revérifie et débite (un crédit pour une nouvelle version propre) ; sans crédit, filigrane.
   function generateCard(g) {
-    if (g.enough) {
-      return h(
-        'div',
-        { class: 'msg-card' },
-        h('span', {}, `${g.label} · 1 crédit (il t’en reste ${g.balance})`),
-        h('button', { type: 'button', class: 'btn-primary', onClick: () => ctx.generate?.(g.version) }, 'Préparer le PDF'),
+    const card = h('div', { class: 'msg-card gen-card' });
+    const name = () => slug(ctx.renderState?.(g.version)?.profile?.name || 'CV') || 'CV';
+    const idle = () => {
+      const line = g.enough
+        ? g.cost > 0
+          ? `1 crédit · il t’en restera ${formatCredits(g.balance - g.cost)}`
+          : 'Déjà préparée : gratuit'
+        : g.loggedIn
+          ? `Solde : ${formatCredits(g.balance)} crédit · sans crédit, le PDF sort avec filigrane`
+          : 'Sans compte, le PDF sort avec filigrane';
+      const go = h('button', { type: 'button', class: 'btn-primary gen-go' }, g.enough ? 'Générer mon CV' : 'Générer (avec filigrane)');
+      go.addEventListener('click', run);
+      card.replaceChildren(
+        h('div', { class: 'gen-head' }, h('span', { class: 'gen-coin', 'aria-hidden': 'true' }), h('div', {}, h('strong', {}, g.label || 'Ton CV'), h('small', {}, line))),
+        h(
+          'div',
+          { class: 'msg-card-row' },
+          go,
+          !g.enough && g.loggedIn && h('a', { class: 'btn-ghost', href: '/dashboard/#credits' }, 'Recharger'),
+          !g.loggedIn && h('a', { class: 'btn-ghost', href: here() }, 'Se connecter'),
+        ),
       );
+    };
+    async function run() {
+      const ring = h('div', { class: 'gen-ring', style: '--p:12' });
+      const now = h('span', {}, 'Mise en page…');
+      card.replaceChildren(h('div', { class: 'gen-progress' }, ring, now));
+      let p = 12;
+      const creep = setInterval(() => ring.style.setProperty('--p', String((p = Math.min(88, p + (88 - p) * 0.12)))), 250);
+      const state = ctx.renderState?.(g.version);
+      const { data } = await callRender({ state, formats: ['pdf'] });
+      clearInterval(creep);
+      if (!data.ok) {
+        card.replaceChildren(h('p', { class: 'gen-error' }, data.error || 'La préparation a échoué. Aucun crédit n’a été utilisé.'));
+        const retry = h('button', { type: 'button', class: 'btn-ghost' }, 'Réessayer');
+        retry.addEventListener('click', idle);
+        card.append(retry);
+        return;
+      }
+      if (data.balance != null) ctx.onSpent?.(data.balance);
+      ring.style.setProperty('--p', '100');
+      const wm = data.files.pdf.watermarked;
+      const blob = toBlob(data.files.pdf.base64, MIME.pdf);
+      const dl = h('button', { type: 'button', class: 'btn-primary gen-dl' }, `Télécharger le PDF${wm ? ' (filigrane)' : ''}`);
+      dl.addEventListener('click', () => save(blob, `CV-${name()}.pdf`));
+      card.replaceChildren(h('div', { class: 'gen-ready' }, h('span', { class: 'gen-check', 'aria-hidden': 'true' }), h('strong', {}, wm ? 'Ton CV est prêt (avec filigrane)' : 'Ton CV est prêt')), dl);
     }
-    return h(
-      'div',
-      { class: 'msg-card buy' },
-      h('strong', {}, g.loggedIn ? `Il te faut ${g.cost} crédit pour un PDF sans filigrane` : 'Connecte-toi pour un PDF sans filigrane'),
-      h('span', {}, g.loggedIn ? `Solde : ${g.balance} crédit${g.balance > 1 ? 's' : ''}. Recharge pour le PDF propre et le Word.` : 'Sans compte, le PDF sort avec filigrane.'),
-      h(
-        'div',
-        { class: 'msg-card-row' },
-        g.loggedIn
-          ? h('a', { class: 'btn-primary', href: '/dashboard/#credits' }, 'Recharger mes crédits')
-          : h('a', { class: 'btn-primary', href: here() }, 'Se connecter'),
-        h('button', { type: 'button', class: 'btn-ghost', onClick: () => ctx.generate?.(g.version) }, 'PDF avec filigrane'),
-      ),
-    );
+    idle();
+    return card;
+  }
+
+  // Modèles proposés par l'IA : SON CV dessiné dans chaque modèle ; un toucher l'applique, puis on propose de générer.
+  function templatesCard(msg) {
+    const wrap = h('div', { class: 'chat-tpls' });
+    const offer = h('div', { class: 'chat-tpl-offer' });
+    const tiles = msg.templates.map((t) => {
+      const tile = h(
+        'button',
+        { type: 'button', class: 'chat-tpl', 'aria-pressed': String(msg.templateChosen === t.id) },
+        h('span', { class: 'chat-tpl-paper' }, ctx.templateThumb?.(t.id, 120) ?? null, h('span', { class: 'tpl-check', 'aria-hidden': 'true' })),
+        h('strong', {}, t.name),
+        t.reason && h('small', {}, t.reason),
+      );
+      tile.addEventListener('click', async () => {
+        ctx.pickTemplate?.(t.id);
+        msg.templateChosen = t.id;
+        ctx.setChat?.(chat);
+        tiles.forEach((x, i) => x.setAttribute('aria-pressed', String(msg.templates[i].id === t.id)));
+        offer.replaceChildren(h('p', { class: 'chat-tpl-q' }, `${t.name} appliqué. Je génère ton CV ?`));
+        const info = await ctx.generateInfo?.();
+        if (info && msg.templateChosen === t.id) offer.append(generateCard(info));
+      });
+      return tile;
+    });
+    wrap.append(h('div', { class: 'chat-tpl-row' }, tiles), offer);
+    return wrap;
   }
 
   function bubble(msg) {
@@ -147,6 +206,7 @@ export function createAgentPanel(ctx) {
     }
     if (msg.generate) node.append(generateCard(msg.generate));
     if (msg.pending) node.append(pendingCard(msg, node));
+    if (msg.templates?.length) node.append(templatesCard(msg));
     return node;
   }
 
@@ -260,12 +320,33 @@ export function createAgentPanel(ctx) {
     send.addEventListener('pointerdown', (e) => e.preventDefault());
     send.addEventListener('mousedown', (e) => e.preventDefault());
 
+    // Accueil : l'IA est la porte d'entrée. Trois façons de commencer, en grandes tuiles.
+    const START = [
+      { cls: 'import', title: 'Importer mon CV', sub: 'PDF ou photo : je lis tout', run: () => ctx.importCv?.() },
+      { cls: 'photo', title: 'Photo d’un document', sub: 'Diplôme, attestation, capture', run: () => file.click() },
+      {
+        cls: 'talk',
+        title: 'Raconter mon parcours',
+        sub: 'En vrac, avec tes mots',
+        run: () => {
+          input.value = 'Je m’appelle …, je suis … J’ai étudié … à … (de … à …). J’ai travaillé chez … comme … : …';
+          input.focus();
+          autosize();
+        },
+      },
+    ];
     const intro = h(
       'div',
       { class: 'agent-intro' },
       h('span', { class: 'agent-intro-mark', 'aria-hidden': 'true' }, '✦'),
-      h('strong', {}, 'Je t’aide sur ce CV'),
-      h('p', {}, 'Écris tes infos, même en vrac, ou pose une question. Je ne modifie rien sans que tu le demandes, et tu peux toujours annuler.'),
+      h('strong', {}, 'On fait ton CV ensemble'),
+      h('p', {}, 'Je lis, j’écris et je mets en page. Tu valides tout, et tu peux toujours annuler.'),
+      chat.length === 0 &&
+        h(
+          'div',
+          { class: 'agent-start' },
+          START.map((s) => h('button', { type: 'button', class: `agent-start-tile ${s.cls}`, onClick: s.run }, h('strong', {}, s.title), h('small', {}, s.sub), h('span', { class: 'agent-start-shine', 'aria-hidden': 'true' }))),
+        ),
     );
     list.append(intro, ...chat.map(bubble));
 
@@ -276,7 +357,12 @@ export function createAgentPanel(ctx) {
         h('button', { class: 'agent-chip', type: 'button', onClick: () => (s.importCv ? ctx.importCv?.() : s.image ? file.click() : ((input.value = s.text), input.focus(), autosize(), (send.disabled = false))) }, s.label),
       ),
     );
-    suggestions.hidden = chat.length > 0;
+    suggestions.hidden = true; // l'accueil (tuiles) remplace les suggestions
+    askFn = (text) => {
+      input.value = String(text ?? '').slice(0, 2000);
+      autosize();
+      submit();
+    };
 
     function autosize() {
       input.style.height = 'auto';
@@ -310,6 +396,7 @@ export function createAgentPanel(ctx) {
       input.value = '';
       autosize();
       suggestions.hidden = true;
+      intro.querySelector('.agent-start')?.remove();
 
       pending = true;
       send.disabled = true;
@@ -339,7 +426,7 @@ export function createAgentPanel(ctx) {
       }
       const changed = Boolean(data.changes?.length);
       if (changed && data.state) ctx.setState(data.state);
-      const msg = { role: 'assistant', text: data.reply || (changed ? 'C’est fait.' : 'D’accord.'), changes: data.changes ?? [], ...(data.generate ? { generate: data.generate } : {}), ...(data.pending ? { pending: data.pending } : {}) };
+      const msg = { role: 'assistant', text: data.reply || (changed ? 'C’est fait.' : 'D’accord.'), changes: data.changes ?? [], ...(data.generate ? { generate: data.generate } : {}), ...(data.pending ? { pending: data.pending } : {}), ...(data.templates ? { templates: data.templates } : {}) };
       const node = push(msg);
       if (changed && snap) offerUndo(node, msg, snap);
       // Générer dépense un crédit : jamais l'IA seule, la carte attend que l'utilisateur touche le bouton.
@@ -363,5 +450,5 @@ export function createAgentPanel(ctx) {
   }
 
   render();
-  return { el: root, focus: () => window.matchMedia('(hover: hover)').matches && root.querySelector('textarea, input')?.focus() };
+  return { el: root, focus: () => window.matchMedia('(hover: hover)').matches && root.querySelector('textarea, input')?.focus(), ask: (text) => askFn?.(text) };
 }

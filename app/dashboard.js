@@ -123,6 +123,27 @@ function hubTabs(active) {
   );
 }
 
+// --- Nouveau CV : l'IA d'abord ---------------------------------------------------------
+// Tout bouton « Nouveau CV » ouvre ce choix : importer l'ancien CV, ou commencer avec l'IA ; le formulaire reste possible.
+function newCvSheet() {
+  const tile = (cls, href, title, sub) => h('a', { class: `new-tile ${cls}`, href }, h('strong', {}, title), h('small', {}, sub), h('span', { class: 'new-tile-shine', 'aria-hidden': 'true' }));
+  const d = openDialog({
+    title: 'Nouveau CV',
+    className: 'new-cv-sheet',
+    content: [
+      h('div', { class: 'new-tiles' }, tile('import', '/studio/?new&import', 'Importer mon CV', 'PDF ou photo : l’IA lit tout et remplit'), tile('ai', '/studio/?new&ai', 'Commencer avec l’IA', 'Raconte ton parcours, elle écrit ton CV')),
+      h('a', { class: 'new-form-link', href: '/studio/?new&form' }, 'Remplir un formulaire vide'),
+    ],
+    footer: [h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler')],
+  });
+}
+document.addEventListener('click', (e) => {
+  const link = e.target.closest?.('[data-new-cv]');
+  if (!link || e.ctrlKey || e.metaKey) return;
+  e.preventDefault();
+  newCvSheet();
+});
+
 // --- Mes CV ----------------------------------------------------------------------
 // Recherche sans accents ni majuscules : « jose » trouve « José ».
 const fold = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -130,7 +151,7 @@ let query = '';
 
 function projectsView() {
   const projects = listProjects();
-  const newCard = h('a', { class: 'card new-card', href: '/studio/?new' }, h('span', { class: 'plus', 'aria-hidden': 'true' }, '+'), h('strong', {}, 'Nouveau CV'), h('small', {}, 'Commence de zéro'));
+  const newCard = h('a', { class: 'card new-card', href: '/studio/?new', 'data-new-cv': true }, h('span', { class: 'plus', 'aria-hidden': 'true' }, '+'), h('strong', {}, 'Nouveau CV'), h('small', {}, 'Avec l’IA ou depuis ton ancien CV'));
   const cards = projects.map((p) => {
     const name = p.state.profile.name.trim() || 'CV sans nom';
     const tpl = TEMPLATES.find((t) => t.id === p.state.template)?.name ?? '';
@@ -178,7 +199,7 @@ function projectsView() {
     return h(
       'section',
       {},
-      header('Mes CV', skel('skel-line'), h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new' }, 'Nouveau CV')),
+      header('Mes CV', skel('skel-line'), h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new', 'data-new-cv': true }, 'Nouveau CV')),
       hubTabs('projets'),
       h('div', { class: 'cards' }, newCard, skel('skel-card'), skel('skel-card'), skel('skel-card')),
     );
@@ -186,7 +207,7 @@ function projectsView() {
   return h(
     'section',
     {},
-    header('Mes CV', projects.length ? `${projects.length} CV enregistré${projects.length > 1 ? 's' : ''}` : 'Tes CV apparaîtront ici.', h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new' }, 'Nouveau CV')),
+    header('Mes CV', projects.length ? `${projects.length} CV enregistré${projects.length > 1 ? 's' : ''}` : 'Tes CV apparaîtront ici.', h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new', 'data-new-cv': true }, 'Nouveau CV')),
     hubTabs('projets'),
     projects.length > 0 && searchBox(),
     h('div', { class: 'cards' }, newCard, cards),

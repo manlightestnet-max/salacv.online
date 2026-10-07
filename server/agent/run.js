@@ -60,7 +60,9 @@ function cleanContext(raw) {
     .slice(0, 30)
     .map((v) => ({ key: str(v?.key, 60), label: str(v?.label, 120) }))
     .filter((v) => v.key);
-  return { personas, versions };
+  // Modèle du CV et s'il a déjà été choisi par l'utilisateur (sinon, l'agent peut en proposer).
+  const template = { id: str(raw?.template?.id, 40).replace(/[^a-z0-9-]/g, ''), chosen: raw?.template?.chosen === true };
+  return { personas, versions, template };
 }
 
 // payload = { state, message, history?, scope?, context? }. callModel est injectable (tests sans réseau).
@@ -101,7 +103,7 @@ export async function handle(payload, { callModel, readModel, env = process.env,
     : message;
   const tune = await agentTuning(env);
   run.maxSkills = tune.maxSkills;
-  const messages = build(run.state, said, payload.history, scope ? { historySent: tune.historySent } : { versions: context.versions, memory, loggedIn: Boolean(username), historySent: tune.historySent });
+  const messages = build(run.state, said, payload.history, scope ? { historySent: tune.historySent } : { versions: context.versions, memory, loggedIn: Boolean(username), historySent: tune.historySent, template: context.template });
   const secrets = [...(keySource?.secrets() ?? []), ...allKeys(env)];
   callModel ??= (msgs, sp) => callLLM(msgs, sp, { temperature: settings.temperature, timeoutMs: settings.llmTimeoutMs, env, keySource });
 
@@ -123,6 +125,7 @@ export async function handle(payload, { callModel, readModel, env = process.env,
     state: compact(run.state),
     changes: [...run.changes].sort(),
     ...(run.generate ? { generate: run.generate } : {}),
+    ...(run.templates ? { templates: run.templates } : {}),
     ...(pending ? { pending } : {}),
   };
 }

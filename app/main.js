@@ -9,7 +9,7 @@ import { drawDoc, loadEngine } from './lib/engine.js';
 import { createProject, fetchShared, getPlan, initStore, isPersisted, isShared, getProject, isPro, setPlan, setShared, shareLink, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
 import { offerSandboxSync } from './sync.js';
 import { openDialog } from './dialog.js';
-import { openExport } from './export.js';
+import { callRender, openExport } from './export.js';
 import { openMultiExport } from './export-multi.js';
 import { initQuickEdit } from './quickedit.js';
 import { createLangBar } from './langs.js';
@@ -83,6 +83,10 @@ const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
 const ASKED_IMPORT = new URLSearchParams(location.search).has('import'); // « Importer mon CV » (landing, tableau de bord)
+// L'IA d'abord : le studio s'ouvre sur le chat. ?ask=… envoie tout de suite la demande (landing) ; ?form ouvre le formulaire.
+const ASKED_TEXT = (new URLSearchParams(location.search).get('ask') ?? '').trim();
+const ASKED_FORM = new URLSearchParams(location.search).has('form');
+const MODE_KEY = 'salacv:mode'; // « form » si l'utilisateur a choisi le formulaire ; sinon le chat
 // Les CV du compte (R2 / base) — ou, pour un visiteur, son bac à sable — sont chargés avant tout.
 await trackWait(initStore()); // la fine barre court sous la barre d'app pendant ce chargement
 const synced = await offerSandboxSync(); // connecté avec des CV faits sans compte sur cet appareil : les ajouter ?
@@ -94,6 +98,8 @@ let stepIndex = 0;
 let agentOpen = false; // déclaré tôt : le premier rendu des étapes le lit déjà
 let current = null; // dernier layout valide
 let engine = null; // { CK, fonts, skia } une fois chargé
+let engineLoaded;
+const engineReady = new Promise((resolve) => (engineLoaded = resolve)); // les miniatures du chat attendent le moteur
 let pages = []; // [{ el, surface }]
 let zoom = { fit: true, value: 1 };
 let finalView = false; // « Rendu final » : le CV sans le texte d'exemple en gris
@@ -178,6 +184,12 @@ renderStep();
 initEngine();
 // Arrivé pour importer un CV : la fenêtre s'ouvre dès que la page est prête.
 if (ASKED_IMPORT) setTimeout(startImport, 0);
+else if (ASKED_TEXT || (!ASKED_FORM && read(MODE_KEY) !== 'form')) {
+  setTimeout(() => {
+    openAgent();
+    if (ASKED_TEXT) agentPanel.ask(ASKED_TEXT);
+  }, 0);
+}
 
 // Lune / soleil, à côté du bouton du panneau : un clic, le thème bascule.
 const themeLabel = () => (root.dataset.theme === 'light' ? '☾ Passer en sombre' : '☀ Passer en clair');
@@ -189,7 +201,7 @@ function renderThemeBtn() {
 $('theme').addEventListener('click', () => (toggleTheme(), renderThemeBtn()));
 renderThemeBtn();
 syncBrowserBar();
-$('assistant').addEventListener('click', () => (agentOpen ? closeAgent() : openAgent()));
+$('assistant').addEventListener('click', () => (agentOpen ? closeAgent({ remember: true }) : openAgent()));
 $('toggle').addEventListener('click', () => setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded'));
 $('prev').addEventListener('click', () => goTo(stepIndex - 1));
 $('peek').addEventListener('click', () => setSheet('collapsed'));
@@ -335,6 +347,7 @@ document.addEventListener('keydown', (e) => {
 async function initEngine() {
   try {
     engine = await trackWait(loadEngine());
+    engineLoaded(engine);
     initQuickEdit({
       canvases,
       preview,
@@ -598,7 +611,7 @@ function openAgent() {
       state.lang = lang;
       schedule();
     },
-    onClose: closeAgent,
+    onClose: () => closeAgent({ remember: true }),
     importCv: () => startImport(),
     // Chaque CV a sa conversation, gardée avec lui (compte : serveur ; visiteur : son bac à sable).
     getChat: () => project.chat ?? [],
@@ -623,7 +636,28 @@ function openAgent() {
         experiences: p.state.experiences.filter((i) => i.title.trim()).map((i) => [i.title, i.org, i.period].filter(Boolean).join(' — ')),
       })),
       versions: exportItems().map((it) => ({ key: it.key, label: `${it.label} — ${langName(it.lang)}` })),
+      template: { id: state.template, chosen: Boolean(project.tplChosen) },
     }),
+    // Cartes de modèles dans le chat : SON CV dans le modèle, dessiné par le moteur.
+    templateThumb: (id, width) => {
+      const canvas = h('canvas', { 'aria-hidden': 'true' });
+      const paint = () => {
+        const r = layoutResume({ ...toResume(state, { mockup: example }), template: id }, engine.fonts);
+        if (r.ok) drawDoc(engine, canvas, r.doc, width);
+      };
+      if (engine) requestAnimationFrame(paint);
+      else engineReady.then(paint);
+      return canvas;
+    },
+    pickTemplate: (id) => chooseTemplate(id),
+    // Génération dans le chat : l'état complet (modèle, photo) de la version demandée.
+    renderState: (key) => (exportItems().find((it) => it.key === key) ?? exportItems()[0])?.state ?? state,
+    generateInfo: async () => {
+      const it = exportItems()[0];
+      const { data } = await callRender({ state: it.state, dryRun: true });
+      if (!data.ok) return null;
+      return { version: it.key, label: docLabel(project), loggedIn: data.loggedIn, balance: data.balance ?? 0, cost: data.cost ?? 0, enough: data.entitlement === 'clean' };
+    },
     // Générer à la demande : la préparation habituelle, où le serveur revérifie et débite les crédits.
     generate: (key) => {
       const it = exportItems().find((x) => x.key === key) ?? exportItems()[0];
@@ -643,10 +677,12 @@ function openAgent() {
   $('progress').textContent = 'il remplit ton CV';
   setSheet('expanded');
   updatePills();
+  store(MODE_KEY, 'ai');
   agentPanel.focus();
 }
 
-function closeAgent() {
+function closeAgent({ remember = false } = {}) {
+  if (remember) store(MODE_KEY, 'form'); // l'utilisateur préfère le formulaire : le studio s'ouvrira dessus
   agentOpen = false;
   sheet.classList.remove('agent-mode');
   $('stepper').hidden = false;
@@ -1075,6 +1111,7 @@ function makeThumb(t) {
       'aria-pressed': String(state.template === t.id),
       onClick: () => {
         state.template = t.id;
+        project.tplChosen = true;
         thumbs.forEach((x) => x.card.setAttribute('aria-pressed', String(x.id === t.id)));
         applyTplSettings();
         schedule();
@@ -1397,6 +1434,16 @@ project.docs ??= [];
 function curDoc() {
   return activeDoc === 'main' ? project : project.docs.find((d) => d.id === activeDoc) ?? project;
 }
+// Modèle choisi dans le chat (cartes proposées par l'IA) : appliqué comme depuis la fenêtre « Modèle ».
+function chooseTemplate(id) {
+  if (!TEMPLATES.some((t) => t.id === id)) return;
+  state.template = id;
+  project.tplChosen = true;
+  thumbs.forEach((x) => x.card.setAttribute('aria-pressed', String(x.id === id)));
+  applyTplSettings();
+  schedule();
+}
+
 const docLabel = (d) => (d === project && project.name?.trim()) || (d.styled && d.cvName) || normalizeState(d.state).profile.title.trim() || d.cvName?.trim() || (d === project ? 'CV principal' : 'Nouveau CV');
 
 // Passer à un autre CV du projet (et à l'une de ses langues), sans recharger.

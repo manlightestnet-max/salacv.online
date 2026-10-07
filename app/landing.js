@@ -70,10 +70,8 @@ const dots = papers.map((p, i) =>
 $('stage-dots').replaceChildren(...dots);
 $('tpl-count').textContent = String(TEMPLATES.length);
 
-const resumeFor = (template) => {
-  const name = nameInput.value.trim();
-  return { ...example, template, profile: { ...example.profile, ...(name ? { name } : {}) } };
-};
+// Le héros montre le CV d'exemple dans chaque modèle (le champ est une demande à l'IA, pas un nom).
+const resumeFor = (template) => ({ ...example, template });
 
 function renderHero() {
   if (!engine) return;
@@ -99,21 +97,12 @@ function restart() {
   if (!reduced) timer = setInterval(() => !document.hidden && nameInput !== document.activeElement && show(active + 1), CYCLE_MS);
 }
 
-let typing;
-nameInput.addEventListener('input', () => {
-  clearTimeout(typing);
-  typing = setTimeout(renderHero, 60);
-  stage.classList.add('typing');
-  clearTimeout(stage._t);
-  stage._t = setTimeout(() => stage.classList.remove('typing'), 700);
-});
-
-// Entrée : direct au studio, avec son nom et le style affiché.
+// Entrée : le studio s'ouvre sur l'assistant, avec la demande déjà envoyée, sur le style affiché.
 $('name-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const q = new URLSearchParams({ new: '', template: papers[active].id });
-  const name = nameInput.value.trim();
-  if (name) q.set('name', name);
+  const ask = nameInput.value.trim();
+  if (ask) q.set('ask', ask);
   location.href = `/studio/?${q}`.replace('new=&', 'new&');
 });
 

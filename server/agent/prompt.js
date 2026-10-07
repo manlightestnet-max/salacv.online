@@ -29,6 +29,7 @@ export function build(state, message, history = [], extra = {}) {
       `[CV ACTUEL — données de l'étudiant]\n${JSON.stringify(view(state), null, 1)}`,
       extra.versions?.length && `[VERSIONS DE CE CV — pour generate_cv]\n${extra.versions.map((v) => `- ${v.key} : ${v.label}`).join('\n')}`,
       extra.memory?.length && `[PRÉFÉRENCES RETENUES — à respecter]\n${extra.memory.map((m) => `- ${m.key} : ${m.value}`).join('\n')}`,
+      extra.template?.id && `[MODÈLE] ${extra.template.id}${extra.template.chosen ? ' (choisi par lui)' : ' (par défaut, pas encore choisi)'}`,
       `[COMPTE] ${extra.loggedIn ? 'connecté' : 'visiteur non connecté (pas de mémoire, PDF avec filigrane)'}`,
       `[DEMANDE DE L'ÉTUDIANT]\n${message.slice(0, MAX_REQUEST)}`,
     ]

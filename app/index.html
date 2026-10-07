@@ -49,14 +49,17 @@
     <section class="hero" id="haut">
       <div class="hero-copy">
         <p class="eyebrow reveal"><span aria-hidden="true">🇨🇬</span> Fait à Brazzaville · format CV congolais</p>
-        <h1 class="reveal">Ton CV pro,<br><span class="accent-text">prêt en 2 minutes.</span></h1>
-        <p class="lead reveal">Tape ton nom : ton CV apparaît en direct. Choisis un style, télécharge en PDF et Word. Depuis ton téléphone.</p>
+        <h1 class="reveal">Ton CV pro,<br><span class="accent-text">écrit avec l’IA.</span></h1>
+        <p class="lead reveal">Raconte ton parcours avec tes mots, ou importe ton ancien CV : l’IA remplit tout, tu vérifies, et ton CV se met en page sous tes yeux. Depuis ton téléphone.</p>
 
-        <form id="name-form" class="name-form reveal" autocomplete="on">
-          <label class="sr-only" for="name">Ton prénom et nom</label>
-          <input id="name" class="name-input" name="name" type="text" autocomplete="name" enterkeyhint="go" maxlength="60" placeholder="Ton prénom et nom" spellcheck="false">
+        <!-- L'IA d'abord : la demande part tout de suite à l'assistant du studio. -->
+        <form id="name-form" class="name-form ai-form reveal" autocomplete="off">
+          <span class="ai-form-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2.5c.5 3.9 2.6 6 6.5 6.5-3.9.5-6 2.6-6.5 6.5-.5-3.9-2.6-6-6.5-6.5 3.9-.5 6-2.6 6.5-6.5z"/></svg></span>
+          <label class="sr-only" for="name">Ton parcours, en quelques mots</label>
+          <input id="name" class="name-input" name="ask" type="text" enterkeyhint="go" maxlength="400" placeholder="Ex. : comptable, licence à Marien Ngouabi…" spellcheck="true">
           <button class="btn btn-solid name-go" type="submit">Commencer <span aria-hidden="true">→</span></button>
         </form>
+        <a class="have-cv reveal" href="/studio/?new&amp;import"><span>Tu as déjà un CV ?</span> <strong>Importe-le, l’IA le lit pour toi</strong> <span aria-hidden="true">→</span></a>
 
         <div class="hero-alt reveal">
           <a class="btn btn-google" href="/auth/?next=/dashboard/" data-logged="Ouvrir mes CV">
@@ -103,9 +106,9 @@
       <p class="kicker reveal">Comment ça marche</p>
       <h2 class="reveal">Trois gestes, un CV qui décroche des entretiens.</h2>
       <div class="how-grid">
-        <article class="how-tile reveal"><span class="how-num">1</span><strong>Tu remplis</strong><p>Formulaire guidé, pensé pour le pouce. L’assistant IA t’aide à formuler.</p></article>
-        <article class="how-tile reveal"><span class="how-num">2</span><strong>Tu choisis ton style</strong><p>Change de modèle en un geste, ton contenu suit.</p></article>
-        <article class="how-tile reveal"><span class="how-num">3</span><strong>Tu télécharges</strong><p>PDF net à imprimer et Word modifiable, prêts à envoyer.</p></article>
+        <article class="how-tile reveal"><span class="how-num">1</span><strong>Tu racontes ou tu importes</strong><p>Écris ton parcours en vrac, ou donne ton ancien CV en PDF ou en photo.</p></article>
+        <article class="how-tile reveal"><span class="how-num">2</span><strong>L’IA écrit, tu vérifies</strong><p>Elle remplit chaque section et te montre ce qui est à vérifier. Rien ne change sans toi.</p></article>
+        <article class="how-tile reveal"><span class="how-num">3</span><strong>Tu choisis et tu télécharges</strong><p>Elle te propose des modèles ; un toucher, puis le PDF net (et le Word).</p></article>
       </div>
     </section>
 
