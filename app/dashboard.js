@@ -28,14 +28,48 @@ async function gate() {
   location.replace('/auth/?next=/dashboard/');
   return false;
 }
-await initSession();
-if (!(await gate())) await new Promise(() => {}); // la page change : on n'affiche rien
-await initStore(); // les CV et personnalités du compte, depuis le serveur
-await offerSandboxSync(); // des CV faits sans compte sur cet appareil ? on propose de les ajouter au compte
-
 const $ = (id) => document.getElementById(id);
 const view = $('view');
 let engine = null;
+// La page s'affiche tout de suite (titres, boutons, textes) ; seules les valeurs qui attendent le serveur scintillent.
+// ready : session vérifiée et CV du compte chargés.
+let ready = false;
+const skel = (cls) => h('span', { class: `skel ${cls}`, 'aria-hidden': 'true' });
+
+// --- Données gardées (cet appareil) ----------------------------------------------------------
+// Solde, historique et IA : un onglet s'affiche aussitôt avec les dernières valeurs connues, puis se met à jour en
+// arrière-plan ; il ne se redessine que si quelque chose a changé.
+const CACHE_KEY = 'salacv:dash';
+let cache = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(CACHE_KEY)) ?? {};
+  } catch {
+    return {};
+  }
+})();
+const saveCache = () => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch {}
+};
+let offline = false;
+let loadingCredits = null;
+function loadCredits() {
+  loadingCredits ??= Promise.all([wallet.balance(), ai.quota()])
+    .then(([w, q]) => {
+      offline = Boolean(w.offline);
+      if (offline || !w.loggedIn) return false;
+      const next = { wallet: { credits: w.credits, history: w.history }, ai: q.ok ? { quota: q.quota, resetCost: q.resetCost, packs: q.packs } : null };
+      const changed = JSON.stringify(next) !== JSON.stringify({ wallet: cache.wallet, ai: cache.ai ?? null });
+      cache = { ...cache, ...next, user: readSession()?.username };
+      saveCache();
+      setPill(w.credits);
+      return changed;
+    })
+    .finally(() => (loadingCredits = null));
+  return loadingCredits;
+}
+const currentTab = () => (VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'projets');
 const pending = []; // miniatures à peindre quand le moteur sera prêt
 
 // Formats à venir : visibles dans l'explorateur, marqués Premium, pas encore utilisables.
@@ -65,7 +99,7 @@ function thumb(resume, width) {
     if (r.ok) drawDoc(engine, canvas, r.doc, width);
     canvas.classList.remove('pending');
   };
-  if (engine) requestAnimationFrame(paint);
+  if (engine) paint();
   else pending.push(paint);
   return canvas;
 }
@@ -79,7 +113,7 @@ function hubTabs(active) {
   const nCv = listProjects().length;
   const nProfiles = listPersonas().length;
   const tab = (id, label, n) =>
-    h('a', { class: 'hub-tab', href: `#${id}`, role: 'tab', 'aria-selected': String(active === id) }, label, h('span', { class: 'hub-count' }, String(n)));
+    h('a', { class: 'hub-tab', href: `#${id}`, role: 'tab', 'aria-selected': String(active === id) }, label, h('span', { class: 'hub-count' }, ready ? String(n) : skel('skel-count')));
   return h(
     'nav',
     { class: `hub-tabs${active === 'personnalites' ? ' second' : ''}`, role: 'tablist', 'aria-label': 'Mes CV' },
@@ -140,6 +174,15 @@ function projectsView() {
     );
     return card;
   });
+  if (!ready) {
+    return h(
+      'section',
+      {},
+      header('Mes CV', skel('skel-line'), h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new' }, 'Nouveau CV')),
+      hubTabs('projets'),
+      h('div', { class: 'cards' }, newCard, skel('skel-card'), skel('skel-card'), skel('skel-card')),
+    );
+  }
   return h(
     'section',
     {},
@@ -247,15 +290,15 @@ function explorerView() {
 // Message après un retour de la page LightPay (?order=…), affiché une fois.
 let flash = '';
 const ORDER_PARAM = /^ord_[A-Za-z0-9_-]{16,40}$/;
-// Crédits tout juste achetés : le solde monte sous les yeux au prochain affichage.
-let gained = 0;
+// Dernier solde affiché sur la page Crédits : il compte depuis là quand le solde bouge (achat, dépense).
+let shownBalance = null;
 
 // Payé : le solde se met à jour partout, tout de suite (pastille du haut, anneau de la page Crédits).
 function creditsArrived(order) {
   setPill(order.balance);
-  gained = order.credits;
-  // La page Crédits est à l'écran (quelle que soit l'adresse) : on la redessine, l'anneau compte jusqu'au nouveau solde.
-  if (view.querySelector('.balance')) render({ quiet: true });
+  if (cache.wallet) cache.wallet = { ...cache.wallet, credits: order.balance };
+  if (currentTab() === 'credits') render({ quiet: true });
+  loadCredits().then((changed) => changed && currentTab() === 'credits' && render({ quiet: true })); // l'historique suit
 }
 
 const openRecharge = () => openShop({ keyAccount: readSession()?.kind === 'key', onPaid: creditsArrived });
@@ -273,24 +316,20 @@ function countUp(el, from, to) {
   requestAnimationFrame(step);
 }
 
-async function creditsView() {
-  const back = new URLSearchParams(location.search).get('order');
-  if (back) {
-    window.history.replaceState(null, '', `${location.pathname}${location.hash}`);
-    if (ORDER_PARAM.test(back)) {
-      const order = await followOrder(back, { maxMs: 15_000 });
-      if (order.status === 'PAID') gained = order.credits;
-      else flash = orderMessage(order);
-    }
-  }
+function creditsView() {
   const notice = flash;
   flash = '';
-  const [{ credits, history, offline }, reserve] = await Promise.all([wallet.balance(), ai.quota()]);
-  const gain = gained;
-  gained = 0;
-  const amount = h('strong', {}, formatCredits(gain ? credits - gain : 0));
-  // Chaque visite : le solde compte depuis zéro (ou depuis l'ancien solde après un achat), l'anneau se remplit.
-  requestAnimationFrame(() => countUp(amount, gain ? credits - gain : 0, credits));
+  const w = cache.wallet;
+  const known = Boolean(w);
+  const credits = w?.credits ?? 0;
+  // Première fois sur la page : le solde compte depuis zéro et l'anneau se remplit. Ensuite, rien ne bouge
+  // tant que le solde ne change pas ; s'il change, il compte depuis l'ancien.
+  const first = shownBalance === null;
+  const from = first ? 0 : shownBalance;
+  const moved = known && from !== credits;
+  if (known) shownBalance = credits;
+  const amount = h('strong', {}, known ? formatCredits(moved ? from : credits) : skel('skel-amount'));
+  if (moved) requestAnimationFrame(() => countUp(amount, from, credits));
   const fill = credits > 0 ? Math.max(0.12, Math.min(1, credits / 10)) : 0;
   const recharge = h('button', { type: 'button', class: 'btn-primary recharge', onClick: openRecharge }, h('span', { class: 'coin', 'aria-hidden': 'true' }), 'Recharger');
   const link = inviteLink();
@@ -304,9 +343,10 @@ async function creditsView() {
     }
   });
   const message = `Fais ton CV sur salacv en quelques minutes : ${link}`;
+  const history = w?.history ?? [];
   return h(
     'section',
-    {},
+    { class: known && !moved ? 'settled' : '' },
     header('Crédits', 'Un crédit prépare un CV en PDF sans filigrane (et Word). Re-télécharger la même version est gratuit.'),
     offline && h('p', { class: 'empty' }, 'Impossible de joindre le serveur : le solde affiché peut être inexact.'),
     notice && h('p', { class: 'flash', role: 'status' }, notice),
@@ -318,19 +358,19 @@ async function creditsView() {
         { class: 'panel balance' },
         h(
           'div',
-          { class: `ring${gain ? ' gained' : ''}`, style: `--target:${Math.round(fill * 360)}deg` },
+          { class: `ring${moved && !first ? ' gained' : ''}${known ? '' : ' waiting'}`, style: `--target:${known ? Math.round(fill * 360) : 0}deg` },
           h('span', { class: 'orbit', 'aria-hidden': 'true' }, h('i', { class: 'coin' }), h('i', { class: 'coin' }), h('i', { class: 'coin' })),
           h('div', { class: 'ring-in' }, amount, h('small', {}, credits > 1 ? 'crédits' : 'crédit')),
         ),
         h(
           'div',
           { class: 'balance-text' },
-          h('strong', {}, credits ? `${formatCredits(credits)} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit'),
-          h('p', {}, credits ? 'Un crédit par nouvelle version de ton CV.' : 'Sans crédit, ton PDF sort avec filigrane.'),
+          known ? h('strong', {}, credits ? `${formatCredits(credits)} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit') : skel('skel-line wide'),
+          h('p', {}, known && !credits ? 'Sans crédit, ton PDF sort avec filigrane.' : 'Un crédit par nouvelle version de ton CV.'),
           recharge,
         ),
       ),
-      reserve.ok && aiPanel(reserve),
+      cache.ai ? aiPanel(cache.ai) : !known && aiPanelWaiting(),
       h(
         'div',
         { class: 'panel invite' },
@@ -343,11 +383,25 @@ async function creditsView() {
         'div',
         { class: 'panel history' },
         h('strong', {}, 'Historique'),
-        history.length
-          ? h('ul', {}, history.map((x, i) => h('li', { style: `--i:${i}` }, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${formatCredits(x.amount)}`))))
-          : h('p', { class: 'empty' }, 'Aucune opération pour l’instant.'),
+        !known
+          ? h('ul', {}, [0, 1, 2].map(() => h('li', {}, skel('skel-line'), skel('skel-line short'), skel('skel-line short'))))
+          : history.length
+            ? h('ul', {}, history.map((x, i) => h('li', { style: `--i:${i}` }, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${formatCredits(x.amount)}`))))
+            : h('p', { class: 'empty' }, 'Aucune opération pour l’instant.'),
       ),
     ),
+  );
+}
+
+// Le panneau de l'IA tant que sa réserve n'est pas connue : sa forme, la jauge scintille.
+function aiPanelWaiting() {
+  return h(
+    'div',
+    { class: 'panel ai-panel' },
+    h('div', { class: 'ai-top' }, h('strong', {}, 'Assistant IA'), skel('skel-line short')),
+    skel('skel-gauge'),
+    h('p', {}, 'Elle se vide à chaque échange avec l’assistant et ne se recharge pas seule.'),
+    h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn-primary', disabled: true }, 'Réinitialiser la progression')),
   );
 }
 
@@ -383,8 +437,11 @@ function aiPanel({ quota, resetCost, packs }) {
   const finished = (r, done) => {
     setPill(r.balance);
     publishAi(r.quota);
+    if (cache.wallet) cache.wallet = { ...cache.wallet, credits: r.balance };
+    if (cache.ai) cache.ai = { ...cache.ai, quota: r.quota };
     flash = done;
     render({ quiet: true });
+    loadCredits().then((changed) => changed && currentTab() === 'credits' && render({ quiet: true }));
   };
   const reset = h('button', { type: 'button', class: 'btn-primary', disabled: quota.percent === 0 || null }, `Réinitialiser la progression · ${creditsFr(resetCost)}`);
   reset.addEventListener('click', run(reset, ai.reset, 'Ton IA est remise à zéro.'));
@@ -417,6 +474,9 @@ const publishAi = (quota) => {
 // Tes informations de base, gardées une fois : un nouveau CV part d'elles et tu changes
 // seulement la profession (technicien ici, médecin là).
 function personasView() {
+  if (!ready) {
+    return h('section', {}, header('Mes CV', 'Tes profils : tes informations gardées une fois, pour démarrer un CV sans rien retaper.'), hubTabs('personnalites'), h('div', { class: 'personas' }, skel('skel-panel'), skel('skel-panel')));
+  }
   const personas = listPersonas();
   const projects = listProjects();
   const count = (st) => {
@@ -549,8 +609,17 @@ function accountMenu() {
   root.replaceChildren(trigger, menu);
 }
 
-async function accountView() {
+function accountView() {
   const session = readSession();
+  if (!ready) {
+    return h(
+      'section',
+      { class: 'account-page' },
+      header('Mon compte', 'Ton profil, ton espace et ta session.'),
+      h('div', { class: 'panel profile' }, skel('skel-avatar'), h('div', { class: 'profile-text' }, skel('skel-line wide'), skel('skel-line'))),
+      h('div', { class: 'stats' }, ['CV', 'profils', 'crédits'].map((label) => h('div', { class: 'stat' }, h('strong', {}, skel('skel-amount')), h('span', {}, label)))),
+    );
+  }
   if (!session) {
     return h(
       'section',
@@ -565,8 +634,8 @@ async function accountView() {
       ),
     );
   }
-  const { credits } = await wallet.balance();
-  const stat = (value, label, href) => h('a', { class: 'stat', href }, h('strong', {}, String(value)), h('span', {}, label));
+  const credits = cache.wallet?.credits;
+  const stat = (value, label, href) => h('a', { class: 'stat', href }, h('strong', {}, value ?? skel('skel-amount')), h('span', {}, label));
   const nCv = listProjects().length;
   const nPersonas = listPersonas().length;
   const logoutBtn = h('button', { type: 'button', class: 'btn-ghost danger' }, 'Se déconnecter');
@@ -590,9 +659,9 @@ async function accountView() {
     h(
       'div',
       { class: 'stats' },
-      stat(nCv, nCv > 1 ? 'CV enregistrés' : 'CV enregistré', '#projets'),
-      stat(nPersonas, nPersonas > 1 ? 'personnalités' : 'personnalité', '#personnalites'),
-      stat(formatCredits(credits), credits > 1 ? 'crédits' : 'crédit', '#credits'),
+      stat(String(nCv), nCv > 1 ? 'CV enregistrés' : 'CV enregistré', '#projets'),
+      stat(String(nPersonas), nPersonas > 1 ? 'personnalités' : 'personnalité', '#personnalites'),
+      stat(credits == null ? null : formatCredits(credits), credits > 1 ? 'crédits' : 'crédit', '#credits'),
     ),
     h('div', { class: 'panel' }, h('strong', {}, 'Détails'), h('dl', { class: 'facts' }, facts.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v))))),
     h(
@@ -614,53 +683,38 @@ async function accountView() {
 
 const VIEWS = { projets: projectsView, personnalites: personasView, explorer: explorerView, credits: creditsView, compte: accountView };
 
-// Une page qui attend le serveur : sa forme en shimmer tout de suite (jamais d'écran vide ni d'ancien contenu).
-function skeletonView(tab) {
-  const block = (cls) => h('span', { class: `skel ${cls}` });
-  const body =
-    tab === 'credits'
-      ? h('div', { class: 'credit-grid' }, block('skel-panel tall'), block('skel-panel'), block('skel-panel wide'))
-      : h('div', { class: 'cards' }, block('skel-card'), block('skel-card'), block('skel-card'), block('skel-card'));
-  return h('section', { class: 'skel-view', 'aria-busy': 'true', 'aria-label': 'Chargement' }, block('skel-title'), block('skel-sub'), body);
-}
-
-const SLOW = new Set(['credits', 'compte']); // pages qui attendent le serveur
+const visited = new Set();
 let renderId = 0;
-// quiet : mise à jour en arrière-plan (retour sur l'app) : ni shimmer ni animation, le contenu change sur place.
-async function render({ quiet = false } = {}) {
+// quiet : mise à jour sur place (données arrivées, retour sur l'app) : ni animation, le contenu change là où il est.
+function render({ quiet = false } = {}) {
   const id = ++renderId;
-  const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'projets';
+  const tab = currentTab();
   // « Profils » vit sous « Mes CV » : c'est l'onglet Mes CV qui s'allume.
   const navTab = tab === 'personnalites' ? 'projets' : tab;
   document.querySelectorAll('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === navTab)));
-  // Le shimmer est déjà là au chargement (HTML de la page). Ensuite : une page qui attend le serveur montre sa forme
-  // tout de suite (jamais l'ancienne page ni un écran vide) ; une page immédiate remplace directement.
-  if (!quiet && SLOW.has(tab) && !view.querySelector('.skel-view')) view.replaceChildren(skeletonView(tab));
-  const content = await trackWait(VIEWS[tab]());
-  if (id !== renderId) return; // une autre page a été demandée entre-temps
-  view.replaceChildren(content);
-  if (!quiet) {
+  const scroll = window.scrollY;
+  view.replaceChildren(VIEWS[tab]());
+  if (quiet) window.scrollTo({ top: scroll });
+  // Un onglet déjà vu revient tel quel, sans rejouer d'entrée (pas d'effet « rechargement »).
+  if (!quiet && !visited.has(tab)) {
     view.classList.remove('enter');
     void view.offsetWidth;
     view.classList.add('enter');
-  }
-  refreshCredits();
+  } else view.classList.remove('enter');
+  if (ready) visited.add(tab);
+  if (!ready || quiet) return;
+  // En arrière-plan : solde, historique et IA relus ; la page ne bouge que s'ils ont changé.
+  loadCredits().then((changed) => changed && id === renderId && ['credits', 'compte'].includes(currentTab()) && render({ quiet: true }));
 }
 
 // Pastille du haut : le solde (au dixième) ; la valeur exacte est gardée à part pour comparer.
 function setPill(balance) {
   const el = $('credit-count');
   if (balance == null) return;
+  const before = el.dataset.v === undefined ? NaN : Number(el.dataset.v);
   el.dataset.v = String(balance);
   el.textContent = formatCredits(balance);
-}
-
-async function refreshCredits() {
-  const el = $('credit-count');
-  const before = el.dataset.v === undefined ? NaN : Number(el.dataset.v);
-  const now = (await wallet.balance()).credits;
-  setPill(now);
-  if (Number.isFinite(before) && now !== before) {
+  if (Number.isFinite(before) && before !== balance) {
     const pill = $('credit-pill');
     pill.classList.remove('bump');
     void pill.offsetWidth;
@@ -668,18 +722,48 @@ async function refreshCredits() {
   }
 }
 
-// Un paiement laissé en cours (feuille fermée, page rechargée) : on continue à le suivre en arrière-plan.
-const leftOver = pendingOrder();
-if (leftOver && !new URLSearchParams(location.search).get('order')) {
-  followOrder(leftOver).then((order) => order.status === 'PAID' && creditsArrived(order));
-}
-
-accountMenu();
+// --- Démarrage -------------------------------------------------------------------------------------
+// 1. La page tout de suite (dernières valeurs connues, le reste scintille). 2. Session et CV du compte.
+// 3. La page complète, sur place.
+if (cache.wallet) setPill(cache.wallet.credits);
 window.addEventListener('hashchange', () => {
   render();
   window.scrollTo({ top: 0 });
 });
 render();
+
+await initSession();
+if (!(await gate())) await new Promise(() => {}); // la page change : on n'affiche rien
+if (cache.user && cache.user !== readSession()?.username) {
+  cache = {}; // un autre compte sur cet appareil : on ne montre pas ses chiffres
+  saveCache();
+  $('credit-count').replaceChildren(skel('skel-num'));
+  delete $('credit-count').dataset.v;
+}
+accountMenu();
+await initStore(); // les CV et personnalités du compte, depuis le serveur
+ready = true;
+// Seuls les onglets qui dépendent du compte se complètent (Crédits et Explorer sont déjà justes : rien ne s'interrompt).
+if (['projets', 'personnalites', 'compte'].includes(currentTab())) render({ quiet: true });
+else visited.add(currentTab());
+loadCredits().then((changed) => changed && ['credits', 'compte'].includes(currentTab()) && render({ quiet: true }));
+offerSandboxSync(); // des CV faits sans compte sur cet appareil ? on propose de les ajouter au compte
+
+// Retour de la page LightPay (?order=…) : on suit le paiement, puis le solde monte ou un message s'affiche.
+const back = new URLSearchParams(location.search).get('order');
+if (back) {
+  window.history.replaceState(null, '', `${location.pathname}${location.hash}`);
+  if (ORDER_PARAM.test(back)) {
+    trackWait(followOrder(back, { maxMs: 15_000 })).then((order) => {
+      if (order.status === 'PAID') return creditsArrived(order);
+      flash = orderMessage(order);
+      if (currentTab() === 'credits') render({ quiet: true });
+    });
+  }
+}
+// Un paiement laissé en cours (feuille fermée, page rechargée) : on continue à le suivre en arrière-plan.
+const leftOver = pendingOrder();
+if (leftOver && !back) followOrder(leftOver).then((order) => order.status === 'PAID' && creditsArrived(order));
 
 // Toujours à jour : en revenant sur l'app (autre onglet, studio, page de paiement, retour arrière), la liste et le
 // solde sont relus sur le serveur et la page redessinée. Jamais par-dessus des modifications pas encore envoyées.
@@ -687,8 +771,12 @@ let lastSync = Date.now();
 async function resync({ force = false } = {}) {
   if (hasPending() || (!force && Date.now() - lastSync < 4000)) return;
   lastSync = Date.now();
+  const sig = () => JSON.stringify([listProjects().map((p) => [p.id, p.updatedAt]), listPersonas().map((p) => [p.id, p.updatedAt])]);
+  const before = sig();
   await initStore();
-  await render({ quiet: true });
+  if (sig() !== before) render({ quiet: true });
+  const changed = await loadCredits();
+  if (changed && ['credits', 'compte'].includes(currentTab())) render({ quiet: true });
 }
 window.addEventListener('pageshow', (e) => e.persisted && resync({ force: true }));
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && resync());

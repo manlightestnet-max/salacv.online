@@ -40,7 +40,9 @@
       var body = tab === 'credits' || tab === 'compte'
         ? '<div class="credit-grid">' + b('skel-panel tall') + b('skel-panel') + b('skel-panel wide') + '</div>'
         : (tab === 'projets' || tab === 'personnalites' || !tab ? b('skel-tabs') + b('skel-search') : b('skel-tabs')) + '<div class="cards">' + b('skel-card') + b('skel-card') + b('skel-card') + b('skel-card') + '</div>';
-      document.getElementById('view').innerHTML = '<section class="skel-view" aria-busy="true" aria-label="Chargement">' + b('skel-title') + b('skel-sub') + body + '</section>';
+      var titles = { credits: 'Crédits', compte: 'Mon compte', explorer: 'Explorer' };
+      var head = '<div class="view-head"><div><h1>' + (titles[tab] || 'Mes CV') + '</h1>' + b('skel-sub') + '</div></div>';
+      document.getElementById('view').innerHTML = '<section class="skel-view" aria-busy="true" aria-label="Chargement">' + head + body + '</section>';
     })();
   </script>
 
