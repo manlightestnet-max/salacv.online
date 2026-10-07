@@ -17,6 +17,8 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
   let settle = 0;
   let touching = false;
   let aligning = false;
+  // Seul un geste de l'utilisateur choisit une étape : un recentrage automatique ne doit jamais en changer.
+  let userMoved = false;
 
   const nearest = () => {
     const box = stepper.getBoundingClientRect();
@@ -52,7 +54,7 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
     return r.left + r.width / 2 - (box.left + box.width / 2);
   };
   const stop = () => {
-    if (!on() || touching) return;
+    if (!on() || touching || !userMoved) return;
     const i = nearest();
     const pill = pills()[i];
     if (!pill) return;
@@ -64,13 +66,23 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
       return;
     }
     aligning = false;
+    userMoved = false;
     const active = pills().findIndex((p) => p.classList.contains('active'));
     if (i !== active) onSelect(i);
   };
 
+  // La roue (re)prend sa place : l'étape en cours au centre, sans animation (sinon, à l'arrêt, une autre serait choisie).
   const sync = () => {
     stepper.classList.toggle('wheel', on());
-    if (on()) requestAnimationFrame(paint);
+    if (!on()) return;
+    const center = () => {
+      if (!on() || touching) return;
+      const active = stepper.querySelector('.step-pill.active');
+      if (active) stepper.scrollLeft += offsetOf(active);
+      paint();
+    };
+    requestAnimationFrame(center);
+    setTimeout(center, 350); // une fois la feuille et les polices en place
   };
 
   stepper.addEventListener(
@@ -87,7 +99,9 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
     clearTimeout(settle);
     stop();
   });
-  stepper.addEventListener('touchstart', () => ((touching = true), (aligning = false)), { passive: true });
+  stepper.addEventListener('touchstart', () => ((touching = true), (aligning = false), (userMoved = true)), { passive: true });
+  stepper.addEventListener('wheel', () => (userMoved = true), { passive: true });
+  stepper.addEventListener('pointerdown', () => (userMoved = true), { passive: true });
   const release = () => {
     touching = false;
     clearTimeout(settle);
@@ -105,6 +119,7 @@ export function initStepWheel(stepper, { sheet, onSelect }) {
       if (!pill || pill.classList.contains('centered')) return;
       e.preventDefault();
       e.stopPropagation();
+      userMoved = true;
       stepper.scrollTo({ left: stepper.scrollLeft + offsetOf(pill), behavior: calm.matches ? 'auto' : 'smooth' });
     },
     true,

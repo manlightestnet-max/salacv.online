@@ -3,6 +3,7 @@
 // zoomable partout ; tant que l'étudiant n'a rien saisi, l'exemple s'affiche
 // en grisé pour montrer le format.
 import { syncBrowserBar, toggleTheme } from './lib/theme.js';
+import { trackWait } from './lib/progress.js';
 import { layoutResume } from '../src/index.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
 import { createProject, fetchShared, getPlan, initStore, isPersisted, isShared, getProject, isPro, setPlan, setShared, shareLink, listProjects, projectName, read, saveProject, setPro, write as store } from './lib/store.js';
@@ -80,13 +81,14 @@ const MAX_BACKING_SCALE = 4;
 
 const ASKED_LANG = new URLSearchParams(location.search).get('lang'); // avant que l'URL soit nettoyée
 // Les CV du compte (R2 / base) — ou, pour un visiteur, son bac à sable — sont chargés avant tout.
-await initStore();
+await trackWait(initStore()); // la fine barre court sous la barre d'app pendant ce chargement
 const synced = await offerSandboxSync(); // connecté avec des CV faits sans compte sur cet appareil : les ajouter ?
 const project = await openProject(synced.ids);
 project.variants ??= {};
 let state = project.state;
 let activeLang = state.lang; // onglet de langue affiché (voir langs.js)
 let stepIndex = 0;
+let agentOpen = false; // déclaré tôt : le premier rendu des étapes le lit déjà
 let current = null; // dernier layout valide
 let engine = null; // { CK, fonts, skia } une fois chargé
 let pages = []; // [{ el, surface }]
@@ -129,7 +131,7 @@ setSheet('collapsed');
 // (le CV commence dessous) et à la feuille dépliée (elle se colle dessous). PC : chaque élément garde sa place.
 const topStack = h('div', { class: 'top-stack' });
 function placeTopStack() {
-  const parts = [document.querySelector('.quota-bar'), document.querySelector('.zoombar'), document.querySelector('.topbar')].filter(Boolean);
+  const parts = [document.querySelector('.appbar'), document.querySelector('.quota-bar'), document.querySelector('.zoombar'), document.querySelector('.topbar')].filter(Boolean);
   if (desktop.matches) {
     document.body.append(...parts);
     topStack.remove();
@@ -186,6 +188,20 @@ $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('generate').addEventListener('click', download);
 $('gen-top').addEventListener('click', download);
 initHorizontalScroll($('stepper'));
+// Barre d'app (mobile) : retour là d'où l'on vient (Mes CV), sinon à l'accueil pour un visiteur ; le titre suit le nom du CV.
+{
+  const back = $('app-back');
+  const fromApp = document.referrer.startsWith(location.origin) && history.length > 1;
+  back.href = getSession() ? '/dashboard/' : '/';
+  back.addEventListener('click', (e) => {
+    if (!fromApp) return;
+    e.preventDefault();
+    history.back();
+  });
+  const syncTitle = () => ($('appbar-title').textContent = $('cv-title').textContent.trim() || 'Mon CV');
+  new MutationObserver(syncTitle).observe($('cv-title'), { childList: true, characterData: true, subtree: true });
+  syncTitle();
+}
 // Mobile : étapes en roue (feuille repliée) et glisser horizontal entre étapes (feuille dépliée).
 initStepWheel($('stepper'), { sheet, onSelect: (i) => goTo(i) });
 initSwipeSteps(stepEl, {
@@ -259,7 +275,7 @@ document.addEventListener('keydown', (e) => {
 
 async function initEngine() {
   try {
-    engine = await loadEngine();
+    engine = await trackWait(loadEngine());
     initQuickEdit({
       canvases,
       preview,
@@ -479,7 +495,6 @@ function initKeyboard() {
 
 // --- Assistant ---------------------------------------------------------------
 
-let agentOpen = false;
 let agentPanel = null;
 
 // Le panneau remplace les étapes dans la barre ; le CV modifié par l'agent remplace

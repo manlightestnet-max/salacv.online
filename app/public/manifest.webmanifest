@@ -1,4 +1,6 @@
 {
+  "id": "/",
+  "scope": "/",
   "name": "salacv.online — Fais ton CV en ligne",
   "short_name": "salacv",
   "start_url": "/dashboard/",

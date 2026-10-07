@@ -10,6 +10,7 @@ import { drawDoc, loadEngine } from './lib/engine.js';
 import { initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
 import { openDialog } from './dialog.js';
 import { followOrder, openShop, orderMessage, pendingOrder } from './buy.js';
+import { trackWait } from './lib/progress.js';
 import { offerSandboxSync } from './sync.js';
 import { TEMPLATES, toResume } from './state.js';
 
@@ -70,6 +71,21 @@ function header(title, sub, action) {
   return h('div', { class: 'view-head' }, h('div', {}, h('h1', {}, title), sub && h('p', { class: 'sub' }, sub)), action);
 }
 
+// « Mes CV » réunit les CV et les profils (personnalités), chacun son onglet ; l'indicateur glisse de l'un à l'autre.
+function hubTabs(active) {
+  const nCv = listProjects().length;
+  const nProfiles = listPersonas().length;
+  const tab = (id, label, n) =>
+    h('a', { class: 'hub-tab', href: `#${id}`, role: 'tab', 'aria-selected': String(active === id) }, label, h('span', { class: 'hub-count' }, String(n)));
+  return h(
+    'nav',
+    { class: `hub-tabs${active === 'personnalites' ? ' second' : ''}`, role: 'tablist', 'aria-label': 'Mes CV' },
+    h('span', { class: 'hub-ink', 'aria-hidden': 'true' }),
+    tab('projets', 'CV', nCv),
+    tab('personnalites', 'Profils', nProfiles),
+  );
+}
+
 // --- Mes CV ----------------------------------------------------------------------
 // Recherche sans accents ni majuscules : « jose » trouve « José ».
 const fold = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -124,7 +140,8 @@ function projectsView() {
   return h(
     'section',
     {},
-    header('Mes CV', projects.length ? `${projects.length} CV enregistré${projects.length > 1 ? 's' : ''} sur cet appareil` : 'Tes CV apparaîtront ici.', h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new' }, 'Nouveau CV')),
+    header('Mes CV', projects.length ? `${projects.length} CV enregistré${projects.length > 1 ? 's' : ''}` : 'Tes CV apparaîtront ici.', h('a', { class: 'btn-primary hide-mobile', href: '/studio/?new' }, 'Nouveau CV')),
+    hubTabs('projets'),
     projects.length > 0 && searchBox(),
     h('div', { class: 'cards' }, newCard, cards),
     h('p', { class: 'no-result', hidden: true }, 'Aucun CV ne correspond à ta recherche.'),
@@ -255,8 +272,10 @@ async function creditsView() {
   const { credits, history, offline } = await wallet.balance();
   const gain = gained;
   gained = 0;
-  const amount = h('strong', {}, String(gain ? credits - gain : credits));
-  if (gain) requestAnimationFrame(() => countUp(amount, credits - gain, credits));
+  const amount = h('strong', {}, String(gain ? credits - gain : 0));
+  // Chaque visite : le solde compte depuis zéro (ou depuis l'ancien solde après un achat), l'anneau se remplit.
+  requestAnimationFrame(() => countUp(amount, gain ? credits - gain : 0, credits));
+  const fill = credits > 0 ? Math.max(0.12, Math.min(1, credits / 10)) : 0;
   const recharge = h('button', { type: 'button', class: 'btn-primary recharge', onClick: openRecharge }, h('span', { class: 'coin', 'aria-hidden': 'true' }), 'Recharger');
   const link = inviteLink();
   const copy = h('button', { type: 'button', class: 'btn-ghost' }, 'Copier mon lien');
@@ -281,7 +300,12 @@ async function creditsView() {
       h(
         'div',
         { class: 'panel balance' },
-        h('div', { class: `ring${gain ? ' gained' : ''}`, style: `--r:${credits > 0 ? 1 : 0}` }, h('div', { class: 'ring-in' }, amount, h('small', {}, credits > 1 ? 'crédits' : 'crédit'))),
+        h(
+          'div',
+          { class: `ring${gain ? ' gained' : ''}`, style: `--target:${Math.round(fill * 360)}deg` },
+          h('span', { class: 'orbit', 'aria-hidden': 'true' }, h('i', { class: 'coin' }), h('i', { class: 'coin' }), h('i', { class: 'coin' })),
+          h('div', { class: 'ring-in' }, amount, h('small', {}, credits > 1 ? 'crédits' : 'crédit')),
+        ),
         h(
           'div',
           { class: 'balance-text' },
@@ -303,7 +327,7 @@ async function creditsView() {
         { class: 'panel history' },
         h('strong', {}, 'Historique'),
         history.length
-          ? h('ul', {}, history.map((x) => h('li', {}, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${x.amount}`))))
+          ? h('ul', {}, history.map((x, i) => h('li', { style: `--i:${i}` }, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${x.amount}`))))
           : h('p', { class: 'empty' }, 'Aucune opération pour l’instant.'),
       ),
     ),
@@ -357,7 +381,8 @@ function personasView() {
   return h(
     'section',
     {},
-    header('Personnalités', 'Tes informations, gardées une fois. Technicien dans un CV, médecin dans un autre : tu ne retapes rien.', projects.length > 0 && h('button', { type: 'button', class: 'btn-primary', onClick: fromCv }, 'Créer depuis un CV')),
+    header('Mes CV', 'Tes profils : tes informations gardées une fois, pour démarrer un CV sans rien retaper.', projects.length > 0 && h('button', { type: 'button', class: 'btn-primary', onClick: fromCv }, 'Créer depuis un CV')),
+    hubTabs('personnalites'),
     personas.length
       ? h('div', { class: 'personas' }, cards)
       : h(
@@ -511,10 +536,27 @@ async function accountView() {
 
 const VIEWS = { projets: projectsView, personnalites: personasView, explorer: explorerView, credits: creditsView, compte: accountView };
 
+// Une page qui attend le serveur : sa forme en shimmer tout de suite (jamais d'écran vide ni d'ancien contenu).
+function skeletonView(tab) {
+  const block = (cls) => h('span', { class: `skel ${cls}` });
+  const body =
+    tab === 'credits'
+      ? h('div', { class: 'credit-grid' }, block('skel-panel tall'), block('skel-panel'), block('skel-panel wide'))
+      : h('div', { class: 'cards' }, block('skel-card'), block('skel-card'), block('skel-card'), block('skel-card'));
+  return h('section', { class: 'skel-view', 'aria-busy': 'true', 'aria-label': 'Chargement' }, block('skel-title'), block('skel-sub'), body);
+}
+
+let renderId = 0;
 async function render() {
+  const id = ++renderId;
   const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'projets';
-  document.querySelectorAll('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === tab)));
-  const content = await VIEWS[tab]();
+  // « Profils » vit sous « Mes CV » : c'est l'onglet Mes CV qui s'allume.
+  const navTab = tab === 'personnalites' ? 'projets' : tab;
+  document.querySelectorAll('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === navTab)));
+  const skeleton = setTimeout(() => id === renderId && view.replaceChildren(skeletonView(tab)), 120);
+  const content = await trackWait(VIEWS[tab]());
+  clearTimeout(skeleton);
+  if (id !== renderId) return; // une autre page a été demandée entre-temps
   view.replaceChildren(content);
   view.classList.remove('enter');
   void view.offsetWidth;
@@ -523,7 +565,16 @@ async function render() {
 }
 
 async function refreshCredits() {
-  $('credit-count').textContent = String((await wallet.balance()).credits);
+  const el = $('credit-count');
+  const before = Number(el.textContent);
+  const now = (await wallet.balance()).credits;
+  el.textContent = String(now);
+  if (Number.isFinite(before) && now !== before) {
+    const pill = $('credit-pill');
+    pill.classList.remove('bump');
+    void pill.offsetWidth;
+    pill.classList.add('bump');
+  }
 }
 
 // Un paiement laissé en cours (feuille fermée, page rechargée) : on continue à le suivre en arrière-plan.

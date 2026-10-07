@@ -25,6 +25,12 @@
   <div id="preview" class="preview">
     <div id="canvases"><div class="page-skeleton skeleton"></div></div>
   </div>
+  <!-- Mobile : barre d'app (retour, nom du CV) ; une fine barre court dessous pendant les attentes. -->
+  <header id="appbar" class="appbar">
+    <a id="app-back" class="appbar-back" href="/dashboard/" aria-label="Retour à mes CV"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <strong id="appbar-title" class="appbar-title">Mon CV</strong>
+    <span class="toolbar-progress" aria-hidden="true"></span>
+  </header>
   <!-- En haut : l'aide et les messages. -->
   <div class="topbar">
     <span id="ghost-note" class="ghost-note" hidden>Touche le CV pour modifier · en gris : exemple</span>
@@ -80,6 +86,7 @@
   <div id="sheet-scrim" class="sheet-scrim" aria-hidden="true"></div>
   <section id="sheet" class="sheet" data-state="collapsed" aria-label="Modifier ton CV">
     <div id="grip" class="sheet-grip" aria-hidden="true"><span></span></div>
+    <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
     <header id="sheet-head" class="sheet-head">
       <button id="switch" class="logo-mark" type="button" aria-label="Mes CV : changer de CV" title="Mes CV (5 récents)"><img src="/brand.svg" alt="" width="30" height="30"></button>
       <div class="sheet-title">
@@ -97,7 +104,6 @@
       <button id="cv-open" class="cv-open" type="button" aria-label="Mes CV" title="Mes CV"></button>
       <button id="toggle" class="btn-primary" type="button"></button>
     </header>
-    <nav id="stepper" class="stepper" aria-label="Étapes"></nav>
     <div id="agent-view" class="agent-view" hidden></div>
     <div id="sheet-body" class="sheet-body">
       <div id="step" class="step-scroll"></div>
