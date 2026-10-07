@@ -188,15 +188,47 @@ $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('generate').addEventListener('click', download);
 $('gen-top').addEventListener('click', download);
 initHorizontalScroll($('stepper'));
+// --- Retour (bouton de la barre d'app et retour natif du téléphone) ----------------------------------
+// Comme une app : l'assistant ouvert → il se ferme ; la feuille ouverte → elle se replie ; sinon on demande
+// avant de quitter le studio. Le retour natif est intercepté par une entrée d'historique remise à chaque fois.
+const leaveTo = () => (getSession() ? '/dashboard/' : '/');
+let leaving = false;
+function confirmLeave() {
+  const d = openDialog({
+    title: 'Quitter le studio ?',
+    content: h(
+      'p',
+      { class: 'dlg-text' },
+      getSession() ? 'Ton CV est enregistré : tu le retrouves dans Mes CV.' : 'Sans compte, ton CV reste seulement sur cet appareil. Connecte-toi pour le garder partout.',
+    ),
+    footer: [
+      h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Rester'),
+      h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => ((leaving = true), d.close(), location.assign(leaveTo())) }, 'Quitter'),
+    ],
+  });
+}
+function goBack() {
+  if (document.querySelector('.dialog-backdrop:not(.closing)')) return; // une fenêtre ouverte se ferme d'abord (Échap / retour)
+  if (agentOpen) return closeAgent();
+  if (!desktop.matches && sheet.dataset.state === 'expanded') return setSheet('collapsed');
+  confirmLeave();
+}
+history.pushState({ studio: true }, '', location.href);
+window.addEventListener('popstate', () => {
+  if (leaving) return;
+  history.pushState({ studio: true }, '', location.href);
+  const open = document.querySelector('.dialog-backdrop:not(.closing) .dialog .icon-btn');
+  if (open) return open.click(); // le retour ferme d'abord la fenêtre ouverte
+  goBack();
+});
+
 // Barre d'app (mobile) : retour là d'où l'on vient (Mes CV), sinon à l'accueil pour un visiteur ; le titre suit le nom du CV.
 {
   const back = $('app-back');
-  const fromApp = document.referrer.startsWith(location.origin) && history.length > 1;
-  back.href = getSession() ? '/dashboard/' : '/';
+  back.href = leaveTo();
   back.addEventListener('click', (e) => {
-    if (!fromApp) return;
     e.preventDefault();
-    history.back();
+    goBack();
   });
   const syncTitle = () => ($('appbar-title').textContent = $('cv-title').textContent.trim() || 'Mon CV');
   new MutationObserver(syncTitle).observe($('cv-title'), { childList: true, characterData: true, subtree: true });
@@ -319,6 +351,12 @@ async function initEngine() {
 // --- Bottom sheet (mobile) / barre de gauche (PC) ------------------------------
 
 function setSheet(next) {
+  // Mobile : les étapes (la roue) sont en haut de la feuille repliée, en bas de la feuille ouverte.
+  if (!desktop.matches) {
+    const steps = $('stepper');
+    if (next === 'expanded') $('sheet-body').insertBefore(steps, $('mprogress'));
+    else if (steps.previousElementSibling !== $('grip')) $('grip').after(steps);
+  }
   sheet.dataset.state = next;
   sheet.style.transform = '';
   const open = desktop.matches || next === 'expanded';

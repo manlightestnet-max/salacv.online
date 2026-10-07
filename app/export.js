@@ -10,6 +10,18 @@ import { readSession } from './login.js';
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Petite fête quand le CV est prêt (coupée avec prefers-reduced-motion, en CSS).
+function burst() {
+  const wrap = h('span', { class: 'burst', 'aria-hidden': 'true' });
+  for (let i = 0; i < 14; i++) {
+    const dot = h('i');
+    dot.style.setProperty('--a', `${(360 / 14) * i}deg`);
+    dot.style.setProperty('--d', `${56 + (i % 3) * 16}px`);
+    wrap.append(dot);
+  }
+  return wrap;
+}
+
 function slug(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
@@ -57,7 +69,7 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
 
   // --- 1. Droits (annoncés par le serveur) et choix du format -------------------------------------
   async function choose() {
-    body.replaceChildren(h('p', { class: 'hint' }, 'Vérification de tes droits…'));
+    body.replaceChildren(h('div', { class: 'exp-loading', 'aria-busy': 'true', 'aria-label': 'Vérification de tes droits' }, h('span', { class: 'exp-skel tall' }), h('span', { class: 'exp-skel' }), h('span', { class: 'exp-skel short' })));
     foot.replaceChildren(cancel);
     const { data: info } = await callRender({ state, dryRun: true });
     if (!info.ok) return failure(info.error || 'Impossible de vérifier tes droits.', choose);
@@ -66,14 +78,14 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
     const wordCard = info.wordAllowed
       ? h(
           'button',
-          { type: 'button', class: 'format-card', 'aria-pressed': String(withWord), onClick: () => wordToggle.setAttribute('aria-pressed', String((withWord = !withWord))) },
+          { type: 'button', class: 'format-card word', 'aria-pressed': String(withWord), onClick: () => wordToggle.setAttribute('aria-pressed', String((withWord = !withWord))) },
           h('span', { class: 'format-badge' }, 'DOCX'),
           h('span', { class: 'format-text' }, h('strong', {}, 'Aussi en Word'), h('small', {}, 'Une version modifiable, une colonne')),
           h('span', { class: 'format-check', 'aria-hidden': 'true' }),
         )
       : h(
           'div',
-          { class: 'format-card locked', 'aria-disabled': 'true' },
+          { class: 'format-card locked word', 'aria-disabled': 'true' },
           h('span', { class: 'format-badge' }, 'DOCX'),
           h('span', { class: 'format-text' }, h('strong', {}, 'Word (verrouillé)'), h('small', {}, info.loggedIn ? 'Réservé aux CV débloqués avec un crédit' : 'Réservé aux comptes connectés')),
           icon('lock', 16),
@@ -102,7 +114,8 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
       : h(
           'div',
           { class: 'cost' },
-          info.cost > 0 ? h('span', {}, h('strong', {}, `${info.cost} crédit`), ` · il t'en restera ${info.balance - info.cost}`) : h('span', {}, 'Cette version est déjà préparée : ', h('strong', {}, 'gratuit')),
+          h('span', { class: 'exp-coin', 'aria-hidden': 'true' }),
+          info.cost > 0 ? h('span', {}, h('strong', {}, `${info.cost} crédit`), ` · il t'en restera ${info.balance - info.cost}`) : h('span', {}, 'Déjà préparée : ', h('strong', {}, 'gratuit')),
           h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits'),
         );
 
@@ -119,7 +132,7 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
       cost,
       h('p', { class: 'trial-note' }, 'Phase d’essai : les CV générés sont conservés (sans photo) et utilisés pour améliorer salacv.'),
     );
-    foot.replaceChildren(cancel, h('button', { type: 'button', class: 'btn-primary', 'data-autofocus': true, onClick: () => prepare(watermark) }, watermark ? 'Préparer mon PDF avec filigrane' : 'Préparer mon PDF'));
+    foot.replaceChildren(cancel, h('button', { type: 'button', class: 'btn-primary exp-cta', 'data-autofocus': true, onClick: () => prepare(watermark) }, watermark ? 'Générer (avec filigrane)' : 'Générer mon CV'));
   }
 
   // --- 2. Génération par le serveur, avec progression -----------------------------------------------
@@ -133,10 +146,11 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
       ['done', 'Finalisation'],
     ];
     const rows = steps.map(([id, label]) => h('li', { class: 'progress-step', 'data-id': id }, h('span', { class: 'progress-dot', 'aria-hidden': 'true' }), h('span', {}, label)));
-    const bar = h('div', { class: 'progress-bar' }, h('span'));
     const pct = h('strong', { class: 'progress-pct' }, '0 %');
-    body.replaceChildren(h('div', { class: 'progress-head' }, h('span', {}, 'Préparation en cours'), pct), bar, h('ol', { class: 'progress-steps', 'aria-live': 'polite' }, rows));
-    foot.replaceChildren(h('p', { class: 'hint' }, 'Garde cette fenêtre ouverte, ça prend quelques secondes.'));
+    const ring = h('div', { class: 'exp-ring', style: '--p:0' }, h('div', { class: 'exp-ring-in' }, pct, h('small', {}, 'en cours')));
+    const now = h('p', { class: 'exp-now', 'aria-live': 'polite' }, steps[0][1]);
+    body.replaceChildren(h('div', { class: 'exp-progress' }, ring, now), h('ol', { class: 'progress-steps' }, rows));
+    foot.replaceChildren(h('p', { class: 'hint' }, 'Quelques secondes : garde cette fenêtre ouverte.'));
 
     let i = 0;
     const advance = async (work) => {
@@ -148,8 +162,9 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
       rows[i].classList.replace('active', 'done');
       i++;
       const p = Math.round((i / steps.length) * 100);
-      bar.firstChild.style.width = `${p}%`;
+      ring.style.setProperty('--p', String(p));
       pct.textContent = `${p} %`;
+      if (steps[i]) now.textContent = steps[i][1];
       return result;
     };
 
@@ -184,13 +199,13 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
     const docxBlob = data.files.docx ? toBlob(data.files.docx.base64, MIME.docx) : null;
     const pdfLabel = wm ? 'PDF (avec filigrane)' : 'PDF';
     body.replaceChildren(
-      h('div', { class: 'ready' }, h('span', { class: 'ready-icon', 'aria-hidden': 'true' }), h('strong', {}, wm ? 'Ton CV est prêt (avec filigrane)' : 'Ton CV est prêt'), h('p', {}, desktop ? 'Choisis où l’enregistrer.' : 'Télécharge-le quand tu veux.')),
+      h('div', { class: 'ready' }, h('span', { class: 'ready-icon', 'aria-hidden': 'true' }, burst()), h('strong', {}, wm ? 'Ton CV est prêt (avec filigrane)' : 'Ton CV est prêt !'), h('p', {}, desktop ? 'Choisis où l’enregistrer.' : 'Télécharge-le, il est à toi.')),
       h(
         'div',
         { class: 'ready-files' },
         desktop
           ? fileRow(pdfBlob, `CV-${file}.pdf`, pdfLabel, true)
-          : h('button', { type: 'button', class: 'btn-primary btn-lg', 'data-autofocus': true, onClick: () => save(pdfBlob, `CV-${file}.pdf`) }, `Télécharger le PDF${wm ? ' (avec filigrane)' : ''}`),
+          : h('button', { type: 'button', class: 'btn-primary btn-lg exp-cta', 'data-autofocus': true, onClick: () => save(pdfBlob, `CV-${file}.pdf`) }, `Télécharger le PDF${wm ? ' (avec filigrane)' : ''}`),
         docxBlob && (desktop ? fileRow(docxBlob, `CV-${file}.docx`, 'Word', false) : h('button', { type: 'button', class: 'btn-ghost btn-lg', onClick: () => save(docxBlob, `CV-${file}.docx`) }, 'Télécharger le Word')),
         data.blocked?.docx && h('p', { class: 'hint locked-note' }, icon('lock', 14), ` ${data.blocked.docx}`),
       ),

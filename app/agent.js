@@ -144,7 +144,12 @@ export function createAgentPanel(ctx) {
   function chatView() {
     const list = h('div', { class: 'agent-messages', 'aria-live': 'polite' });
     const input = h('textarea', { class: 'agent-input', rows: 1, placeholder: 'Écris à l’assistant…', 'aria-label': "Message pour l'assistant" });
-    const send = h('button', { class: 'agent-send', type: 'submit', 'aria-label': 'Envoyer', title: 'Envoyer' }, '↑');
+    const send = h('button', { class: 'agent-send', type: 'submit', 'aria-label': 'Envoyer', title: 'Envoyer' });
+    send.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>';
+    // Toucher Envoyer ne retire pas le focus du champ : le clavier reste ouvert et le message part au premier toucher
+    // (avant, le premier toucher ne faisait que fermer le clavier, la mise en page bougeait et l'envoi était perdu).
+    send.addEventListener('pointerdown', (e) => e.preventDefault());
+    send.addEventListener('mousedown', (e) => e.preventDefault());
 
     const intro = h(
       'div',

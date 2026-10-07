@@ -10,7 +10,8 @@ const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 /** stepper : la barre des étapes ; sheet : la feuille (data-state) ; onSelect(i) : l'étape au centre à l'arrêt. */
 export function initStepWheel(stepper, { sheet, onSelect }) {
-  const on = () => mobile.matches && sheet.dataset.state === 'collapsed';
+  // Repliée : la roue est en haut de la feuille ; dépliée : en bas, à la place des pointillés (même roue).
+  const on = () => mobile.matches && !sheet.classList.contains('agent-mode');
   const pills = () => [...stepper.querySelectorAll('.step-pill')];
   let centered = -1;
   let frame = 0;

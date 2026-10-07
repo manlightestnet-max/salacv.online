@@ -346,22 +346,22 @@ html, body { overscroll-behavior: none; }
 
 /* --- Mobile : étapes en roue (feuille repliée), glisser entre étapes (dépliée) --------------------- */
 @media (max-width: 959px) {
-  .sheet[data-state='collapsed'] .stepper.wheel {
+  .stepper.wheel {
     /* Pas de scroll-snap : le recentrage est fait en JS (wheel.js). */
     padding-inline: 50%;
     scrollbar-width: none;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 24%, #000 76%, transparent);
   }
-  .sheet[data-state='collapsed'] .stepper.wheel::-webkit-scrollbar { display: none; }
-  .sheet[data-state='collapsed'] .stepper.wheel .step-pill {
+  .stepper.wheel::-webkit-scrollbar { display: none; }
+  .stepper.wheel .step-pill {
     transform: scale(calc(1 - var(--d, 0) * 0.2));
     opacity: calc(1 - var(--d, 0) * 0.6);
     transition: background-color 0.18s, color 0.18s;
   }
   /* Au centre : l'étape choisie (même pendant que la roue tourne). */
-  .sheet[data-state='collapsed'] .stepper.wheel .step-pill.active:not(.centered) { background: rgb(var(--raised)); color: rgb(var(--gray-700)); }
-  .sheet[data-state='collapsed'] .stepper.wheel .step-pill.centered { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
+  .stepper.wheel .step-pill.active:not(.centered) { background: rgb(var(--raised)); color: rgb(var(--gray-700)); }
+  .stepper.wheel .step-pill.centered { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
 
   .step-scroll.swipe-next { animation: swipe-next 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
   .step-scroll.swipe-prev { animation: swipe-prev 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -374,7 +374,7 @@ html, body { overscroll-behavior: none; }
 .preview.free-zoom #canvases > :last-child { margin-bottom: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .sheet[data-state='collapsed'] .stepper.wheel .step-pill { transform: none; }
+  .stepper.wheel .step-pill { transform: none; }
   .step-scroll.swipe-next, .step-scroll.swipe-prev { animation: none; }
 }
 
@@ -401,16 +401,9 @@ html, body { overscroll-behavior: none; }
   /* Les étapes : la roue tourne à l'horizontale, un geste vertical tire la feuille. */
   .stepper { touch-action: pan-x; }
 
-  /* Étapes en haut de la feuille ; ouverte, seule l'étape choisie reste (les autres s'effacent en se repliant). */
-  .stepper, .sheet[data-state='expanded'] .stepper {
-    max-height: 64px !important; opacity: 1 !important; overflow-x: auto; padding-top: 4px !important; padding-bottom: 6px !important;
-  }
-  .sheet[data-state='expanded'] .stepper { justify-content: center; overflow: hidden; }
-  .stepper .step-pill { transition: max-width 0.35s var(--e-sheet, cubic-bezier(0.32, 0.72, 0, 1)), opacity 0.25s, padding 0.35s, margin 0.35s, background-color 0.2s, color 0.2s; max-width: 220px; }
-  .sheet[data-state='expanded'] .stepper .step-pill:not(.active) { max-width: 0; opacity: 0; padding-left: 0; padding-right: 0; margin: 0 -3px; pointer-events: none; overflow: hidden; }
-  .sheet[data-state='expanded'] .stepper .step-pill.active { animation: pill-stay 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  /* Étapes : la roue, en haut de la feuille repliée et en bas de la feuille ouverte (déplacée par setSheet). */
+  .stepper, .sheet[data-state='expanded'] .stepper { max-height: 64px !important; opacity: 1 !important; overflow-x: auto; padding-top: 4px !important; padding-bottom: 6px !important; }
 }
-@keyframes pill-stay { 40% { transform: scale(1.08); } }
 
 /* Attentes obligatoires : fine barre qui court sous la barre d'outils (voir lib/progress.js). */
 .toolbar-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2.5px; overflow: hidden; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
@@ -420,4 +413,114 @@ html, body { overscroll-behavior: none; }
 @media (prefers-reduced-motion: reduce) {
   .stepper .step-pill, .sheet[data-state='expanded'] .stepper .step-pill.active { transition: none; animation: none; }
   .toolbar-progress::after { animation-duration: 2.5s; }
+}
+
+/* ===== Assistant : bouton, halo, discussion propre ================================================= */
+/* Bouton IA : une pastille à dégradé vivant ; ouvert, elle se remplit et la lumière tourne. */
+@media (max-width: 959px) {
+  .sheet-head .assistant-btn, :root[data-theme] .sheet-head .assistant-btn {
+    position: relative; width: 40px; height: 40px; padding: 0; border-radius: 14px !important; overflow: hidden;
+    background: rgb(var(--accent) / 0.1) !important; color: rgb(var(--accent)); transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .sheet-head .assistant-btn::before {
+    content: ''; position: absolute; inset: -40%; background: conic-gradient(from 0deg, rgb(56 189 248), rgb(var(--accent)), rgb(139 92 246), rgb(236 72 153), rgb(56 189 248));
+    opacity: 0; transition: opacity 0.3s; animation: ai-spin 4s linear infinite;
+  }
+  .sheet-head .assistant-btn[aria-pressed='true'], :root[data-theme] .sheet-head .assistant-btn[aria-pressed='true'] { color: #fff; background: rgb(var(--accent)) !important; }
+  .sheet-head .assistant-btn[aria-pressed='true']::before { opacity: 1; }
+  .assistant-mark { position: relative; width: 40px; height: 40px; animation: none; }
+  .ai-spark { animation: ai-twinkle 2.6s ease-in-out infinite; }
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+@keyframes ai-twinkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.15) rotate(12deg); } }
+
+/* Mode IA : la feuille (repliée ou ouverte) porte un halo animé, comme les grands assistants. */
+.sheet.agent-mode { box-shadow: 0 -10px 40px -12px rgb(var(--accent) / 0.55), 0 -2px 18px -6px rgb(139 92 246 / 0.45); animation: halo 3.2s ease-in-out infinite; }
+.sheet.agent-mode::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; pointer-events: none; z-index: 3; border-radius: inherit;
+  background: linear-gradient(90deg, rgb(56 189 248), rgb(var(--accent)), rgb(139 92 246), rgb(236 72 153), rgb(56 189 248));
+  background-size: 200% 100%; animation: halo-run 2.4s linear infinite;
+}
+@keyframes halo { 50% { box-shadow: 0 -14px 52px -10px rgb(139 92 246 / 0.5), 0 -2px 22px -6px rgb(var(--accent) / 0.55); } }
+@keyframes halo-run { to { background-position: -200% 0; } }
+
+/* Discussion : sans cadres en trop. Une seule pilule pour écrire, pas de contour dans le contour. */
+@media (max-width: 959px) {
+  .sheet.agent-mode .agent-head { display: none; } /* l'en-tête de la feuille dit déjà « Assistant » ; Retour ferme */
+}
+.agent-input, :root[data-theme] .agent-input, .agent-input:focus, .agent-input:focus-visible {
+  border: 0 !important; outline: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important; padding: 9px 0 !important;
+}
+.agent-compose-row, :root[data-theme] .agent-compose-row { border: 0 !important; box-shadow: none !important; background: rgb(var(--raised)); border-radius: 22px; padding: 4px 4px 4px 16px; }
+.agent-compose-row:focus-within { box-shadow: none !important; background: rgb(var(--raised-hover, var(--raised))); }
+.agent-send { width: 38px; height: 38px; transition: opacity 0.15s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.agent-send:not(:disabled):active { transform: scale(0.9); }
+.msg-user, :root[data-theme] .msg-user { border-radius: 20px 20px 6px 20px; box-shadow: 0 6px 16px -10px rgb(var(--accent)); }
+.msg-assistant { padding-left: 2px; }
+.agent-messages { padding-top: 14px; }
+
+/* Feuille ouverte : la roue des étapes en bas, à la place des pointillés. */
+@media (max-width: 959px) {
+  .sheet[data-state='expanded'] .mprogress { display: none !important; }
+  .sheet-body > .stepper { border-top: 1px solid rgb(var(--gray-200)); padding-top: 8px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet.agent-mode, .sheet.agent-mode::after, .sheet-head .assistant-btn::before, .ai-spark { animation: none !important; }
+}
+
+/* ===== Préparer mon CV : tuiles, anneau qui se remplit, réussite qui fête ========================== */
+.export-dialog .dialog-body { gap: 0.8rem; }
+.exp-loading { display: flex; flex-direction: column; gap: 0.6rem; }
+.exp-skel { display: block; height: 64px; border-radius: 16px; background: linear-gradient(100deg, rgb(var(--gray-100)) 30%, rgb(var(--gray-200)) 50%, rgb(var(--gray-100)) 70%); background-size: 200% 100%; animation: exp-shimmer 1.3s linear infinite; }
+.exp-skel.tall { height: 76px; }
+.exp-skel.short { height: 40px; width: 70%; }
+@keyframes exp-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+.export-dialog .format-card, :root[data-theme] .export-dialog .format-card {
+  border-radius: 18px; border: 1.5px solid rgb(var(--gray-200)); padding: 14px; gap: 12px;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s, box-shadow 0.25s; animation: exp-in 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+.export-dialog .format-card.word { animation-delay: 0.06s; }
+.export-dialog .format-card[aria-pressed='true'] { border-color: rgb(var(--accent)); box-shadow: 0 0 0 4px rgb(var(--accent) / 0.12), 0 14px 28px -20px rgb(var(--accent)); }
+.export-dialog button.format-card:active { transform: scale(0.98); }
+.export-dialog .format-badge { width: 44px; height: 52px; border-radius: 10px; display: grid; place-items: center; font: 700 11px var(--font-sans); letter-spacing: 0.04em; color: #fff; background: linear-gradient(160deg, rgb(239 68 68), rgb(220 38 38)); box-shadow: 0 8px 16px -10px rgb(220 38 38); }
+.export-dialog .format-card.word .format-badge { background: linear-gradient(160deg, rgb(59 130 246), rgb(29 78 216)); box-shadow: 0 8px 16px -10px rgb(29 78 216); }
+.export-dialog .format-card.locked { opacity: 0.6; }
+.export-dialog .cost, :root[data-theme] .export-dialog .cost { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: rgb(var(--raised)); animation: exp-in 0.45s 0.12s cubic-bezier(0.34, 1.3, 0.64, 1) both; }
+.exp-coin { flex: none; width: 16px; height: 16px; border-radius: 50%; background: rgb(var(--amber-500)); box-shadow: inset 0 0 0 3px rgb(var(--amber-600)); }
+.export-dialog .cost-link { margin-left: auto; }
+.export-dialog .trial-note { font-size: 11.5px; color: rgb(var(--gray-500)); }
+.exp-cta { position: relative; overflow: hidden; height: 46px; padding: 0 1.3rem; border-radius: 14px; font-weight: 650; box-shadow: 0 12px 26px -14px rgb(var(--accent)); }
+.exp-cta::after { content: ''; position: absolute; inset: 0; transform: translateX(-120%); background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.3) 50%, transparent 65%); animation: exp-shine 3.2s ease-in-out 0.8s infinite; }
+@keyframes exp-shine { 0% { transform: translateX(-120%); } 35%, 100% { transform: translateX(120%); } }
+@keyframes exp-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+
+@property --exp-sweep { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.exp-progress { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 0.6rem 0 0.2rem; }
+.exp-ring {
+  --exp-sweep: calc(var(--p, 0) * 3.6deg); display: grid; place-items: center; width: 132px; height: 132px; border-radius: 50%;
+  background: conic-gradient(rgb(56 189 248), rgb(var(--accent)) var(--exp-sweep), rgb(var(--gray-200)) var(--exp-sweep));
+  transition: --exp-sweep 0.5s cubic-bezier(0.22, 1, 0.36, 1); box-shadow: 0 18px 40px -24px rgb(var(--accent));
+}
+.exp-ring-in { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 112px; height: 112px; border-radius: 50%; background: rgb(var(--surface)); }
+.exp-ring .progress-pct { font: 650 1.6rem var(--font-sans); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.exp-ring small { font-size: 11px; color: rgb(var(--gray-500)); }
+.exp-now { font-size: 0.95rem; font-weight: 600; text-align: center; animation: exp-in 0.3s both; }
+.export-dialog .progress-steps { gap: 0.4rem; }
+.export-dialog .progress-step.done .progress-dot { animation: exp-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); background: rgb(var(--accent)); }
+@keyframes exp-pop { 50% { transform: scale(1.3); } }
+
+.export-dialog .ready-icon { position: relative; animation: exp-badge 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes exp-badge { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
+.export-dialog .ready strong { font-size: 1.25rem; letter-spacing: -0.02em; }
+.export-dialog .burst { position: absolute; inset: 0; pointer-events: none; }
+.export-dialog .burst i { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: rgb(var(--accent)); transform: rotate(var(--a)); animation: exp-burst 0.95s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s forwards; }
+.export-dialog .burst i:nth-child(3n) { background: rgb(var(--amber-500)); }
+.export-dialog .burst i:nth-child(3n + 1) { background: rgb(16 185 129); }
+@keyframes exp-burst { to { transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(0.4); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .exp-skel, .exp-cta::after, .export-dialog .format-card, .export-dialog .cost, .exp-now, .export-dialog .ready-icon, .export-dialog .burst, .export-dialog .progress-step.done .progress-dot { animation: none !important; }
+  .exp-ring { transition: none; }
 }
