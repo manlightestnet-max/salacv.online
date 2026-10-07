@@ -218,7 +218,9 @@ export function createAgentPanel(ctx) {
         return;
       }
       if (!data.ok) {
-        push({ role: 'assistant', text: data.error || 'Une erreur est survenue. Réessaie.', error: true });
+        const node = push({ role: 'assistant', text: data.error || 'Une erreur est survenue. Réessaie.', error: true });
+        // Réserve vide : un lien direct vers Crédits (remise à zéro ou pack IA).
+        if (data.code === 'AI_QUOTA') node.append(h('a', { class: 'btn-primary msg-cta', href: '/dashboard/#credits' }, 'Recharger mon IA'));
         return;
       }
       const changed = Boolean(data.changes?.length);

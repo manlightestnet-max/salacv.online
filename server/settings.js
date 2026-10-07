@@ -15,6 +15,14 @@ export const DEFINITIONS = {
   // Quota d'IA du visiteur non connecté (tokens, une seule fois) : par session et par adresse IP.
   'quota.anonTokens': { default: '250000', secret: false, public: false, label: 'Visiteur : tokens IA par session' },
   'quota.ipTokens': { default: '250000', secret: false, public: false, label: 'Visiteur : tokens IA par adresse IP' },
+  // Comptes connectés : réserve de tokens, sans recharge automatique (remise à zéro payante ou packs IA).
+  'ai.userTokens': { default: '200000', secret: false, public: false, label: 'Compte : réserve de tokens IA' },
+  'ai.resetCost': { default: '0.5', secret: false, public: false, label: 'Remise à zéro de l’IA : prix en crédits' },
+  // Coordonnées de salacv, affichées sur le site (pied de page, aide) ; vide = n'apparaît pas. Validées dans contact.js.
+  'contact.email': { default: '', secret: false, public: true, label: 'E-mail' },
+  'contact.whatsapp': { default: '', secret: false, public: true, label: 'WhatsApp' },
+  'contact.facebook': { default: '', secret: false, public: true, label: 'Facebook' },
+  'contact.tiktok': { default: '', secret: false, public: true, label: 'TikTok' },
   // Connexion Google (Firebase) : valeurs publiques par nature, servies au site à l'exécution.
   'firebase.apiKey': { default: '', secret: false, public: true, label: 'Firebase : clé web (apiKey)' },
   'firebase.authDomain': { default: 'lightpay-a5f01.firebaseapp.com', secret: false, public: true, label: 'Firebase : authDomain' },

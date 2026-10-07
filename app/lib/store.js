@@ -153,6 +153,9 @@ const flushOnLeave = () => {
 window.addEventListener('pagehide', flushOnLeave);
 document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flushOnLeave());
 
+// Des modifications pas encore envoyées au serveur (on ne recharge pas la liste par-dessus).
+export const hasPending = () => dirty.size > 0 || Boolean(timer);
+
 // À appeler au démarrage de chaque page (avant d'utiliser les projets).
 export async function initStore() {
   mem.projects = {};
@@ -361,6 +364,18 @@ const post = async (route, body = {}) => {
   } catch {
     return { ok: false, error: 'Pas de connexion. Réessaie.' };
   }
+};
+
+// Crédits au dixième près, à la française : 2,5 ; 3.
+export const formatCredits = (n) => String(Math.round(Number(n || 0) * 10) / 10).replace('.', ',');
+
+// IA du compte : sa réserve (se vide à chaque échange, sans recharge automatique), remise à zéro et packs IA en crédits.
+export const ai = {
+  // → { quota: { percent, remaining, limit, exhausted }, resetCost, balance, packs: [{ id, name, tokens, credits, days }] }
+  quota: () => post('ai-quota'),
+  // → { ok, balance, quota } | { ok: false, code: 'NO_CREDIT', error }
+  reset: () => post('ai-reset'),
+  buy: (packId) => post('ai-buy', { packId }),
 };
 
 export const shop = {

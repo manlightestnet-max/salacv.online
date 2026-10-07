@@ -151,6 +151,30 @@ export const STATEMENTS = [
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (username, key)
   )`,
+  // Crédits au dixième près (la remise à zéro de l'IA coûte 0,5 crédit). Rejouer ces lignes ne change rien.
+  `ALTER TABLE credits ALTER COLUMN balance TYPE numeric(12,1)`,
+  `ALTER TABLE credit_ledger ALTER COLUMN delta TYPE numeric(12,1)`,
+  `ALTER TABLE credit_ledger ALTER COLUMN balance_after TYPE numeric(12,1)`,
+
+  // IA des comptes : tokens utilisés depuis la dernière remise à zéro, plafond propre au compte (admin).
+  `CREATE TABLE IF NOT EXISTS ai_allowance (
+    username text PRIMARY KEY,
+    used bigint NOT NULL DEFAULT 0,
+    custom_limit bigint,
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  // Tokens ajoutés à la réserve : packs IA achetés (éventuellement limités dans le temps), cadeaux de l'admin.
+  `CREATE TABLE IF NOT EXISTS ai_grants (
+    id bigserial PRIMARY KEY,
+    username text NOT NULL,
+    tokens bigint NOT NULL,
+    reason text NOT NULL,
+    ref text UNIQUE,
+    expires_at timestamptz,
+    at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS ai_grants_user_idx ON ai_grants (username)`,
+
   // Achats de crédits payés par LightPay : une commande par paiement. Les crédits sont ajoutés une seule fois
   // (référence « order:<id> » dans credit_ledger), par le webhook ou par la vérification du client.
   `CREATE TABLE IF NOT EXISTS credit_orders (

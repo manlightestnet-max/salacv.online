@@ -9,6 +9,7 @@ import { h } from './dom.js';
 import { TEMPLATES } from './state.js';
 import { readSession } from './login.js';
 import { initSession } from './session.js';
+import { initShowcase } from './landing-showcase.js';
 
 const $ = (id) => document.getElementById(id);
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -158,8 +159,34 @@ const configReady = post('config')
   .then((r) => {
     const i = papers.findIndex((p) => p.id === r.config?.['studio.defaultTemplate']);
     if (i > 0) firstTemplate = i;
+    renderContact(r.config ?? {});
   })
   .catch(() => {});
+
+// --- Coordonnées (admin) : e-mail, WhatsApp, Facebook, TikTok, avec le logo de chacun ---------------------------
+const SOCIAL = {
+  'contact.email': { label: 'E-mail', href: (v) => `mailto:${v}`, icon: '<rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' },
+  'contact.whatsapp': {
+    label: 'WhatsApp',
+    href: (v) => `https://wa.me/${v.replace(/\D/g, '')}`,
+    icon: '<path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path fill="currentColor" d="M8.9 8.3c.2-.4.5-.5.8-.5h.5c.2 0 .4.1.5.4l.7 1.7c.1.2 0 .4-.1.6l-.5.6c-.1.1-.2.3 0 .5.7 1.2 1.7 2.1 2.9 2.7.2.1.4.1.5-.1l.6-.7c.2-.2.4-.2.6-.1l1.7.8c.2.1.4.2.4.4 0 .6-.2 1.3-.7 1.7-.6.5-1.5.7-2.3.5-1.6-.4-3.1-1.3-4.3-2.5-1.1-1.1-1.9-2.4-2.3-3.8-.2-.9 0-1.7.5-2.3z"/>',
+  },
+  'contact.facebook': { label: 'Facebook', href: (v) => v, icon: '<path fill="currentColor" d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.3H8v3h2.5V21z"/>' },
+  'contact.tiktok': { label: 'TikTok', href: (v) => v, icon: '<path fill="currentColor" d="M16.6 3c.3 2.3 1.7 3.8 3.9 4v3c-1.4.1-2.7-.3-3.9-1.1v6.4c0 3.3-2.6 5.7-5.7 5.7a5.7 5.7 0 0 1-1-11.3v3.1a2.6 2.6 0 1 0 1.8 2.5V3z"/>' },
+};
+function renderContact(config) {
+  const links = Object.entries(SOCIAL)
+    .filter(([key]) => String(config[key] ?? '').trim())
+    .map(([key, s]) => {
+      const value = config[key].trim();
+      const a = h('a', { class: 'social', href: s.href(value), 'aria-label': `${s.label} : ${value.replace(/^https:\/\/(www\.)?/, '')}`, title: s.label, ...(key === 'contact.email' ? {} : { target: '_blank', rel: 'noopener' }) });
+      a.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">${s.icon}</svg>`;
+      return a;
+    });
+  if (!links.length) return;
+  $('foot-contact').replaceChildren(...links);
+  $('foot-contact').hidden = false;
+}
 
 Promise.all([loadEngine(), configReady])
   .then(([e]) => {
@@ -170,6 +197,7 @@ Promise.all([loadEngine(), configReady])
     show(firstTemplate);
     restart();
     renderMarquee();
+    initShowcase(engine, example);
   })
   .catch((err) => {
     console.error(err);

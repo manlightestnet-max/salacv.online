@@ -21,6 +21,8 @@ import { r2Configured } from './r2.js';
 import { db } from './db/index.js';
 import { getSetting } from './settings.js';
 import { checkPacks, connectFinish, connectStart, lightpayConfig, listPacks, recentOrders, salesStats, savePacks } from './shop.js';
+import { adminSetAi, allowances, checkAiPacks, listAiPacks, saveAiPacks } from './aiquota.js';
+import { CONTACT_KEYS, checkContact } from './contact.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -164,8 +166,41 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
         },
       ];
     }
-    case 'users':
-      return [200, { ok: true, users: await listUsers() }];
+    case 'users': {
+      const reserve = await allowances(env);
+      return [200, { ok: true, users: (await listUsers()).map((u) => ({ ...u, ai: reserve[u.username] ?? null })), userTokens: await getSetting('ai.userTokens', env) }];
+    }
+    case 'setUserAi': {
+      const name = String(payload.username ?? '');
+      if (!(await getUser(name))) return [404, { ok: false, error: 'Utilisateur introuvable.' }];
+      const r = await adminSetAi(name, { reset: payload.reset === true, customLimit: payload.customLimit, addTokens: payload.addTokens });
+      if (!r.ok) return [400, r];
+      await log('IA d’un compte modifiée', `${name}${payload.reset ? ' · remise à zéro' : ''}${payload.customLimit !== undefined ? ` · plafond ${payload.customLimit === null || payload.customLimit === '' ? 'général' : payload.customLimit}` : ''}${payload.addTokens ? ` · +${payload.addTokens} tokens` : ''}`);
+      return [200, { ok: true }];
+    }
+    case 'ai':
+      return [200, { ok: true, aiPacks: await listAiPacks(), settings: (await listSettings(env)).filter((x) => x.key.startsWith('ai.')) }];
+    case 'contact':
+      return [200, { ok: true, settings: (await listSettings(env)).filter((x) => CONTACT_KEYS.includes(x.key)) }];
+    case 'saveContact': {
+      // Tout ou rien : un champ invalide, rien n'est enregistré (le message dit lequel).
+      const values = {};
+      for (const key of CONTACT_KEYS) {
+        const r = checkContact(key, payload.values?.[key]);
+        if (!r.ok) return [400, { ok: false, error: r.error, field: key }];
+        values[key] = r.value;
+      }
+      for (const key of CONTACT_KEYS) await setSetting(key, values[key], env);
+      await log('Coordonnées modifiées', CONTACT_KEYS.map((k) => `${k.slice(8)} ${values[k] ? 'renseigné' : 'vide'}`).join(' · '));
+      return [200, { ok: true, settings: (await listSettings(env)).filter((x) => CONTACT_KEYS.includes(x.key)) }];
+    }
+    case 'saveAiPacks': {
+      const r = checkAiPacks(payload.packs);
+      if (!r.ok) return [400, { ok: false, error: r.error }];
+      await saveAiPacks(r.packs);
+      await log('Packs IA modifiés', r.packs.map((p) => `${p.name} : ${p.tokens} tokens, ${p.credits} cr.${p.days ? `, ${p.days} j` : ''}${p.active ? '' : ' (retiré)'}`).join(' · ') || 'aucun');
+      return [200, { ok: true, packs: r.packs }];
+    }
     case 'block':
     case 'unblock': {
       const name = String(payload.username ?? '');
@@ -239,7 +274,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     // --- Boutique de crédits et paiement LightPay ----------------------------------------------
     case 'shop': {
       const cfg = await lightpayConfig(env);
-      return [200, { ok: true, packs: await listPacks(), orders: await recentOrders(100), stats: await salesStats(), lightpay: { env: cfg.env, ready: cfg.ready, key: Boolean(cfg.key), payee: cfg.payee }, settings: (await listSettings(env)).filter((x) => x.key.startsWith('lightpay.')) }];
+      return [200, { ok: true, aiPacks: await listAiPacks(), packs: await listPacks(), orders: await recentOrders(100), stats: await salesStats(), lightpay: { env: cfg.env, ready: cfg.ready, key: Boolean(cfg.key), payee: cfg.payee }, settings: (await listSettings(env)).filter((x) => x.key.startsWith('lightpay.')) }];
     }
     case 'savePacks': {
       const r = checkPacks(payload.packs);
@@ -265,6 +300,13 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       const key = String(payload.key ?? '');
       if (!DEFINITIONS[key]) return [400, { ok: false, error: 'Réglage inconnu.' }];
       if ((key.startsWith('quota.') || key.startsWith('grant.')) && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
+      if (key.startsWith('contact.')) {
+        const c = checkContact(key, payload.value);
+        if (!c.ok) return [400, { ok: false, error: c.error }];
+        payload.value = c.value;
+      }
+      if (key === 'ai.userTokens' && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
+      if (key === 'ai.resetCost' && !(Number(String(payload.value).replace(',', '.')) >= 0)) return [400, { ok: false, error: 'Prix en crédits attendu (ex. 0,5).' }];
       if (key === 'studio.defaultTemplate' && !/^[a-z0-9-]{1,40}$/.test(String(payload.value))) return [400, { ok: false, error: 'Modèle inconnu.' }];
       if (key === 'lightpay.env' && !['sandbox', 'production'].includes(String(payload.value))) return [400, { ok: false, error: 'Environnement : sandbox ou production.' }];
       if (key === 'lightpay.testers' && String(payload.value).split(/[\s,;]+/).filter(Boolean).some((e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))) return [400, { ok: false, error: 'Comptes de test : des e-mails séparés par des virgules.' }];

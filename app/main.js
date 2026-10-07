@@ -21,7 +21,7 @@ import { h, icon, fieldIndex, setInputError } from './dom.js';
 import { STEPS, reviewIssues, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
 import { askAgent } from './ai.js';
-import { initQuotaBar } from './quotabar.js';
+import { initAiMeter, initQuotaBar } from './quotabar.js';
 import { getSession, initSession } from './session.js';
 import { registerTemplate } from '../src/templates/index.js';
 import { templateFromSpec } from '../src/templates/spec.js';
@@ -32,6 +32,7 @@ import { initStepWheel, initSwipeSteps } from './wheel.js';
 const $ = (id) => document.getElementById(id);
 await initSession(); // qui est connecté ? (le serveur le sait par son cookie)
 initQuotaBar();
+initAiMeter(document.getElementById('appbar'));
 const root = document.documentElement;
 let stepAi = false;
 let aiProposal = null; // { step, before, changed } : suggestion de l'IA en attente de Garder / Annuler
@@ -165,7 +166,11 @@ preview.addEventListener('click', (e) => {
   if (desktop.matches || hadSelection || workspace?.on || sheet.dataset.state === 'expanded') return;
   const at = e.timeStamp;
   // On attend : si un second toucher arrive, c'est un double toucher (zoom), pas un plein écran.
-  setTimeout(() => doubleTapAt < at && root.classList.toggle('immersive'), 330);
+  setTimeout(() => {
+    if (doubleTapAt >= at) return;
+    root.classList.toggle('immersive');
+    requestAnimationFrame(measureTop); // la barre d'app part aussi : la pile du haut remonte
+  }, 330);
 });
 renderStep();
 initEngine();
@@ -247,6 +252,24 @@ initSwipeSteps(stepEl, {
 $('zoom-in').addEventListener('click', () => zoomBy(ZOOM.step));
 $('zoom-out').addEventListener('click', () => zoomBy(1 / ZOOM.step));
 $('zoom-fit').addEventListener('click', zoomFit);
+
+// Mode concentré : la barre du haut (retour et nom du CV sur mobile ; nom, enregistrement et boutons du panneau sur PC)
+// disparaît, il ne reste que le studio et sa barre d'outils. Le bouton ou Échap la font revenir. Choix retenu.
+const FOCUS_KEY = 'salacv:focus';
+function setFocusMode(on) {
+  root.classList.toggle('focus-mode', on);
+  $('focus-mode').setAttribute('aria-pressed', String(on));
+  $('focus-mode').title = on ? 'Quitter le mode concentré (Échap)' : 'Mode concentré : cache la barre du haut (Échap pour revenir)';
+  store(FOCUS_KEY, on ? '1' : '0');
+  requestAnimationFrame(measureTop); // la pile du haut remonte : l'aperçu et la feuille suivent
+}
+$('focus-mode').addEventListener('click', () => setFocusMode(!root.classList.contains('focus-mode')));
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || e.defaultPrevented || !root.classList.contains('focus-mode')) return;
+  if (document.querySelector('.dialog-backdrop, .qe-bar:not([hidden])') || e.target.closest?.('input, textarea, [contenteditable]')) return;
+  setFocusMode(false);
+});
+if (read(FOCUS_KEY) === '1') setFocusMode(true);
 $('zoom-label').addEventListener('click', () => (workspace?.on ? workspace.setZoom(1) : setZoom(1)));
 $('final-view').addEventListener('click', () => {
   finalView = !finalView;
@@ -360,7 +383,10 @@ function setSheet(next) {
   sheet.dataset.state = next;
   sheet.style.transform = '';
   const open = desktop.matches || next === 'expanded';
-  if (open) root.classList.remove('immersive');
+  if (open && root.classList.contains('immersive')) {
+    root.classList.remove('immersive');
+    requestAnimationFrame(measureTop);
+  }
   // Mobile : un chevron standard pour déplier / replier (il se retourne une fois déplié), pas de bouton texte.
   if (desktop.matches) $('toggle').replaceChildren();
   else if (!$('toggle').querySelector('svg')) $('toggle').replaceChildren(icon('chevronUp', 22));
@@ -1032,7 +1058,8 @@ function update() {
 // --- Choix du modèle ------------------------------------------------------------
 // Une carte par modèle, avec une miniature du CV de l'étudiant dans ce modèle.
 
-const THUMB = { w: 42, h: 59 };
+// Cartes de la fenêtre « Modèle » : la miniature du CV en grand, le nom dessous (dessinée à cette taille, nette).
+const THUMB = { w: 150, h: 212 };
 function makeThumb(t) {
   const canvas = h('canvas', { class: 'tpl-thumb', 'aria-hidden': 'true' });
   const card = h(
@@ -1050,8 +1077,8 @@ function makeThumb(t) {
         if (STEPS[stepIndex].id === 'identite' && !agentOpen) renderStep();
       },
     },
-    canvas,
-    h('span', {}, t.name),
+    h('span', { class: 'tpl-paper' }, canvas, h('span', { class: 'tpl-check', 'aria-hidden': 'true' })),
+    h('span', { class: 'tpl-name' }, t.name),
   );
   return { id: t.id, canvas, card, surface: null };
 }

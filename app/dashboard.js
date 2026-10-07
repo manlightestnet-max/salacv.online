@@ -7,10 +7,12 @@ import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
 import { h } from './dom.js';
 import { drawDoc, loadEngine } from './lib/engine.js';
-import { initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
+import { ai, formatCredits, hasPending, initStore, deletePersona, deleteProject, duplicateProject, inviteLink, listPersonas, listProjects, projectName, relativeDate, savePersona, wallet } from './lib/store.js';
+import { initPullRefresh } from './lib/pullrefresh.js';
 import { openDialog } from './dialog.js';
 import { followOrder, openShop, orderMessage, pendingOrder } from './buy.js';
 import { trackWait } from './lib/progress.js';
+import { openZoom } from './lib/zoomview.js';
 import { offerSandboxSync } from './sync.js';
 import { TEMPLATES, toResume } from './state.js';
 
@@ -202,11 +204,23 @@ function explorerView() {
   const chips = ['tous', 'gratuits', 'premium'].map((f) =>
     h('button', { type: 'button', class: 'chip', 'aria-pressed': String(filter === f), onClick: () => ((filter = f), render()) }, f[0].toUpperCase() + f.slice(1)),
   );
+  // Toucher un modèle l'agrandit : la page entière, nette, redessinée par le moteur.
+  const zoom = (t, from) => {
+    if (!engine) return;
+    const r = layoutResume({ ...example, template: t.id }, engine.fonts);
+    if (!r.ok) return;
+    openZoom({ engine, doc: r.doc, from, title: t.name, sub: DESCRIPTIONS[t.id] ?? '', actions: [h('a', { class: 'btn-primary', href: `/studio/?new&template=${t.id}` }, 'Utiliser ce modèle')] });
+  };
   const free = TEMPLATES.map((t) =>
     h(
       'article',
       { class: 'card format' },
-      h('div', { class: 'paper-wrap' }, thumb({ ...example, template: t.id }, 172)),
+      h(
+        'button',
+        { type: 'button', class: 'paper-wrap zoomable', 'aria-label': `Agrandir le modèle ${t.name}`, onClick: (e) => zoom(t, e.currentTarget.querySelector('canvas')) },
+        thumb({ ...example, template: t.id }, 172),
+        h('span', { class: 'zoom-hint', 'aria-hidden': 'true' }, 'Agrandir'),
+      ),
       h('div', { class: 'format-info' }, h('div', {}, h('strong', {}, t.name), h('span', { class: 'tag' }, 'Gratuit')), h('p', {}, DESCRIPTIONS[t.id] ?? '')),
       h('a', { class: 'btn-ghost', href: `/studio/?new&template=${t.id}` }, 'Utiliser ce modèle'),
     ),
@@ -238,7 +252,7 @@ let gained = 0;
 
 // Payé : le solde se met à jour partout, tout de suite (pastille du haut, anneau de la page Crédits).
 function creditsArrived(order) {
-  $('credit-count').textContent = String(order.balance ?? '');
+  setPill(order.balance);
   gained = order.credits;
   // La page Crédits est à l'écran (quelle que soit l'adresse) : on la redessine, l'anneau compte jusqu'au nouveau solde.
   if (view.querySelector('.balance')) render();
@@ -252,7 +266,8 @@ function countUp(el, from, to) {
   const start = performance.now();
   const step = (now) => {
     const t = Math.min(1, (now - start) / 700);
-    el.textContent = String(Math.round(from + (to - from) * (1 - (1 - t) ** 3)));
+    const v = from + (to - from) * (1 - (1 - t) ** 3);
+    el.textContent = formatCredits(Number.isInteger(to) && Number.isInteger(from) ? Math.round(v) : v);
     if (t < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -270,10 +285,10 @@ async function creditsView() {
   }
   const notice = flash;
   flash = '';
-  const { credits, history, offline } = await wallet.balance();
+  const [{ credits, history, offline }, reserve] = await Promise.all([wallet.balance(), ai.quota()]);
   const gain = gained;
   gained = 0;
-  const amount = h('strong', {}, String(gain ? credits - gain : 0));
+  const amount = h('strong', {}, formatCredits(gain ? credits - gain : 0));
   // Chaque visite : le solde compte depuis zéro (ou depuis l'ancien solde après un achat), l'anneau se remplit.
   requestAnimationFrame(() => countUp(amount, gain ? credits - gain : 0, credits));
   const fill = credits > 0 ? Math.max(0.12, Math.min(1, credits / 10)) : 0;
@@ -310,11 +325,12 @@ async function creditsView() {
         h(
           'div',
           { class: 'balance-text' },
-          h('strong', {}, credits ? `${credits} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit'),
+          h('strong', {}, credits ? `${formatCredits(credits)} crédit${credits > 1 ? 's' : ''} disponible${credits > 1 ? 's' : ''}` : 'Plus de crédit'),
           h('p', {}, credits ? 'Un crédit par nouvelle version de ton CV.' : 'Sans crédit, ton PDF sort avec filigrane.'),
           recharge,
         ),
       ),
+      reserve.ok && aiPanel(reserve),
       h(
         'div',
         { class: 'panel invite' },
@@ -328,12 +344,73 @@ async function creditsView() {
         { class: 'panel history' },
         h('strong', {}, 'Historique'),
         history.length
-          ? h('ul', {}, history.map((x, i) => h('li', { style: `--i:${i}` }, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${x.amount}`))))
+          ? h('ul', {}, history.map((x, i) => h('li', { style: `--i:${i}` }, h('span', {}, x.reason), h('span', { class: 'mono' }, relativeDate(x.at)), h('strong', { class: x.amount < 0 ? 'neg' : 'pos' }, `${x.amount > 0 ? '+' : ''}${formatCredits(x.amount)}`))))
           : h('p', { class: 'empty' }, 'Aucune opération pour l’instant.'),
       ),
     ),
   );
 }
+
+// --- IA du compte ------------------------------------------------------------------------
+// La réserve se vide à chaque échange avec l'assistant et ne se recharge pas seule : on la remet à zéro (prix fixé
+// dans l'admin, 0,5 crédit) ou on prend un pack IA (créés par l'admin). Pas assez de crédits : la recharge s'ouvre,
+// et l'achat se termine tout seul dès que le paiement est confirmé.
+const tokensFr = (n) => `${Number(n).toLocaleString('fr-FR')} tokens`;
+const creditsFr = (n) => `${formatCredits(n)} crédit${n > 1 ? 's' : ''}`;
+
+function aiPanel({ quota, resetCost, packs }) {
+  const left = Math.max(0, 100 - quota.percent);
+  const status = h('p', { class: 'ai-status', role: 'status' });
+  const run = (button, action, done) => async () => {
+    button.disabled = true;
+    status.textContent = '';
+    const r = await action();
+    button.disabled = false;
+    if (r.ok) return finished(r, done);
+    if (r.code !== 'NO_CREDIT') return (status.textContent = r.error || 'Impossible pour l’instant. Réessaie.');
+    openShop({
+      keyAccount: readSession()?.kind === 'key',
+      note: `${r.error} Recharge : ${done.toLowerCase()} dès que le paiement est confirmé.`,
+      onPaid: async (order) => {
+        setPill(order.balance);
+        const again = await action();
+        if (again.ok) return finished(again, done);
+        flash = again.error || 'Crédits ajoutés, mais l’achat n’a pas abouti : réessaie depuis Crédits.';
+        render();
+      },
+    });
+  };
+  const finished = (r, done) => {
+    setPill(r.balance);
+    publishAi(r.quota);
+    flash = done;
+    render();
+  };
+  const reset = h('button', { type: 'button', class: 'btn-primary', disabled: quota.percent === 0 || null }, `Réinitialiser la progression · ${creditsFr(resetCost)}`);
+  reset.addEventListener('click', run(reset, ai.reset, 'Ton IA est remise à zéro.'));
+  const tiles = packs.map((p) => {
+    const take = h('button', { type: 'button', class: 'btn-ghost' }, creditsFr(p.credits));
+    take.addEventListener('click', run(take, () => ai.buy(p.id), `${p.name} ajouté à ton IA.`));
+    return h('li', { class: 'ai-pack' }, h('div', {}, h('strong', {}, p.name), h('small', {}, `${tokensFr(p.tokens)} · ${p.days ? `${p.days} jours` : 'sans limite de temps'}`)), take);
+  });
+  return h(
+    'div',
+    { class: 'panel ai-panel' },
+    h('div', { class: 'ai-top' }, h('strong', {}, 'Assistant IA'), h('span', { class: 'mono' }, quota.exhausted ? 'vide' : `${left} % restant`)),
+    h('div', { class: `ai-gauge${left <= 20 ? ' low' : ''}${quota.exhausted ? ' out' : ''}`, role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(left), 'aria-label': 'Réserve de l’IA' }, h('span', { style: `--left:${left}%` })),
+    h('p', {}, quota.exhausted ? 'Ta réserve est vide : remets-la à zéro ou prends un pack pour continuer avec l’assistant.' : 'Elle se vide à chaque échange avec l’assistant et ne se recharge pas seule.'),
+    h('div', { class: 'row' }, reset),
+    tiles.length > 0 && h('ul', { class: 'ai-packs' }, tiles),
+    status,
+  );
+}
+
+// Le studio (barre de l'IA) se met à jour s'il est ouvert dans un autre onglet.
+const publishAi = (quota) => {
+  try {
+    if (quota) localStorage.setItem('salacv:ai-quota', JSON.stringify({ ...quota, at: Date.now() }));
+  } catch {}
+};
 
 // --- Navigation --------------------------------------------------------------------
 // --- Personnalités --------------------------------------------------------------------
@@ -515,7 +592,7 @@ async function accountView() {
       { class: 'stats' },
       stat(nCv, nCv > 1 ? 'CV enregistrés' : 'CV enregistré', '#projets'),
       stat(nPersonas, nPersonas > 1 ? 'personnalités' : 'personnalité', '#personnalites'),
-      stat(credits, credits > 1 ? 'crédits' : 'crédit', '#credits'),
+      stat(formatCredits(credits), credits > 1 ? 'crédits' : 'crédit', '#credits'),
     ),
     h('div', { class: 'panel' }, h('strong', {}, 'Détails'), h('dl', { class: 'facts' }, facts.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v))))),
     h(
@@ -565,11 +642,19 @@ async function render() {
   refreshCredits();
 }
 
+// Pastille du haut : le solde (au dixième) ; la valeur exacte est gardée à part pour comparer.
+function setPill(balance) {
+  const el = $('credit-count');
+  if (balance == null) return;
+  el.dataset.v = String(balance);
+  el.textContent = formatCredits(balance);
+}
+
 async function refreshCredits() {
   const el = $('credit-count');
-  const before = Number(el.textContent);
+  const before = el.dataset.v === undefined ? NaN : Number(el.dataset.v);
   const now = (await wallet.balance()).credits;
-  el.textContent = String(now);
+  setPill(now);
   if (Number.isFinite(before) && now !== before) {
     const pill = $('credit-pill');
     pill.classList.remove('bump');
@@ -590,6 +675,21 @@ window.addEventListener('hashchange', () => {
   window.scrollTo({ top: 0 });
 });
 render();
+
+// Toujours à jour : en revenant sur l'app (autre onglet, studio, page de paiement, retour arrière), la liste et le
+// solde sont relus sur le serveur et la page redessinée. Jamais par-dessus des modifications pas encore envoyées.
+let lastSync = Date.now();
+async function resync({ force = false } = {}) {
+  if (hasPending() || (!force && Date.now() - lastSync < 4000)) return;
+  lastSync = Date.now();
+  await initStore();
+  await render();
+}
+window.addEventListener('pageshow', (e) => e.persisted && resync({ force: true }));
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && resync());
+window.addEventListener('focus', () => resync());
+// Appli installée : pas de « tirer pour actualiser » natif, on le fait nous-mêmes.
+initPullRefresh(() => resync({ force: true }));
 
 loadEngine()
   .then((e) => {

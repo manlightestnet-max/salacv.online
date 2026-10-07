@@ -474,3 +474,6 @@ body:has(.dialog-backdrop) .quota-bar { z-index: 40; }
 .share-copy[hidden] { display: none; }
 .cv-mine { margin-top: 0.9rem; width: 100%; }
 @media (min-width: 960px) { .cv-mine { display: none; } }
+
+/* Recharge ouverte pour terminer un achat (pack IA, remise à zéro) : ce qui se passera une fois payé. */
+.shop-note { margin: 0 0 0.6rem; padding: 10px 12px; border-radius: 12px; background: rgb(var(--accent) / 0.1); font-size: 13px; line-height: 1.4; }

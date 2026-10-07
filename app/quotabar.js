@@ -35,3 +35,34 @@ export function initQuotaBar() {
 }
 
 export const publishQuota = (quota) => quota && window.dispatchEvent(new CustomEvent('salacv:quota', { detail: quota }));
+
+// Mobile, mode IA : une fine jauge au bas de la barre d'app, la réserve de l'IA (compte ou visiteur). Elle se vide à
+// chaque réponse et vire au rouge quand il ne reste presque rien. Mise à jour par les réponses de l'assistant, et par
+// le tableau de bord (remise à zéro, pack IA) s'il est ouvert dans un autre onglet.
+export function initAiMeter(appbar) {
+  if (!appbar) return;
+  const fill = h('i');
+  const meter = h('span', { class: 'ai-meter', role: 'meter', 'aria-label': 'Réserve de l’IA', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: true }, fill);
+  appbar.append(meter);
+  const show = (q) => {
+    if (!q || q.percent == null) return;
+    const left = q.exhausted ? 0 : Math.max(0, Math.min(100, 100 - q.percent));
+    meter.hidden = false;
+    meter.setAttribute('aria-valuenow', String(left));
+    fill.style.width = `${left}%`;
+    meter.classList.toggle('low', left <= 20 && left > 0);
+    meter.classList.toggle('out', left === 0);
+  };
+  window.addEventListener('salacv:quota', (e) => show(e.detail));
+  window.addEventListener('storage', (e) => {
+    if (e.key !== 'salacv:ai-quota' || !e.newValue) return;
+    try {
+      show(JSON.parse(e.newValue));
+    } catch {}
+  });
+  if (desktop()) return;
+  fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .then((r) => r.json())
+    .then((d) => d.ok && show(d.quota))
+    .catch(() => {});
+}

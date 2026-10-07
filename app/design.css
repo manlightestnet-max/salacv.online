@@ -524,3 +524,50 @@ html, body { overscroll-behavior: none; }
   .exp-skel, .exp-cta::after, .export-dialog .format-card, .export-dialog .cost, .exp-now, .export-dialog .ready-icon, .export-dialog .burst, .export-dialog .progress-step.done .progress-dot { animation: none !important; }
   .exp-ring { transition: none; }
 }
+
+/* ===== Mobile : la feuille dépliée commence sous la barre d'app (jamais dessous) ; la jauge de l'IA ============ */
+@media (max-width: 959px) {
+  html .sheet[data-state], html.has-quota .sheet[data-state] { height: calc(100dvh - max(var(--appbar-h), var(--quota-b, 0px) + 6px)); }
+  .ai-meter { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(var(--gray-100)); opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+  .ai-meter[hidden] { display: none; }
+  .ai-meter i { display: block; height: 100%; width: 100%; border-radius: 0 3px 3px 0; background: linear-gradient(90deg, rgb(56 189 248), rgb(var(--accent)), rgb(139 92 246)); transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.3s; }
+  .ai-meter.low i { background: rgb(var(--flag-warn)); }
+  .ai-meter.out i { background: rgb(var(--flag-todo)); }
+  body:has(.sheet.agent-mode) .ai-meter { opacity: 1; }
+  body:has(.sheet.agent-mode) .appbar .toolbar-progress { bottom: 3px; }
+}
+.msg-cta { display: inline-flex; margin-top: 8px; text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .ai-meter i { transition: none; } }
+
+/* ===== Mode concentré : plus de barre du haut, le studio et sa barre d'outils seulement ===================== */
+.focus-btn { display: grid; place-items: center; }
+.focus-btn[aria-pressed='true'] { color: rgb(var(--accent)); background: rgb(var(--accent) / 0.12); }
+@media (max-width: 959px) {
+  /* Plein écran (toucher le CV) et mode concentré : la barre d'app part aussi, il ne reste que le CV et la barre d'outils. */
+  html.focus-mode, html.immersive { --appbar-h: env(safe-area-inset-top); }
+  html.focus-mode .appbar, html.immersive .appbar { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+  .appbar { transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s; }
+}
+@media (min-width: 960px) {
+  html.focus-mode .sheet-head, html.focus-mode .gen-top { display: none !important; }
+}
+
+/* ===== Fenêtre « Modèle » : de vraies cartes, la miniature en grand et le nom dessous ======================= */
+.templates.in-dialog { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+.templates.in-dialog .tpl-card, :root[data-theme] .templates.in-dialog .tpl-card {
+  height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 8px 8px 10px; text-align: center;
+  border-radius: 16px; box-shadow: none;
+}
+.templates.in-dialog .tpl-paper { position: relative; display: block; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 8px 18px -14px rgb(0 0 0 / 0.5); transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.templates.in-dialog .tpl-thumb { display: block; width: 100%; height: auto; aspect-ratio: 150 / 212; border-radius: 0; box-shadow: none; }
+.templates.in-dialog .tpl-name { font-size: 13px; font-weight: 600; color: rgb(var(--gray-700)); }
+.templates.in-dialog .tpl-card:hover .tpl-paper { transform: translateY(-2px); }
+.templates.in-dialog .tpl-card[aria-pressed='true'], :root[data-theme] .templates.in-dialog .tpl-card[aria-pressed='true'] { background: rgb(var(--accent) / 0.1); box-shadow: 0 0 0 2px rgb(var(--accent)); }
+.templates.in-dialog .tpl-card[aria-pressed='true'] .tpl-name { color: rgb(var(--accent)); }
+.tpl-check { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: rgb(var(--accent)); box-shadow: 0 0 0 2px #fff; opacity: 0; transform: scale(0.5); transition: opacity 0.2s, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.tpl-check::after { content: ''; position: absolute; left: 7.5px; top: 4.5px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.tpl-card[aria-pressed='true'] .tpl-check { opacity: 1; transform: scale(1); }
+.templates:not(.in-dialog) .tpl-check { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .appbar, .templates.in-dialog .tpl-paper, .tpl-check { transition: none; }
+}

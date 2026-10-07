@@ -34,6 +34,7 @@
       </span>
     </a>
     <nav class="nav-links" aria-label="Sections">
+      <a href="#atouts">L’assistant</a>
       <a href="#modeles">Modèles</a>
       <a href="#prix">Prix</a>
       <a href="#avis">Avis</a>
@@ -82,6 +83,19 @@
     <!-- Chiffres réels (serveur) : une tuile n'apparaît que si son chiffre existe. -->
     <section class="numbers" aria-label="salacv en chiffres">
       <div id="numbers" class="numbers-grid"></div>
+    </section>
+
+    <!-- Le meilleur de salacv : rendu par le vrai moteur, avec l'exemple de l'app (rien d'inventé). -->
+    <section class="section best" id="atouts">
+      <p class="kicker reveal">Le meilleur de salacv</p>
+      <h2 class="reveal">Tu racontes. L’assistant écrit ton CV.</h2>
+      <p class="section-lead reveal">Dis-lui ton parcours avec tes mots : il remplit les sections pour toi, et la page se met en forme toute seule. Tu relis, tu corriges, tu gardes la main.</p>
+      <div id="demo-fill" class="demo demo-fill reveal" aria-label="Démonstration : l’assistant remplit le CV"></div>
+
+      <h2 class="reveal best-second">Un CV, plusieurs langues, d’un coup.</h2>
+      <p class="section-lead reveal">Ajoute une langue : l’assistant traduit tout ton CV, et les intitulés suivent. Chaque langue reste un onglet à part, que tu retouches et télécharges. Langues : <span id="demo-lang-names">français, anglais, portugais</span>.</p>
+      <div id="demo-langs" class="demo demo-langs reveal" aria-label="Le même CV en français, en anglais et en portugais"></div>
+      <p class="demo-note reveal">Démonstration avec le CV d’exemple de l’app, dessiné en direct par le moteur de salacv.</p>
     </section>
 
     <!-- Trois étapes -->
@@ -177,6 +191,8 @@
       <span class="brand-name">salacv<span class="brand-tld">.online</span></span>
     </div>
     <span class="foot-by">Fait à Brazzaville · smlab • manlightstudio</span>
+    <!-- Coordonnées réglées dans l'admin : un réseau sans adresse n'apparaît pas. -->
+    <nav id="foot-contact" class="foot-contact" aria-label="Nous contacter" hidden></nav>
     <button id="theme" class="theme-btn" type="button" aria-label="Changer de thème">◐</button>
   </footer>
 

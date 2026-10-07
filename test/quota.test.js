@@ -158,7 +158,8 @@ test('/api/usage : barre de progression du visiteur (jamais l’IP) ; connecté 
   assert.ok(!JSON.stringify(body).includes('192.0.2.60'));
   await recordLogin('zoe@example.com');
   const [, who] = await web.usage(issue('zoe@example.com', ENV), { env: ENV, ctx: { ip: 'x', sid: 'y', client: 'web' } });
-  assert.deepEqual(who, { ok: true, loggedIn: true, username: 'zoe@example.com' });
+  assert.deepEqual({ ...who, quota: undefined }, { ok: true, loggedIn: true, username: 'zoe@example.com', quota: undefined });
+  assert.equal(who.quota.account, true); // un compte voit sa propre réserve d'IA
 });
 
 test('admin : plafonds de quota réglables, clé rendue publique depuis l’interface', async () => {

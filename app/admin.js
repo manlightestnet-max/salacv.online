@@ -156,6 +156,35 @@ async function usersView() {
       ],
     });
   }
+  const base = Number(r.userTokens) || 0;
+  const aiUse = (u) => {
+    const used = u.ai?.used ?? 0;
+    const limit = u.ai?.limit ?? base;
+    return `${tokens(used)} / ${tokens(limit)}${u.ai?.custom != null ? ' (plafond à part)' : ''}`;
+  };
+  function aiDialog(u) {
+    const limit = h('input', { class: 'admin-input', type: 'number', min: 0, step: 1000, inputmode: 'numeric', value: u.ai?.custom ?? '', placeholder: `Réglage général (${tokens(base)})`, 'aria-label': 'Plafond du compte' });
+    const gift = h('input', { class: 'admin-input', type: 'number', min: 0, step: 1000, inputmode: 'numeric', placeholder: '0', 'aria-label': 'Tokens offerts' });
+    const reset = h('input', { type: 'checkbox', 'aria-label': 'Remettre à zéro' });
+    const error = h('p', { class: 'admin-notice error', hidden: true });
+    const save = async () => {
+      const res = await api('setUserAi', { username: u.username, reset: reset.checked, customLimit: limit.value.trim(), addTokens: gift.value.trim() ? Number(gift.value) : undefined });
+      if (!res.ok) return ((error.hidden = false), (error.textContent = res.error));
+      d.close();
+      render();
+    };
+    const d = openDialog({
+      title: `IA de ${u.username}`,
+      content: [
+        h('p', { class: 'dialog-text' }, `Utilisé : ${aiUse(u)}.`),
+        h('label', { class: 'ad-check' }, reset, h('span', {}, 'Remettre sa progression à zéro')),
+        h('label', { class: 'ad-label' }, 'Plafond de ce compte (tokens, vide = réglage général)', limit),
+        h('label', { class: 'ad-label' }, 'Tokens offerts (ajoutés à sa réserve)', gift),
+        error,
+      ],
+      footer: [h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler'), h('button', { type: 'button', class: 'btn-primary', onClick: save }, 'Enregistrer')],
+    });
+  }
   async function setAi(u, allowed) {
     const res = await api('setAi', { username: u.username, allowed });
     if (res.ok) render();
@@ -169,9 +198,10 @@ async function usersView() {
         'div',
         { class: 'row-main' },
         h('strong', {}, u.username, u.blocked && h('span', { class: 'tag danger' }, 'Bloqué'), !u.aiAccess && h('span', { class: 'tag danger' }, 'IA retirée')),
-        h('small', {}, `${u.logins} connexion${u.logins > 1 ? 's' : ''} · depuis le ${new Date(u.first).toLocaleDateString('fr-FR')}${u.reason ? ` · ${u.reason}` : ''}`),
+        h('small', {}, `${u.logins} connexion${u.logins > 1 ? 's' : ''} · depuis le ${new Date(u.first).toLocaleDateString('fr-FR')} · IA ${aiUse(u)}${u.reason ? ` · ${u.reason}` : ''}`),
       ),
       h('span', { class: 'row-meta' }, u.last ? relativeDate(u.last) : '—'),
+      h('button', { type: 'button', class: 'btn-ghost', title: 'Réserve d’IA de ce compte : remise à zéro, plafond, tokens offerts', onClick: () => aiDialog(u) }, 'Réglages IA'),
       h('button', { type: 'button', class: 'btn-ghost', title: u.aiAccess ? 'Retirer l’accès à l’assistant et à la traduction' : 'Rendre l’accès à l’assistant', onClick: () => setAi(u, !u.aiAccess) }, u.aiAccess ? 'Retirer l’IA' : 'Rendre l’IA'),
       h('button', { type: 'button', class: u.blocked ? 'btn-ghost' : 'btn-ghost danger-btn', onClick: () => (u.blocked ? setBlocked(u, false) : confirmBlock(u)) }, u.blocked ? 'Débloquer' : 'Bloquer'),
     ),
@@ -181,6 +211,144 @@ async function usersView() {
     'Comptes connectés à l’assistant. Bloquer coupe l’accès à l’assistant et à la traduction.',
     null,
     card(`${r.users.length} compte${r.users.length > 1 ? 's' : ''}`, null, rowsOf(rows, 'Aucun utilisateur pour l’instant. Ils apparaissent à leur première connexion à l’assistant.')),
+  );
+}
+
+const tokens = (n) => `${Number(n).toLocaleString('fr-FR')}`;
+
+// --- IA des comptes ------------------------------------------------------------------------
+// La réserve de chaque compte (aucune recharge automatique), le prix de la remise à zéro et les packs IA en crédits.
+async function aiView() {
+  const r = await api('ai');
+  if (!r.ok) return page('IA des comptes', null, null, notice(r.error, 'error'));
+  const setting = (key) => r.settings.find((s) => s.key === key);
+  const fail = (text) => {
+    const d = openDialog({ title: 'Impossible', content: h('p', { class: 'dialog-text' }, text), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
+  };
+  const userTokens = h('input', { class: 'admin-input', type: 'number', min: 0, step: 1000, inputmode: 'numeric', value: setting('ai.userTokens').value, 'aria-label': 'Réserve de tokens' });
+  const resetCost = h('input', { class: 'admin-input', type: 'text', inputmode: 'decimal', value: String(setting('ai.resetCost').value).replace('.', ','), 'aria-label': 'Prix de la remise à zéro' });
+  const saveRules = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer');
+  saveRules.addEventListener('click', async () => {
+    saveRules.disabled = true;
+    for (const [key, value] of [['ai.userTokens', userTokens.value.trim()], ['ai.resetCost', resetCost.value.trim().replace(',', '.')]]) {
+      const res = await api('setSetting', { key, value });
+      if (!res.ok) return ((saveRules.disabled = false), fail(res.error));
+    }
+    render();
+  });
+  const rulesCard = card(
+    'Réserve des comptes',
+    null,
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Chaque compte connecté a cette réserve de tokens pour l’assistant. Elle ne se recharge jamais seule : le client la remet à zéro contre des crédits, ou prend un pack IA.'),
+      h('label', { class: 'ad-label' }, 'Réserve de tokens par compte', userTokens),
+      h('label', { class: 'ad-label' }, 'Prix de la remise à zéro (crédits, ex. 0,5)', resetCost),
+      saveRules,
+    ),
+  );
+
+  // Packs IA : aucun au départ ; une ligne par pack, enregistrés d'un coup.
+  const list = h('div', { class: 'pack-rows' });
+  const lines = [];
+  function addLine(p = { id: '', name: '', tokens: '', credits: '', days: null, active: true }) {
+    const line = {
+      id: p.id,
+      name: h('input', { class: 'admin-input', value: p.name, maxlength: 40, placeholder: 'MegaIA Push', 'aria-label': 'Nom' }),
+      tokens: h('input', { class: 'admin-input', type: 'number', min: 1000, step: 1000, inputmode: 'numeric', value: p.tokens, 'aria-label': 'Tokens' }),
+      credits: h('input', { class: 'admin-input', type: 'text', inputmode: 'decimal', value: p.credits === '' ? '' : String(p.credits).replace('.', ','), placeholder: '5', 'aria-label': 'Prix en crédits' }),
+      days: h('input', { class: 'admin-input', type: 'number', min: 1, max: 366, step: 1, inputmode: 'numeric', value: p.days ?? '', placeholder: 'Sans limite', 'aria-label': 'Durée en jours' }),
+      active: h('input', { type: 'checkbox', checked: p.active || null, 'aria-label': 'En vente' }),
+    };
+    const remove = h('button', { type: 'button', class: 'btn-ghost danger-btn' }, 'Retirer');
+    const el = h(
+      'div',
+      { class: 'pack-row ai-row' },
+      h('label', { class: 'ad-label' }, 'Nom', line.name),
+      h('label', { class: 'ad-label' }, 'Tokens', line.tokens),
+      h('label', { class: 'ad-label' }, 'Crédits', line.credits),
+      h('label', { class: 'ad-label' }, 'Durée (jours)', line.days),
+      h('label', { class: 'ad-check' }, line.active, h('span', {}, 'En vente')),
+      remove,
+    );
+    remove.addEventListener('click', () => {
+      lines.splice(lines.indexOf(line), 1);
+      el.remove();
+    });
+    lines.push(line);
+    list.append(el);
+  }
+  r.aiPacks.forEach(addLine);
+  const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'pack';
+  const save = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer les packs IA');
+  save.addEventListener('click', async () => {
+    const used = new Set(lines.map((l) => l.id).filter(Boolean));
+    const packs = lines.map((l) => {
+      let id = l.id;
+      if (!id) {
+        id = slug(l.name.value);
+        for (let n = 2; used.has(id); n++) id = `${slug(l.name.value)}-${n}`;
+        used.add(id);
+      }
+      return { id, name: l.name.value, tokens: Number.parseInt(l.tokens.value, 10), credits: l.credits.value.trim().replace(',', '.'), days: l.days.value.trim(), active: l.active.checked };
+    });
+    save.disabled = true;
+    const res = await api('saveAiPacks', { packs });
+    save.disabled = false;
+    res.ok ? render() : fail(res.error);
+  });
+  const packsCard = card(
+    'Packs IA',
+    h('button', { type: 'button', class: 'btn-ghost', onClick: () => addLine() }, 'Ajouter un pack'),
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Vendus en crédits dans la page Crédits du client : les tokens s’ajoutent à sa réserve, pour la durée indiquée (vide = sans limite). Aucun pack n’est en vente tant que tu n’en crées pas.'),
+      list,
+      save,
+    ),
+  );
+  return page('IA des comptes', 'Combien d’IA chaque compte reçoit, et comment il en reprend. Les réglages d’un compte précis sont dans Utilisateurs.', null, rulesCard, packsCard);
+}
+
+// --- Contact ------------------------------------------------------------------------------
+// Les vraies coordonnées de salacv, affichées sur le site avec le logo de chaque réseau. Vide = n'apparaît pas.
+async function contactView() {
+  const r = await api('contact');
+  if (!r.ok) return page('Contact', null, null, notice(r.error, 'error'));
+  const FIELDS = [
+    ['contact.email', 'E-mail', 'email', 'contact@salacv.online'],
+    ['contact.whatsapp', 'WhatsApp', 'tel', '+242 06 123 45 67'],
+    ['contact.facebook', 'Facebook', 'url', 'https://www.facebook.com/salacv'],
+    ['contact.tiktok', 'TikTok', 'url', 'https://www.tiktok.com/@salacv'],
+  ];
+  const value = (key) => r.settings.find((s) => s.key === key)?.value ?? '';
+  const inputs = Object.fromEntries(FIELDS.map(([key, label, type, placeholder]) => [key, h('input', { class: 'admin-input', type, value: value(key), placeholder, autocomplete: 'off', 'aria-label': label })]));
+  const error = h('p', { class: 'admin-notice error', hidden: true });
+  const saved = h('span', { class: 'ad-sub', hidden: true }, 'Enregistré.');
+  const save = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer');
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    error.hidden = true;
+    Object.values(inputs).forEach((i) => i.removeAttribute('aria-invalid'));
+    const res = await api('saveContact', { values: Object.fromEntries(Object.entries(inputs).map(([k, i]) => [k, i.value])) });
+    save.disabled = false;
+    if (!res.ok) {
+      error.hidden = false;
+      error.textContent = res.error;
+      if (res.field) (inputs[res.field].setAttribute('aria-invalid', 'true'), inputs[res.field].focus());
+      return;
+    }
+    for (const s of res.settings) if (inputs[s.key]) inputs[s.key].value = s.value; // remis en forme par le serveur
+    saved.hidden = false;
+    setTimeout(() => (saved.hidden = true), 1800);
+  });
+  return page(
+    'Contact',
+    'Les coordonnées de salacv, affichées en bas de la page d’accueil et dans l’aide. Un champ vide n’apparaît pas.',
+    null,
+    card('Coordonnées', saved, h('div', { class: 'ad-form' }, ...FIELDS.map(([key, label]) => h('label', { class: 'ad-label' }, label, inputs[key])), error, save)),
   );
 }
 
@@ -942,6 +1110,8 @@ const ICON_PATHS = {
   cart: '<path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3M14 9l2 2"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>',
+  gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 17 4-5"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
 };
 document.querySelectorAll('.ad-ico').forEach((el) => {
   el.innerHTML = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[el.dataset.i] ?? ''}</svg>`;
@@ -979,7 +1149,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Navigation ----------------------------------------------------------------------------
-const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, boutique: shopView, journal: journalView };
+const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, boutique: shopView, ia: aiView, contact: contactView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);

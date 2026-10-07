@@ -14,6 +14,7 @@ import { RateLimiter } from '../ratelimit.js';
 import { getUser, recordLogin } from '../db/users.js';
 import { keySourceFor, logUsage } from '../keys/pool.js';
 import { addAnonUsage, anonUsage } from '../quota.js';
+import { addUserUsage, publicUserQuota, userQuota } from '../aiquota.js';
 import { verifyFirebaseIdToken } from '../accounts/firebase.js';
 import { activateOnlineKey } from '../accounts/keys.js';
 
@@ -79,6 +80,10 @@ async function aiGuard(token, env, loginMessage, ctx) {
   const user = await getUser(username).catch(() => null);
   if (user?.blocked) return { error: [403, { ok: false, error: 'Ce compte est suspendu.' }] };
   if (user && !user.aiAccess) return { error: [403, { ok: false, error: "Ton accès à l'assistant a été retiré. Contacte salacv." }] };
+  const reserve = await userQuota(username, env);
+  if (reserve.exhausted) {
+    return { error: [403, { ok: false, code: 'AI_QUOTA', error: 'Ton IA est à court. Remets-la à zéro ou prends un pack IA pour continuer.', quota: publicUserQuota(reserve) }] };
+  }
   return { username, who: username };
 }
 
@@ -111,6 +116,9 @@ async function runAi(kind, payload, token, { env, callModel, ctx }, loginMessage
     if (guard.anonymous) {
       await addAnonUsage(ctx, tokens).catch((err) => console.error(`[quota] ${err.message}`));
       result.quota = publicQuota(await anonUsage(ctx, env)); // la barre de progression se met à jour avec la réponse
+    } else if (guard.username) {
+      await addUserUsage(guard.username, tokens).catch((err) => console.error(`[quota] ${err.message}`));
+      result.quota = publicUserQuota(await userQuota(guard.username, env)); // la barre de l'IA se vide avec la réponse
     }
     return [status ?? (result.ok ? 200 : 502), result];
   } finally {
@@ -147,7 +155,7 @@ export async function me(token, { env = process.env } = {}) {
 // Où en est le visiteur ? (barre de progression) — rien de secret.
 export async function usage(token, { env = process.env, ctx } = {}) {
   const username = token ? verify(token, env) : null;
-  if (username) return [200, { ok: true, loggedIn: true, username }];
+  if (username) return [200, { ok: true, loggedIn: true, username, quota: publicUserQuota(await userQuota(username, env)) }];
   if (!ctx) return [400, { ok: false, error: 'Requête invalide.' }];
   return [200, { ok: true, loggedIn: false, desktop: ctx.client === 'desktop', quota: publicQuota(await anonUsage(ctx, env)) }];
 }

@@ -4,10 +4,10 @@
 // Si le dialogue ne peut pas s'ouvrir, on passe par la page LightPay, qui ramène ici (/dashboard/?order=…#credits).
 import { h } from './dom.js';
 import { openDialog } from './dialog.js';
-import { shop } from './lib/store.js';
+import { formatCredits, shop } from './lib/store.js';
 
 const fcfa = (n) => `${Number(n).toLocaleString('fr-FR')} FCFA`;
-const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+const plural = (n, word) => `${formatCredits(n)} ${word}${n > 1 ? 's' : ''}`;
 const priceOf = (p) => p.promoPrice ?? p.price;
 
 // --- Commande en cours (survit à un rechargement de page ou au retour depuis LightPay) ------------
@@ -135,8 +135,9 @@ function burst() {
 /**
  * Ouvre la feuille « Recharger ». onPaid(order) : crédits ajoutés (le tableau de bord met le solde à jour).
  * keyAccount : compte « clé » (app PC sans Google), qui ne peut pas acheter.
+ * note : pourquoi la recharge s'ouvre (achat en attente qui se termine tout seul une fois payé).
  */
-export async function openShop({ keyAccount = false, onPaid } = {}) {
+export async function openShop({ keyAccount = false, onPaid, note = '' } = {}) {
   const body = h('div', { class: 'shop' }, h('div', { class: 'pack-grid' }, [0, 1, 2].map(() => h('span', { class: 'pack-tile skeleton' }))));
   const tag = h('span', { class: 'test-tag', hidden: true }, 'Test');
   const sheet = openDialog({ title: h('span', { class: 'shop-title' }, 'Recharger', tag), content: body, className: 'shop-sheet' });
@@ -163,7 +164,7 @@ export async function openShop({ keyAccount = false, onPaid } = {}) {
     const error = h('p', { class: 'shop-error', role: 'alert' });
     const cta = h('button', { type: 'button', class: 'shop-cta' }, `Payer ${fcfa(priceOf(selected))}`);
     cta.addEventListener('click', () => pay(cta, error));
-    show(grid, cta, error, h('p', { class: 'shop-trust' }, h('span', { class: 'lock', 'aria-hidden': 'true' }), 'MTN MoMo · Airtel Money · Wallet LightPay'));
+    show(note && h('p', { class: 'shop-note' }, note), grid, cta, error, h('p', { class: 'shop-trust' }, h('span', { class: 'lock', 'aria-hidden': 'true' }), 'MTN MoMo · Airtel Money · Wallet LightPay'));
   };
 
   let busy = false;

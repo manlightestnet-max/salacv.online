@@ -5,7 +5,7 @@
 import { h, icon } from './dom.js';
 import { openDialog } from './dialog.js';
 import { toResume } from './state.js';
-import { inviteLink, sendFeedback } from './lib/store.js';
+import { formatCredits, inviteLink, sendFeedback } from './lib/store.js';
 import { readSession } from './login.js';
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -115,7 +115,7 @@ export async function openExport({ state, onSpent, missing = [], onReview }) {
           'div',
           { class: 'cost' },
           h('span', { class: 'exp-coin', 'aria-hidden': 'true' }),
-          info.cost > 0 ? h('span', {}, h('strong', {}, `${info.cost} crédit`), ` · il t'en restera ${info.balance - info.cost}`) : h('span', {}, 'Déjà préparée : ', h('strong', {}, 'gratuit')),
+          info.cost > 0 ? h('span', {}, h('strong', {}, `${info.cost} crédit`), ` · il t'en restera ${formatCredits(info.balance - info.cost)}`) : h('span', {}, 'Déjà préparée : ', h('strong', {}, 'gratuit')),
           h('a', { class: 'cost-link', href: '/dashboard/#credits' }, 'Mes crédits'),
         );
 

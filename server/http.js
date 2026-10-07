@@ -10,6 +10,7 @@ import { signingSecret } from './agent/auth.js';
 import { db } from './db/index.js';
 import { configRoute } from './keys/routes.js';
 import { buyRoute, orderRoute, shopRoute, webhookRoute } from './shop.js';
+import { aiBuyRoute, aiQuotaRoute, aiResetRoute } from './airoutes.js';
 
 function send(res, status, body, headers = {}) {
   const data = JSON.stringify(body);
@@ -92,6 +93,10 @@ export const ROUTES = {
   buy: (payload, req) => buyRoute(payload, tokenOf(req), req),
   order: (payload, req) => orderRoute(payload, tokenOf(req)),
   lightpay: (payload) => webhookRoute(payload),
+  // IA du compte : réserve et packs, remise à zéro (crédits), achat d'un pack IA (crédits).
+  'ai-quota': (payload, req) => aiQuotaRoute(tokenOf(req)),
+  'ai-reset': (payload, req) => aiResetRoute(tokenOf(req)),
+  'ai-buy': (payload, req) => aiBuyRoute(payload, tokenOf(req)),
   feedback: (payload, req) => {
     const ctx = context(req);
     return withCookie(feedback(payload, tokenOf(req), { ctx }), ctx);
