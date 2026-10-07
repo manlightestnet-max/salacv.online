@@ -309,7 +309,73 @@ async function aiView() {
       save,
     ),
   );
-  return page('IA des comptes', 'Combien d’IA chaque compte reçoit, et comment il en reprend. Les réglages d’un compte précis sont dans Utilisateurs.', null, rulesCard, packsCard);
+  // Réglages de l'agent : chaque étape renvoie tout au modèle (consignes, CV, historique) ; moins d'étapes = moins cher.
+  const TUNE = [
+    ['ai.maxSteps', 'Étapes maximum par demande', 'Chaque étape renvoie tout au modèle. 4 à 6 suffisent en général.'],
+    ['ai.historySent', 'Messages d’historique envoyés', 'Pour les suites (« et ajoute aussi… »). Moins = moins cher.'],
+    ['ai.maxTokensPerRequest', 'Plafond de tokens par demande', 'Au-delà, l’agent s’arrête proprement et garde ce qui est fait. 0 = aucun.'],
+    ['ai.maxSkills', 'Skills chargées au plus par demande', 'Une skill ajoute son texte à chaque étape.'],
+  ];
+  const tuneInputs = TUNE.map(([key, label, help]) => ({ key, label, help, input: h('input', { class: 'admin-input', type: 'number', min: 0, step: 1, inputmode: 'numeric', value: setting(key).value, 'aria-label': label }) }));
+  const saveTune = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer');
+  saveTune.addEventListener('click', async () => {
+    saveTune.disabled = true;
+    for (const t of tuneInputs) {
+      const res = await api('setSetting', { key: t.key, value: t.input.value.trim() });
+      if (!res.ok) return ((saveTune.disabled = false), fail(res.error));
+    }
+    render();
+  });
+  const tuneCard = card(
+    'Réglages de l’agent',
+    null,
+    h('div', { class: 'ad-form' }, ...tuneInputs.map((t) => h('label', { class: 'ad-label' }, t.label, t.input, h('span', { class: 'ad-sub' }, t.help))), saveTune),
+  );
+
+  // Coûts : tokens et FCFA (prix saisis), face à l'argent encaissé par les crédits.
+  const c = r.costs;
+  const PRICE_KEYS = ['ai.price.ollama', 'ai.price.gemini', 'ai.price.groq', 'ai.alertDailyFcfa'];
+  const priceInputs = PRICE_KEYS.map((key) => ({ key, input: h('input', { class: 'admin-input', type: 'number', min: 0, step: 1, inputmode: 'numeric', value: setting(key).value, 'aria-label': setting(key).label }) }));
+  const savePrices = h('button', { type: 'button', class: 'btn-ghost' }, 'Enregistrer les prix');
+  savePrices.addEventListener('click', async () => {
+    savePrices.disabled = true;
+    for (const p of priceInputs) {
+      const res = await api('setSetting', { key: p.key, value: p.input.value.trim() });
+      if (!res.ok) return ((savePrices.disabled = false), fail(res.error));
+    }
+    render();
+  });
+  const KIND = { agent: 'Assistant', translate: 'Traduction', import: 'Import de CV' };
+  const costLines = c.lines.map((l) =>
+    h(
+      'div',
+      { class: 'row-item' },
+      h('div', { class: 'row-main' }, h('strong', {}, `${KIND[l.kind] ?? l.kind} · ${l.provider}`), h('small', {}, `${tokens(l.requests)} demande${l.requests > 1 ? 's' : ''} · ${tokens(l.month)} tokens sur 30 jours · ${tokens(l.today)} aujourd’hui`)),
+      h('span', { class: 'row-meta' }, c.priced ? fcfa(l.costMonth) : '—'),
+    ),
+  );
+  const margin = c.revenueMonth - c.costMonth;
+  const costCard = card(
+    'Coûts de l’IA',
+    c.alerting ? h('span', { class: 'tag danger' }, 'Seuil du jour dépassé') : null,
+    h(
+      'div',
+      { class: 'stat-grid' },
+      statCell('Aujourd’hui', c.priced ? fcfa(c.costToday) : `${tokens(c.tokensToday)} tk`, c.priced ? `${tokens(c.tokensToday)} tokens` : 'renseigne les prix'),
+      statCell('30 jours', c.priced ? fcfa(c.costMonth) : `${tokens(c.tokensMonth)} tk`, c.priced ? `${tokens(c.tokensMonth)} tokens` : 'renseigne les prix'),
+      statCell('Crédits encaissés', fcfa(c.revenueMonth), '30 jours, réel'),
+      statCell('Marge IA', c.priced ? fcfa(margin) : '—', c.priced ? (margin >= 0 ? 'encaissé − coût' : 'l’IA coûte plus qu’elle ne rapporte') : null, c.priced && margin >= 0),
+    ),
+    rowsOf(costLines, 'Aucune demande à l’IA sur 30 jours.'),
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('p', { class: 'ad-sub' }, 'Prix de chaque fournisseur en FCFA pour un million de tokens (ta facture divisée par les tokens consommés). Sans prix, les coûts restent en tokens.'),
+      h('div', { class: 'price-row' }, ...priceInputs.map((p) => h('label', { class: 'ad-label' }, setting(p.key).label, p.input))),
+      savePrices,
+    ),
+  );
+  return page('IA des comptes', 'Combien d’IA chaque compte reçoit, ce que l’agent a le droit de dépenser, et ce que ça coûte. Les réglages d’un compte précis sont dans Utilisateurs.', null, costCard, rulesCard, tuneCard, packsCard);
 }
 
 // --- Contact ------------------------------------------------------------------------------

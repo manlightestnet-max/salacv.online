@@ -5,6 +5,7 @@ import { allKeys } from './llm/providers.js';
 import { build } from './prompt.js';
 import { runLoop } from './loop.js';
 import { checkImage, readImage, withImageText } from './vision.js';
+import { agentTuning } from '../aitune.js';
 import { redact } from './secrets.js';
 import { compact, normalize } from './state.js';
 import { byName, specs } from './tools/index.js';
@@ -90,13 +91,16 @@ export async function handle(payload, { callModel, readModel, env = process.env,
   const said = scope
     ? `[Section en cours : ${SCOPES[scope].label}. Tu ne modifies que cette section. S'il manque une information importante, pose UNE question courte au lieu d'inventer. Tes modifications sont une PROPOSITION : l'utilisateur la voit dans son formulaire et choisit de la garder ou non. Dans ta réponse, dis « Je te propose… » et invite-le à relire puis garder ; ne dis jamais « c'est fait » ni « j'ai ajouté ».]\n\n${message}`
     : message;
-  const messages = build(run.state, said, payload.history, scope ? {} : { versions: context.versions, memory, loggedIn: Boolean(username) });
+  const tune = await agentTuning(env);
+  run.maxSkills = tune.maxSkills;
+  const messages = build(run.state, said, payload.history, scope ? { historySent: tune.historySent } : { versions: context.versions, memory, loggedIn: Boolean(username), historySent: tune.historySent });
   const secrets = [...(keySource?.secrets() ?? []), ...allKeys(env)];
   callModel ??= (msgs, sp) => callLLM(msgs, sp, { temperature: settings.temperature, timeoutMs: settings.llmTimeoutMs, env, keySource });
 
   let reply;
   try {
-    reply = await runLoop(run, messages, toolSpecs, tools, callModel, settings.maxIterations);
+    const overBudget = () => tune.maxTokensPerRequest > 0 && (keySource?.tokens ?? 0) >= tune.maxTokensPerRequest;
+    reply = await runLoop(run, messages, toolSpecs, tools, callModel, tune.maxSteps, overBudget);
   } catch (err) {
     console.error(`[LLM] ${redact(err.message, secrets)}`);
     if (err instanceof LLMError || err.name === 'TimeoutError') {

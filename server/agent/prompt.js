@@ -17,7 +17,8 @@ export function system() {
 export function build(state, message, history = [], extra = {}) {
   const messages = [{ role: 'system', content: system() }];
   // Historique court (texte seul) pour les demandes de suivi : « et rajoute aussi… ».
-  for (const turn of (Array.isArray(history) ? history : []).slice(-MAX_HISTORY)) {
+  const keep = Number.isInteger(extra.historySent) ? extra.historySent : MAX_HISTORY;
+  for (const turn of (Array.isArray(history) ? history : []).slice(keep > 0 ? -keep : history.length)) {
     if ((turn?.role === 'user' || turn?.role === 'assistant') && typeof turn.text === 'string') {
       messages.push({ role: turn.role, content: turn.text.slice(0, MAX_MESSAGE) });
     }

@@ -170,3 +170,5 @@ select.admin-input { cursor: pointer; }
 .pack-row.ai-row { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)) auto auto; }
 @media (max-width: 899px) { .pack-row.ai-row { grid-template-columns: 1fr 1fr; } }
 .admin-input[aria-invalid='true'] { border-color: rgb(var(--red-500)) !important; }
+
+.price-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }

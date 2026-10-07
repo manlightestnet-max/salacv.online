@@ -7,6 +7,13 @@ export default {
   parameters: params({ slug: { type: 'string' } }, ['slug']),
   run(run, args) {
     const skill = findSkill(args.slug);
-    return skill ? { slug: skill.slug, content: skill.content } : { error: 'Skill introuvable.' };
+    if (!skill) return { error: 'Skill introuvable.' };
+    // Une skill coûte des tokens à chaque étape : nombre limité par demande (réglé dans l'admin).
+    run.skills ??= [];
+    if (!run.skills.includes(skill.slug)) {
+      if (Number.isInteger(run.maxSkills) && run.skills.length >= run.maxSkills) return { error: `Limite de ${run.maxSkills} skill(s) par demande atteinte : réponds avec ce que tu as.` };
+      run.skills.push(skill.slug);
+    }
+    return { slug: skill.slug, content: skill.content };
   },
 };

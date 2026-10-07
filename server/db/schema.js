@@ -138,6 +138,8 @@ export const STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS ai_usage_user_idx ON ai_usage (username, at DESC)`,
   `ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS tokens integer NOT NULL DEFAULT 0`,
+  // Fournisseur qui a servi (coûts par fournisseur dans l'admin).
+  `ALTER TABLE ai_usage ADD COLUMN IF NOT EXISTS provider text`,
   // Photo du compte Google (adresse https de Google), affichée dans « Mon compte ».
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS picture text NOT NULL DEFAULT ''`,
   // Lien public d'un CV (choisi par son propriétaire) : n'importe qui peut le voir et le dupliquer. Privé par défaut.

@@ -163,12 +163,13 @@ export async function keySourceFor(username, env = process.env, { anonymous = fa
     },
     used(entry, tokens = 0) {
       this.lastUsedId = entry.id;
+      this.lastProvider = entry.provider?.name ?? null;
       this.tokens += Math.max(0, Math.round(Number(tokens) || 0));
     },
     secrets: () => list.map((k) => k.secret), // pour masquer toute fuite dans les journaux et les réponses
   };
 }
 
-export async function logUsage(username, keyId, kind, ok, tokens = 0) {
-  await query('INSERT INTO ai_usage (username, key_id, kind, ok, tokens) VALUES ($1, $2, $3, $4, $5)', [username, keyId, kind, ok, Math.round(tokens) || 0]).catch(() => {});
+export async function logUsage(username, keyId, kind, ok, tokens = 0, provider = null) {
+  await query('INSERT INTO ai_usage (username, key_id, kind, ok, tokens, provider) VALUES ($1, $2, $3, $4, $5, $6)', [username, keyId, kind, ok, Math.round(tokens) || 0, provider]).catch(() => {});
 }

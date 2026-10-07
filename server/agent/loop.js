@@ -37,8 +37,12 @@ async function callTool(run, tools, name, input) {
 }
 
 // Exécute la boucle ; modifie run.state et renvoie le texte final pour l'étudiant.
-export async function runLoop(run, messages, specs, tools, callModel, maxIterations = 8) {
+// overBudget() : vrai quand la demande a dépensé son plafond de tokens (réglé dans l'admin) ; on s'arrête proprement,
+// ce qui est déjà fait est gardé.
+export const BUDGET_STOP = "J'ai atteint la limite de cette demande : ce que j'ai déjà fait est gardé. Redemande-moi la suite.";
+export async function runLoop(run, messages, specs, tools, callModel, maxIterations = 8, overBudget = () => false) {
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    if (iteration > 1 && overBudget()) return BUDGET_STOP;
     const choice = (await callModel(messages, specs)).choices[0].message;
     const calls = choice.tool_calls ?? [];
     const content = clean(choice.content);

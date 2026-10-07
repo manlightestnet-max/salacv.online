@@ -23,6 +23,7 @@ import { getSetting } from './settings.js';
 import { checkPacks, connectFinish, connectStart, lightpayConfig, listPacks, recentOrders, salesStats, savePacks } from './shop.js';
 import { adminSetAi, allowances, checkAiPacks, listAiPacks, saveAiPacks } from './aiquota.js';
 import { CONTACT_KEYS, checkContact } from './contact.js';
+import { aiCosts } from './aitune.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -179,7 +180,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       return [200, { ok: true }];
     }
     case 'ai':
-      return [200, { ok: true, aiPacks: await listAiPacks(), settings: (await listSettings(env)).filter((x) => x.key.startsWith('ai.')) }];
+      return [200, { ok: true, aiPacks: await listAiPacks(), settings: (await listSettings(env)).filter((x) => x.key.startsWith('ai.')), costs: await aiCosts(env) }];
     case 'contact':
       return [200, { ok: true, settings: (await listSettings(env)).filter((x) => CONTACT_KEYS.includes(x.key)) }];
     case 'saveContact': {
@@ -304,6 +305,13 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
         const c = checkContact(key, payload.value);
         if (!c.ok) return [400, { ok: false, error: c.error }];
         payload.value = c.value;
+      }
+      const RANGES = { 'ai.maxSteps': [1, 12], 'ai.historySent': [0, 12], 'ai.maxSkills': [0, 5], 'ai.maxTokensPerRequest': [0, 2_000_000], 'ai.alertDailyFcfa': [0, 10_000_000] };
+      const isPrice = key.startsWith('ai.price.');
+      if (RANGES[key] || isPrice) {
+        const [min, max] = RANGES[key] ?? [0, 100_000_000];
+        const n = Number(payload.value);
+        if (!Number.isInteger(n) || n < min || n > max) return [400, { ok: false, error: `${DEFINITIONS[key].label} : un nombre entier entre ${min} et ${max.toLocaleString('fr-FR')}.` }];
       }
       if (key === 'ai.userTokens' && !(Number.parseInt(payload.value, 10) >= 0)) return [400, { ok: false, error: 'Nombre de tokens attendu (0 ou plus).' }];
       if (key === 'ai.resetCost' && !(Number(String(payload.value).replace(',', '.')) >= 0)) return [400, { ok: false, error: 'Prix en crédits attendu (ex. 0,5).' }];

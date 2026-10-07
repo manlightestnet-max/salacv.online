@@ -18,6 +18,16 @@ export const DEFINITIONS = {
   // Comptes connectés : réserve de tokens, sans recharge automatique (remise à zéro payante ou packs IA).
   'ai.userTokens': { default: '200000', secret: false, public: false, label: 'Compte : réserve de tokens IA' },
   'ai.resetCost': { default: '0.5', secret: false, public: false, label: 'Remise à zéro de l’IA : prix en crédits' },
+  // Agent : économie de tokens (Admin → IA). Chaque étape renvoie tout au modèle : moins d'étapes = moins cher.
+  'ai.maxSteps': { default: '6', secret: false, public: false, label: 'Étapes maximum par demande' },
+  'ai.historySent': { default: '6', secret: false, public: false, label: 'Messages d’historique envoyés' },
+  'ai.maxTokensPerRequest': { default: '60000', secret: false, public: false, label: 'Plafond de tokens par demande (0 = aucun)' },
+  'ai.maxSkills': { default: '2', secret: false, public: false, label: 'Skills chargées au plus par demande' },
+  // Coûts : FCFA pour un million de tokens, par fournisseur (0 = non renseigné) ; alerte quand le jour dépasse le seuil.
+  'ai.price.ollama': { default: '0', secret: false, public: false, label: 'Ollama : FCFA par million de tokens' },
+  'ai.price.gemini': { default: '0', secret: false, public: false, label: 'Gemini : FCFA par million de tokens' },
+  'ai.price.groq': { default: '0', secret: false, public: false, label: 'Groq : FCFA par million de tokens' },
+  'ai.alertDailyFcfa': { default: '0', secret: false, public: false, label: 'Alerte : coût du jour (FCFA, 0 = aucune)' },
   // Coordonnées de salacv, affichées sur le site (pied de page, aide) ; vide = n'apparaît pas. Validées dans contact.js.
   'contact.email': { default: '', secret: false, public: true, label: 'E-mail' },
   'contact.whatsapp': { default: '', secret: false, public: true, label: 'WhatsApp' },
