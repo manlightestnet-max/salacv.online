@@ -131,7 +131,7 @@ setSheet('collapsed');
 // (le CV commence dessous) et à la feuille dépliée (elle se colle dessous). PC : chaque élément garde sa place.
 const topStack = h('div', { class: 'top-stack' });
 function placeTopStack() {
-  const parts = [document.querySelector('.appbar'), document.querySelector('.quota-bar'), document.querySelector('.zoombar'), document.querySelector('.topbar')].filter(Boolean);
+  const parts = [document.querySelector('.quota-bar'), document.querySelector('.zoombar'), document.querySelector('.topbar')].filter(Boolean);
   if (desktop.matches) {
     document.body.append(...parts);
     topStack.remove();
@@ -336,15 +336,29 @@ function setSheet(next) {
 // ferme, un simple appui bascule.
 function initSheetDrag() {
   let start = null;
-  for (const zone of [$('grip'), $('sheet-head')]) {
+  let justDragged = false;
+  for (const zone of [$('grip'), $('sheet-head'), $('stepper')]) {
+    // Sur les étapes, le geste n'est à la feuille que s'il est vertical (horizontal : la roue tourne).
+    const steps = zone.id === 'stepper';
     zone.addEventListener('pointerdown', (e) => {
-      if (desktop.matches || e.target.closest('button')) return;
-      start = { y: e.clientY, base: sheet.getBoundingClientRect().top, moved: false };
-      sheet.classList.add('dragging');
-      zone.setPointerCapture(e.pointerId);
+      if (desktop.matches || (!steps && e.target.closest('button'))) return;
+      start = { x: e.clientX, y: e.clientY, base: sheet.getBoundingClientRect().top, moved: false, mine: !steps, id: e.pointerId };
+      if (!steps) {
+        sheet.classList.add('dragging');
+        zone.setPointerCapture(e.pointerId);
+      }
     });
     zone.addEventListener('pointermove', (e) => {
       if (!start) return;
+      if (!start.mine) {
+        const dx = Math.abs(e.clientX - start.x);
+        const dy0 = Math.abs(e.clientY - start.y);
+        if (dx > 8 && dx >= dy0) return void (start = null); // la roue des étapes garde le geste
+        if (dy0 < 8) return;
+        start.mine = true;
+        sheet.classList.add('dragging');
+        zone.setPointerCapture(e.pointerId);
+      }
       const dy = e.clientY - start.y;
       if (Math.abs(dy) > 4) start.moved = true;
       const min = window.innerHeight - sheet.offsetHeight; // haut de la sheet dépliée
@@ -352,15 +366,18 @@ function initSheetDrag() {
     });
     const end = (e) => {
       if (!start) return;
+      if (!start.mine) return void (start = null); // simple toucher d'une étape : son clic s'en charge
       const dy = e.clientY - start.y;
       sheet.classList.remove('dragging');
-      if (!start.moved) setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded');
+      if (steps && start.moved) justDragged = true; // pas de clic d'étape à la fin d'un glissement
+      if (!start.moved && !steps) setSheet(sheet.dataset.state === 'expanded' ? 'collapsed' : 'expanded');
       else setSheet(dy < -40 ? 'expanded' : dy > 40 ? 'collapsed' : sheet.dataset.state);
       start = null;
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
   }
+  $('stepper').addEventListener('click', (e) => justDragged && ((justDragged = false), e.stopPropagation(), e.preventDefault()), true);
 }
 
 // Mobile : formulaire déjà tout en haut + on tire vers le bas = la feuille descend avec le doigt (comme une feuille native).
