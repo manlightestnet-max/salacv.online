@@ -8,7 +8,10 @@
 // virgules). Sans cette variable, l'admin est fermée. Le jeton admin a l'utilisateur réservé « #admin ».
 import { timingSafeEqual } from 'node:crypto';
 import { issue, verify } from './agent/auth.js';
-import { SKILLS } from './agent/skills/index.js';
+import { AUDIENCES as SKILL_AUDIENCES, KINDS, SKILLS, normalizeSkill } from './agent/skills/index.js';
+import { handle as runAgent } from './agent/run.js';
+import { fromResume } from '../app/state.js';
+import EXAMPLE from '../examples/etudiant.json' with { type: 'json' };
 import { store } from './store.js';
 import { getUser, listUsers, setAiAccess, setBlocked, userStats } from './db/users.js';
 import * as pool from './keys/pool.js';
@@ -368,10 +371,40 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
       return [200, { ok: true, counts: counts(r) }];
     }
     case 'skills':
-      return [200, { ok: true, builtin: SKILLS.map(({ slug, title, description }) => ({ slug, title, description })), custom: await s.get('skills', []) }];
+      return [
+        200,
+        {
+          ok: true,
+          builtin: SKILLS.map(({ slug, title, description, kind }) => ({ slug, title, description, kind })),
+          custom: (await s.get('skills', [])).map(normalizeSkill),
+          stats: (await s.get('skillStats', {})) ?? {},
+        },
+      ];
+    case 'testSkill': {
+      // Essai d'une skill (enregistrée ou brouillon) sur un CV d'exemple ou vide : rien n'est gardé, les tokens sont
+      // ceux de l'admin (comptés comme « test de skill »).
+      const message = String(payload.message ?? '').trim().slice(0, 2000);
+      if (!message) return [400, { ok: false, error: 'Écris une demande de test.' }];
+      const custom = (await s.get('skills', [])).map(normalizeSkill);
+      const draft = payload.draft ? normalizeSkill({ ...payload.draft, enabled: true }) : null;
+      const skills = draft ? [...custom.filter((x) => x.slug !== draft.slug), draft] : custom;
+      const keySource = await pool.keySourceFor('admin', env);
+      const state = payload.withExample ? fromResume(EXAMPLE) : {};
+      const out = await runAgent({ state, message }, { env, keySource, username: 'admin', skills, countSkills: false });
+      pool.logUsage('admin', keySource?.lastUsedId ?? null, 'skill-test', Boolean(out.ok), keySource?.tokens ?? 0, keySource?.lastProvider ?? null);
+      return [200, { ok: Boolean(out.ok), error: out.error, reply: out.reply, skills: out.skills ?? [], changes: out.changes ?? [], pending: out.pending?.lines ?? [], tokens: keySource?.tokens ?? 0 }];
+    }
     case 'saveSkill': {
       const k = payload.skill ?? {};
-      const skill = { slug: String(k.slug ?? '').trim(), title: String(k.title ?? '').trim().slice(0, 80), description: String(k.description ?? '').trim().slice(0, 300), content: String(k.content ?? '').slice(0, 20000) };
+      const skill = {
+        slug: String(k.slug ?? '').trim(),
+        title: String(k.title ?? '').trim().slice(0, 80),
+        description: String(k.description ?? '').trim().slice(0, 300),
+        content: String(k.content ?? '').slice(0, 20000),
+        kind: KINDS.includes(k.kind) ? k.kind : 'procedure',
+        enabled: k.enabled !== false,
+        audience: SKILL_AUDIENCES.includes(k.audience) ? k.audience : 'all',
+      };
       if (!SLUG.test(skill.slug)) return [400, { ok: false, error: 'Slug : lettres minuscules, chiffres et tirets.' }];
       if (SKILLS.some((b) => b.slug === skill.slug)) return [400, { ok: false, error: 'Ce slug appartient à une skill du code.' }];
       if (!skill.title || !skill.content.trim()) return [400, { ok: false, error: 'Titre et contenu obligatoires.' }];

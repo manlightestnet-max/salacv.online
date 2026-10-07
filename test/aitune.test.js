@@ -40,12 +40,11 @@ test('historique : seulement les derniers messages réglés', () => {
   assert.equal(build(normalize({}), 'x', history, { historySent: 0 }).length, 2);
 });
 
-test('skills : pas plus que le nombre réglé par demande', () => {
-  const run = { maxSkills: 1 };
-  assert.ok(loadSkill.run(run, { slug: 'cv-congolais' }).content);
-  assert.ok(loadSkill.run(run, { slug: 'cv-congolais' }).content); // la même : pas recomptée
-  run.skills.push('autre');
-  assert.match(loadSkill.run({ maxSkills: 1, skills: ['autre'] }, { slug: 'cv-congolais' }).error, /Limite/);
+test('skills : pas plus que le nombre réglé par demande', async () => {
+  const run = { maxSkills: 1, countSkills: false };
+  assert.ok((await loadSkill.run(run, { slug: 'cv-congolais' })).content);
+  assert.ok((await loadSkill.run(run, { slug: 'cv-congolais' })).content); // la même : pas recomptée
+  assert.match((await loadSkill.run({ maxSkills: 1, skills: ['autre'], countSkills: false }, { slug: 'cv-congolais' })).error, /Limite/);
 });
 
 test('étapes : le réglage de l’admin limite la boucle', async () => {

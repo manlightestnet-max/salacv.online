@@ -67,7 +67,8 @@ function cleanContext(raw) {
 
 // payload = { state, message, history?, scope?, context? }. callModel est injectable (tests sans réseau).
 // username : compte connecté (mémoire, crédits) ou null pour un visiteur.
-export async function handle(payload, { callModel, readModel, env = process.env, keySource = null, username = null } = {}) {
+// skills : liste à utiliser à la place des skills de l'admin (test d'une skill avant de l'enregistrer).
+export async function handle(payload, { callModel, readModel, env = process.env, keySource = null, username = null, skills = null, countSkills = true } = {}) {
   // « Confirmer » touché : on applique le changement en attente (signé) au CV tel qu'il était. Aucun appel au modèle.
   if (payload?.confirm) return confirmPending(payload, { username, env });
   let message = String(payload?.message ?? '').trim();
@@ -95,7 +96,8 @@ export async function handle(payload, { callModel, readModel, env = process.env,
   run.userText = asked;
   const userTurns = (Array.isArray(payload.history) ? payload.history : []).filter((t) => t?.role === 'user').map((t) => String(t.text ?? ''));
   run.sources = [message, ...userTurns, run.state.profile.email, ...run.state.profile.phones].join('\n');
-  setExtraSkills(await customSkills()); // skills ajoutées depuis l'admin
+  setExtraSkills(skills ?? (await customSkills())); // skills ajoutées depuis l'admin
+  run.countSkills = countSkills;
   const scope = SCOPES[payload.scope] ? payload.scope : null;
   const { specs: toolSpecs, tools } = scopedTools(scope);
   const said = scope
@@ -126,6 +128,7 @@ export async function handle(payload, { callModel, readModel, env = process.env,
     changes: [...run.changes].sort(),
     ...(run.generate ? { generate: run.generate } : {}),
     ...(run.templates ? { templates: run.templates } : {}),
+    ...(run.skills?.length ? { skills: run.skills } : {}),
     ...(pending ? { pending } : {}),
   };
 }

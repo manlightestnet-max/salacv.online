@@ -103,7 +103,14 @@ export function describe(name, args, state) {
  * Exécute un outil qui modifie le CV, sous garde. run : { state, changes, userText, sources, pending }.
  * → résultat de l'outil, ou { pending: true, info } (rien n'est appliqué), ou { error }.
  */
+const ASKS_WRITE = /\b(ajout|rempli|remplir|écri|ecri|cré|cree|mets|mettre|met\b|complète|complete|insère|insere)/i;
+
 export async function guardedRun(run, tool, name, args) {
+  // Seules des skills de connaissances sont chargées et la demande ne parle pas de modifier : rien ne s'écrit.
+  const kinds = run.skillKinds ?? [];
+  if (kinds.length && kinds.every((k) => k === 'knowledge') && !explicitChange(run.userText) && !ASKS_WRITE.test(String(run.userText ?? ''))) {
+    return { error: 'Skill de connaissances : réponds sans modifier le CV, l’utilisateur n’a pas demandé de modification.' };
+  }
   const before = normalize(run.state);
   const trial = { ...run, state: structuredClone(run.state), changes: new Set() };
   const result = await tool.run(trial, args);

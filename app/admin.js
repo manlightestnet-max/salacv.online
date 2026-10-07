@@ -723,11 +723,14 @@ async function skillsView() {
     const [l2, title] = f('Titre', 'title', { placeholder: 'Métiers du pétrole' });
     const [l3, description] = f('Quand l’agent doit la charger', 'description', { placeholder: 'CV pour les métiers du pétrole à Pointe-Noire (HSE, forage…)' });
     const [l4, content] = f('Contenu (Markdown)', 'content', { rows: 12, placeholder: '# Format…\n- …' });
+    const kind = h('select', { class: 'admin-input', 'aria-label': 'Type' }, [['procedure', 'Procédure : guide la rédaction du CV'], ['knowledge', 'Connaissances : informe les réponses, ne modifie rien seule']].map(([v, t]) => h('option', { value: v, selected: (skill.kind ?? 'procedure') === v || null }, t)));
+    const audience = h('select', { class: 'admin-input', 'aria-label': 'Pour qui' }, [['all', 'Tout le monde'], ['account', 'Comptes connectés seulement']].map(([v, t]) => h('option', { value: v, selected: (skill.audience ?? 'all') === v || null }, t)));
+    const enabled = h('input', { type: 'checkbox', checked: skill.enabled !== false || null });
     const error = h('p', { class: 'admin-error', 'aria-live': 'polite' });
     const d = openDialog({
       title: skill.slug ? `Skill « ${skill.title} »` : 'Nouvelle skill',
       className: 'admin-skill-dialog',
-      content: [l1, slug, l2, title, l3, description, l4, content, error],
+      content: [l1, slug, l2, title, l3, description, h('label', { class: 'admin-label' }, 'Type'), kind, h('label', { class: 'admin-label' }, 'Pour qui'), audience, h('label', { class: 'ad-check' }, enabled, h('span', {}, 'Activée (visible par l’agent)')), l4, content, error],
       footer: [
         h('button', { type: 'button', class: 'btn-ghost', onClick: () => d.close() }, 'Annuler'),
         h(
@@ -736,7 +739,7 @@ async function skillsView() {
             type: 'button',
             class: 'btn-primary',
             onClick: async () => {
-              const res = await api('saveSkill', { skill: { slug: slug.value, title: title.value, description: description.value, content: content.value } });
+              const res = await api('saveSkill', { skill: { slug: slug.value, title: title.value, description: description.value, content: content.value, kind: kind.value, audience: audience.value, enabled: enabled.checked } });
               if (!res.ok) return (error.textContent = res.error);
               d.close();
               render();
@@ -757,18 +760,50 @@ async function skillsView() {
       ],
     });
   };
+  // Tester : une demande, sur le CV d'exemple ou un CV vide ; on voit la réponse, les skills chargées, ce qui changerait.
+  const test = (s) => {
+    const message = h('textarea', { class: 'admin-input', rows: 3, placeholder: 'Ex. : écris mon profil pour un poste de foreur à Pointe-Noire' });
+    const withExample = h('input', { type: 'checkbox', checked: true });
+    const out = h('div', { class: 'skill-test-out' });
+    const run = h('button', { type: 'button', class: 'btn-primary' }, 'Lancer le test');
+    run.addEventListener('click', async () => {
+      run.disabled = true;
+      out.replaceChildren(h('p', { class: 'ad-sub' }, 'L’agent travaille…'));
+      const res = await api('testSkill', { message: message.value, withExample: withExample.checked, draft: s.builtin ? null : s });
+      run.disabled = false;
+      if (!res.ok) return out.replaceChildren(notice(res.error || 'Échec du test.', 'error'));
+      out.replaceChildren(
+        h('div', { class: 'stat-grid' }, statCell('Skills chargées', res.skills.length ? res.skills.join(', ') : 'aucune'), statCell('Tokens', tokens(res.tokens)), statCell('Modifications', res.changes.length ? res.changes.join(', ') : 'aucune')),
+        res.pending.length ? notice(`En attente de confirmation : ${res.pending.join(' · ')}`) : null,
+        h('pre', { class: 'skill-test-reply' }, res.reply ?? ''),
+      );
+    });
+    openDialog({
+      title: `Tester « ${s.title} »`,
+      className: 'admin-skill-dialog',
+      content: [h('label', { class: 'admin-label' }, 'Demande de test'), message, h('label', { class: 'ad-check' }, withExample, h('span', {}, 'Sur le CV d’exemple (sinon un CV vide)')), run, out],
+    });
+  };
+  const stat = (slug) => r.stats?.[slug];
+  const KIND_TAG = { procedure: 'Procédure', knowledge: 'Connaissances' };
   const row = (s, builtin) =>
     h(
       'div',
-      { class: 'row-item' },
-      h('div', { class: 'row-main' }, h('strong', {}, s.title, builtin && h('span', { class: 'tag' }, 'Code')), h('small', {}, `${s.slug} · ${s.description ?? ''}`)),
-      s.updatedAt && h('span', { class: 'row-meta' }, relativeDate(s.updatedAt)),
+      { class: `row-item${s.enabled === false ? ' blocked' : ''}` },
+      h(
+        'div',
+        { class: 'row-main' },
+        h('strong', {}, s.title, builtin && h('span', { class: 'tag' }, 'Code'), h('span', { class: 'tag' }, KIND_TAG[s.kind] ?? 'Procédure'), s.audience === 'account' && h('span', { class: 'tag' }, 'Comptes'), s.enabled === false && h('span', { class: 'tag danger' }, 'Désactivée')),
+        h('small', {}, `${s.slug} · ${s.description ?? ''}`),
+      ),
+      h('span', { class: 'row-meta' }, stat(s.slug) ? `chargée ${tokens(stat(s.slug).loads)} fois · ${relativeDate(stat(s.slug).lastAt)}` : 'jamais chargée'),
+      h('button', { type: 'button', class: 'btn-ghost', onClick: () => test({ ...s, builtin }) }, 'Tester'),
       !builtin && h('button', { type: 'button', class: 'btn-ghost', onClick: () => edit(s) }, 'Modifier'),
       !builtin && h('button', { type: 'button', class: 'btn-ghost danger-btn', onClick: () => remove(s) }, 'Supprimer'),
     );
   return page(
     'Skills',
-    'L’agent voit le titre et la description de chaque skill, et charge son contenu quand la demande y correspond.',
+    'L’agent ne voit que le titre et la description de chaque skill ; il charge le contenu seulement quand la demande y correspond (2 au plus par demande, réglable dans IA des comptes).',
     h('button', { type: 'button', class: 'btn-primary', onClick: () => edit() }, 'Nouvelle skill'),
     card('Skills du code', null, rowsOf(r.builtin.map((x) => row(x, true)), '—')),
     card('Skills ajoutées', null, rowsOf(r.custom.map((x) => row(x, false)), 'Aucune pour l’instant.')),

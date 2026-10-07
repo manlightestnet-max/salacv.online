@@ -1,6 +1,6 @@
 // Messages envoyés au modèle : identité + skills (système), puis le CV actuel et la demande.
 import { IDENTITY } from './identity.js';
-import { allSkills } from './skills/index.js';
+import { visibleSkills } from './skills/index.js';
 import { view } from './state.js';
 
 const MAX_HISTORY = 6;
@@ -8,14 +8,15 @@ const MAX_MESSAGE = 4000;
 // La demande en cours peut porter le texte lu sur une image jointe (un CV entier) : plus de place.
 const MAX_REQUEST = 9000;
 
-export function system() {
-  const catalog = allSkills().map((s) => `- ${s.slug} : ${s.title} — ${s.description}`).join('\n');
+// Catalogue seulement (titre + description) : le contenu est chargé à la demande (load_skill).
+export function system({ loggedIn = false } = {}) {
+  const catalog = visibleSkills({ loggedIn }).map((s) => `- ${s.slug} : ${s.title} — ${s.description}${s.kind === 'knowledge' ? ' (connaissances)' : ''}`).join('\n') || '- aucune';
   return `${IDENTITY}\n\n# Skills disponibles (load_skill)\n${catalog}\n\nDate du jour : ${new Date().toISOString().slice(0, 10)}.`;
 }
 
 // extra : { memory: [{ key, value }], versions: [{ key, label }], loggedIn } — ce que l'agent doit savoir en plus du CV.
 export function build(state, message, history = [], extra = {}) {
-  const messages = [{ role: 'system', content: system() }];
+  const messages = [{ role: 'system', content: system({ loggedIn: Boolean(extra.loggedIn) }) }];
   // Historique court (texte seul) pour les demandes de suivi : « et rajoute aussi… ».
   const keep = Number.isInteger(extra.historySent) ? extra.historySent : MAX_HISTORY;
   for (const turn of (Array.isArray(history) ? history : []).slice(keep > 0 ? -keep : history.length)) {

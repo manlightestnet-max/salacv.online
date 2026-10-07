@@ -172,3 +172,6 @@ select.admin-input { cursor: pointer; }
 .admin-input[aria-invalid='true'] { border-color: rgb(var(--red-500)) !important; }
 
 .price-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; }
+
+.skill-test-out { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
+.skill-test-reply { margin: 0; padding: 0.8rem; border-radius: 12px; white-space: pre-wrap; font: 0.85rem/1.5 var(--font-sans, inherit); background: rgb(var(--gray-100)); max-height: 40vh; overflow: auto; }
