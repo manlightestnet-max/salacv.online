@@ -255,7 +255,7 @@ function creditsArrived(order) {
   setPill(order.balance);
   gained = order.credits;
   // La page Crédits est à l'écran (quelle que soit l'adresse) : on la redessine, l'anneau compte jusqu'au nouveau solde.
-  if (view.querySelector('.balance')) render();
+  if (view.querySelector('.balance')) render({ quiet: true });
 }
 
 const openRecharge = () => openShop({ keyAccount: readSession()?.kind === 'key', onPaid: creditsArrived });
@@ -376,7 +376,7 @@ function aiPanel({ quota, resetCost, packs }) {
         const again = await action();
         if (again.ok) return finished(again, done);
         flash = again.error || 'Crédits ajoutés, mais l’achat n’a pas abouti : réessaie depuis Crédits.';
-        render();
+        render({ quiet: true });
       },
     });
   };
@@ -384,7 +384,7 @@ function aiPanel({ quota, resetCost, packs }) {
     setPill(r.balance);
     publishAi(r.quota);
     flash = done;
-    render();
+    render({ quiet: true });
   };
   const reset = h('button', { type: 'button', class: 'btn-primary', disabled: quota.percent === 0 || null }, `Réinitialiser la progression · ${creditsFr(resetCost)}`);
   reset.addEventListener('click', run(reset, ai.reset, 'Ton IA est remise à zéro.'));
@@ -624,21 +624,26 @@ function skeletonView(tab) {
   return h('section', { class: 'skel-view', 'aria-busy': 'true', 'aria-label': 'Chargement' }, block('skel-title'), block('skel-sub'), body);
 }
 
+const SLOW = new Set(['credits', 'compte']); // pages qui attendent le serveur
 let renderId = 0;
-async function render() {
+// quiet : mise à jour en arrière-plan (retour sur l'app) : ni shimmer ni animation, le contenu change sur place.
+async function render({ quiet = false } = {}) {
   const id = ++renderId;
   const tab = VIEWS[location.hash.slice(1)] ? location.hash.slice(1) : 'projets';
   // « Profils » vit sous « Mes CV » : c'est l'onglet Mes CV qui s'allume.
   const navTab = tab === 'personnalites' ? 'projets' : tab;
   document.querySelectorAll('[data-tab]').forEach((a) => a.setAttribute('aria-current', String(a.dataset.tab === navTab)));
-  const skeleton = setTimeout(() => id === renderId && view.replaceChildren(skeletonView(tab)), 120);
+  // Le shimmer est déjà là au chargement (HTML de la page). Ensuite : une page qui attend le serveur montre sa forme
+  // tout de suite (jamais l'ancienne page ni un écran vide) ; une page immédiate remplace directement.
+  if (!quiet && SLOW.has(tab) && !view.querySelector('.skel-view')) view.replaceChildren(skeletonView(tab));
   const content = await trackWait(VIEWS[tab]());
-  clearTimeout(skeleton);
   if (id !== renderId) return; // une autre page a été demandée entre-temps
   view.replaceChildren(content);
-  view.classList.remove('enter');
-  void view.offsetWidth;
-  view.classList.add('enter');
+  if (!quiet) {
+    view.classList.remove('enter');
+    void view.offsetWidth;
+    view.classList.add('enter');
+  }
   refreshCredits();
 }
 
@@ -683,7 +688,7 @@ async function resync({ force = false } = {}) {
   if (hasPending() || (!force && Date.now() - lastSync < 4000)) return;
   lastSync = Date.now();
   await initStore();
-  await render();
+  await render({ quiet: true });
 }
 window.addEventListener('pageshow', (e) => e.persisted && resync({ force: true }));
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && resync());
