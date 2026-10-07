@@ -49,7 +49,7 @@ test('remplit le CV depuis un message en vrac', async () => {
     ],
     [call('final_answer', { text: "J'ai rempli ton CV. Ajoute un profil professionnel ?" })],
   );
-  const out = await handle({ state: { education: [{}] }, message: 'je suis rais wasongolua juriste …' }, { callModel: model, env: ENV });
+  const out = await handle({ state: { education: [{}] }, message: 'je suis rais wasongolua juriste, tél +242 06 822 14 40, rais@gmail.com …' }, { callModel: model, env: ENV });
   assert.equal(out.ok, true);
   const s = out.state;
   assert.equal(s.profile.name, 'Rais Wasongolua');

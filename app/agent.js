@@ -145,7 +145,54 @@ export function createAgentPanel(ctx) {
       );
     }
     if (msg.generate) node.append(generateCard(msg.generate));
+    if (msg.pending) node.append(pendingCard(msg, node));
     return node;
+  }
+
+  // Changement qui retire ou remplace ce que l'utilisateur a écrit : rien n'est fait tant qu'il ne confirme pas.
+  // Le serveur l'a signé ; il ne s'applique que sur le CV tel qu'il était, sans nouvel appel à l'IA.
+  function pendingCard(msg, node) {
+    if (msg.pendingDone) {
+      return h('div', { class: `msg-confirm done${msg.pendingDone === 'no' ? ' no' : ''}` }, h('span', {}, msg.pendingDone === 'no' ? 'Changement annulé' : 'Changement confirmé'));
+    }
+    const yes = h('button', { type: 'button', class: 'btn-primary' }, 'Confirmer');
+    const no = h('button', { type: 'button', class: 'btn-ghost' }, 'Non merci');
+    const error = h('p', { class: 'msg-confirm-error', role: 'alert', hidden: true });
+    const card = h(
+      'div',
+      { class: 'msg-confirm' },
+      h('strong', {}, msg.pending.lines.length > 1 ? 'À confirmer' : 'À confirmer'),
+      h('ul', {}, msg.pending.lines.map((l) => h('li', {}, l))),
+      error,
+      h('div', { class: 'msg-card-row' }, yes, no),
+    );
+    const settle = (how) => {
+      msg.pendingDone = how;
+      ctx.setChat?.(chat);
+      card.replaceWith(pendingCard(msg, node));
+    };
+    no.addEventListener('click', () => settle('no'));
+    yes.addEventListener('click', async () => {
+      yes.disabled = no.disabled = true;
+      yes.classList.add('loading');
+      const snap = ctx.snapshot?.();
+      const { data } = await post('/api/agent', { state: ctx.getState(), confirm: msg.pending });
+      if (!data.ok) {
+        yes.disabled = no.disabled = false;
+        yes.classList.remove('loading');
+        error.hidden = false;
+        error.textContent = data.error || 'Impossible pour l’instant. Réessaie.';
+        return;
+      }
+      ctx.setState(data.state);
+      msg.changes = [...new Set([...(msg.changes ?? []), ...(data.changes ?? [])])];
+      settle('ok');
+      const changes = node.querySelector('.msg-changes');
+      const fresh = bubble({ ...msg, pending: null }).querySelector('.msg-changes');
+      if (fresh) (changes ? changes.replaceWith(fresh) : node.insertBefore(fresh, node.querySelector('.msg-confirm')));
+      if (snap) offerUndo(node, msg, snap);
+    });
+    return card;
   }
 
   // Seule la dernière modification se laisse annuler : le bouton passe d'une réponse à la suivante.
@@ -291,11 +338,10 @@ export function createAgentPanel(ctx) {
       }
       const changed = Boolean(data.changes?.length);
       if (changed && data.state) ctx.setState(data.state);
-      const msg = { role: 'assistant', text: data.reply || (changed ? 'C’est fait.' : 'D’accord.'), changes: data.changes ?? [], ...(data.generate ? { generate: data.generate } : {}) };
+      const msg = { role: 'assistant', text: data.reply || (changed ? 'C’est fait.' : 'D’accord.'), changes: data.changes ?? [], ...(data.generate ? { generate: data.generate } : {}), ...(data.pending ? { pending: data.pending } : {}) };
       const node = push(msg);
       if (changed && snap) offerUndo(node, msg, snap);
-      // Génération demandée et crédits suffisants : la préparation s'ouvre (le serveur décide au téléchargement).
-      if (data.generate?.enough) ctx.generate?.(data.generate.version);
+      // Générer dépense un crédit : jamais l'IA seule, la carte attend que l'utilisateur touche le bouton.
       if (window.matchMedia('(hover: hover)').matches) input.focus();
     }
 

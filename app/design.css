@@ -587,3 +587,12 @@ html, body { overscroll-behavior: none; }
 .msg-typing[data-label]::after { content: attr(data-label); margin-left: 8px; font-size: 12px; color: rgb(var(--gray-500)); }
 @keyframes tray-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
 @media (prefers-reduced-motion: reduce) { .agent-tray, .agent-attach { animation: none; transition: none; } }
+
+/* ===== Chat : changement à confirmer (supprimer, remplacer) ============================================= */
+.msg-confirm { margin-top: 10px; padding: 12px 14px; border-radius: 16px; background: rgb(var(--surface)); box-shadow: 0 0 0 1.5px rgb(var(--flag-warn) / 0.55), 0 10px 24px -18px rgb(0 0 0 / 0.5); animation: tray-in 0.3s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.msg-confirm strong { display: block; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(var(--gray-600)); }
+.msg-confirm ul { margin: 6px 0 10px; padding-left: 18px; font-size: 14px; }
+.msg-confirm.done { padding: 8px 12px; box-shadow: none; background: rgb(var(--raised)); font-size: 12.5px; color: rgb(var(--gray-600)); }
+.msg-confirm.done.no { opacity: 0.75; }
+.msg-confirm-error { margin: 0 0 8px; font-size: 13px; color: rgb(var(--flag-todo)); }
+.msg-confirm .btn-primary.loading { opacity: 0.7; }

@@ -6,6 +6,7 @@ import { build } from './prompt.js';
 import { runLoop } from './loop.js';
 import { checkImage, readImage, withImageText } from './vision.js';
 import { agentTuning } from '../aitune.js';
+import { openPending, sealPending } from './guard.js';
 import { redact } from './secrets.js';
 import { compact, normalize } from './state.js';
 import { byName, specs } from './tools/index.js';
@@ -65,7 +66,10 @@ function cleanContext(raw) {
 // payload = { state, message, history?, scope?, context? }. callModel est injectable (tests sans réseau).
 // username : compte connecté (mémoire, crédits) ou null pour un visiteur.
 export async function handle(payload, { callModel, readModel, env = process.env, keySource = null, username = null } = {}) {
+  // « Confirmer » touché : on applique le changement en attente (signé) au CV tel qu'il était. Aucun appel au modèle.
+  if (payload?.confirm) return confirmPending(payload, { username, env });
   let message = String(payload?.message ?? '').trim();
+  const asked = message; // la demande telle que l'utilisateur l'a écrite (pour les garde-fous)
   const pic = checkImage(payload?.image);
   if (!pic.ok) return { ok: false, status: 400, error: pic.error };
   if (!message && !pic.image) return { ok: false, status: 400, error: 'Message vide.' };
@@ -85,6 +89,10 @@ export async function handle(payload, { callModel, readModel, env = process.env,
   const context = cleanContext(payload?.context);
   const memory = username ? await listMemory(username).catch(() => []) : [];
   const run = { state: normalize(payload.state), changes: new Set(), flags: {}, username, context, memory, generate: null };
+  // Garde-fous : ce que l'utilisateur a réellement demandé, et tout ce qu'il a fourni (coordonnées jamais inventées).
+  run.userText = asked;
+  const userTurns = (Array.isArray(payload.history) ? payload.history : []).filter((t) => t?.role === 'user').map((t) => String(t.text ?? ''));
+  run.sources = [message, ...userTurns, run.state.profile.email, ...run.state.profile.phones].join('\n');
   setExtraSkills(await customSkills()); // skills ajoutées depuis l'admin
   const scope = SCOPES[payload.scope] ? payload.scope : null;
   const { specs: toolSpecs, tools } = scopedTools(scope);
@@ -108,5 +116,26 @@ export async function handle(payload, { callModel, readModel, env = process.env,
     }
     return { ok: false, status: 502, error: "L'assistant a rencontré un problème. Réessaie." };
   }
-  return { ok: true, reply: redact(reply, secrets), state: compact(run.state), changes: [...run.changes].sort(), ...(run.generate ? { generate: run.generate } : {}) };
+  const pending = sealPending(run, env);
+  return {
+    ok: true,
+    reply: redact(reply, secrets),
+    state: compact(run.state),
+    changes: [...run.changes].sort(),
+    ...(run.generate ? { generate: run.generate } : {}),
+    ...(pending ? { pending } : {}),
+  };
+}
+
+async function confirmPending(payload, { username, env }) {
+  const state = normalize(payload.state);
+  const opened = openPending(payload.confirm, state, username, env);
+  if (!opened.ok) return { ok: false, status: 409, error: opened.error };
+  const run = { state, changes: new Set(), flags: {}, username, context: {}, memory: [] };
+  for (const op of opened.ops) {
+    const tool = byName.get(op.tool);
+    const r = tool ? await tool.run(run, op.args ?? {}) : { error: 'Outil inconnu.' };
+    if (r?.error) return { ok: false, status: 409, error: 'Ce changement ne s’applique plus à ton CV : redemande à l’assistant.' };
+  }
+  return { ok: true, reply: 'C’est fait.', state: compact(run.state), changes: [...run.changes].sort(), confirmed: true };
 }

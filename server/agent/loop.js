@@ -1,4 +1,8 @@
 // Boucle de l'agent : le modèle appelle des outils jusqu'à final_answer (reprise de l'agent Ivy).
+// Les outils qui modifient le CV passent par les garde-fous (guard.js) : rien n'est écrasé ni supprimé sans l'utilisateur.
+import { WRITE_TOOLS, guardedRun } from './guard.js';
+
+const MAX_TOOL_CALLS = 40; // par demande : un modèle qui boucle s'arrête
 
 export const clean = (text) =>
   String(text ?? '')
@@ -28,7 +32,11 @@ function args(call) {
 async function callTool(run, tools, name, input) {
   const tool = tools.get(name);
   if (!tool) return { error: `Outil inconnu : ${name}` };
+  run.toolCalls = (run.toolCalls ?? 0) + 1;
+  if (run.toolCalls > MAX_TOOL_CALLS) return { error: 'Trop d’actions pour une seule demande : conclus avec final_answer.' };
   try {
+    // Les tests d'outils isolés passent un run sans garde (run.guard === false) ; l'agent, toujours avec.
+    if (WRITE_TOOLS.has(name) && run.guard !== false) return await guardedRun(run, tool, name, input);
     return await tool.run(run, input);
   } catch (err) {
     // un outil qui plante ne doit pas faire tomber la requête
