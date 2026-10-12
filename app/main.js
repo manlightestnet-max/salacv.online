@@ -208,6 +208,7 @@ $('peek').addEventListener('click', () => setSheet('collapsed'));
 $('next').addEventListener('click', () => goTo(stepIndex + 1));
 $('generate').addEventListener('click', download);
 $('gen-top').addEventListener('click', download);
+$('gen-bar').addEventListener('click', download);
 initHorizontalScroll($('stepper'));
 // --- Retour (bouton de la barre d'app et retour natif du téléphone) ----------------------------------
 // Comme une app : l'assistant ouvert → il se ferme ; la feuille ouverte → elle se replie ; sinon on demande
