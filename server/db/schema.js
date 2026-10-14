@@ -192,4 +192,17 @@ export const STATEMENTS = [
     paid_at timestamptz
   )`,
   `CREATE INDEX IF NOT EXISTS credit_orders_user_idx ON credit_orders (username, created_at DESC)`,
+
+  // Assistant en direct (Gemini Live) : une ligne par session ouverte, avec la clé qui la porte. Sert à la rotation
+  // (sessions en cours par clé, la moins chargée d'abord) et au suivi dans l'admin (Live).
+  `CREATE TABLE IF NOT EXISTS live_sessions (
+    id text PRIMARY KEY,
+    who text NOT NULL,
+    key_id bigint,
+    started_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz NOT NULL,
+    ended_at timestamptz,
+    tokens integer NOT NULL DEFAULT 0
+  )`,
+  `CREATE INDEX IF NOT EXISTS live_sessions_key_idx ON live_sessions (key_id, started_at DESC)`,
 ];

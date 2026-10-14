@@ -23,5 +23,6 @@ export default defineConfig({
   },
   optimizeDeps: { esbuildOptions: { target: 'es2022' } },
   // En local, /api va au serveur Node (npm start, port 3000), comme sur Vercel.
-  server: { proxy: { '/api': 'http://127.0.0.1:3000' } },
+  // SALACV_API_PORT : pour faire tourner une deuxième copie à côté (ex. la branche live sur 3100).
+  server: { proxy: { '/api': `http://127.0.0.1:${process.env.SALACV_API_PORT || 3000}` } },
 });

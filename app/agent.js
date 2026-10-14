@@ -8,8 +8,7 @@ import { markdown } from './markdown.js';
 import { loginPanel } from './login.js';
 import { publishQuota } from './quotabar.js';
 import { forgetSession, getSession } from './session.js';
-import { MIME, callRender, save, slug, toBlob } from './export.js';
-import { formatCredits } from './lib/store.js';
+import { generateCard as makeGenerateCard } from './gencard.js';
 
 const HISTORY_SENT = 6; // derniers échanges envoyés pour les demandes de suivi
 
@@ -107,60 +106,8 @@ export function createAgentPanel(ctx) {
 
   // --- Discussion ------------------------------------------------------------------
 
-  // Crédits ou génération : une petite carte d'action sous la réponse.
-  // Générer dans le chat : l'utilisateur touche « Générer », la carte montre l'avancement, puis « Télécharger ».
-  // Le serveur revérifie et débite (un crédit pour une nouvelle version propre) ; sans crédit, filigrane.
-  function generateCard(g) {
-    const card = h('div', { class: 'msg-card gen-card' });
-    const name = () => slug(ctx.renderState?.(g.version)?.profile?.name || 'CV') || 'CV';
-    const idle = () => {
-      const line = g.enough
-        ? g.cost > 0
-          ? `1 crédit · il t’en restera ${formatCredits(g.balance - g.cost)}`
-          : 'Déjà préparée : gratuit'
-        : g.loggedIn
-          ? `Solde : ${formatCredits(g.balance)} crédit · sans crédit, le PDF sort avec filigrane`
-          : 'Sans compte, le PDF sort avec filigrane';
-      const go = h('button', { type: 'button', class: 'btn-primary gen-go' }, g.enough ? 'Générer mon CV' : 'Générer (avec filigrane)');
-      go.addEventListener('click', run);
-      card.replaceChildren(
-        h('div', { class: 'gen-head' }, h('span', { class: 'gen-coin', 'aria-hidden': 'true' }), h('div', {}, h('strong', {}, g.label || 'Ton CV'), h('small', {}, line))),
-        h(
-          'div',
-          { class: 'msg-card-row' },
-          go,
-          !g.enough && g.loggedIn && h('a', { class: 'btn-ghost', href: '/dashboard/#credits' }, 'Recharger'),
-          !g.loggedIn && h('a', { class: 'btn-ghost', href: here() }, 'Se connecter'),
-        ),
-      );
-    };
-    async function run() {
-      const ring = h('div', { class: 'gen-ring', style: '--p:12' });
-      const now = h('span', {}, 'Mise en page…');
-      card.replaceChildren(h('div', { class: 'gen-progress' }, ring, now));
-      let p = 12;
-      const creep = setInterval(() => ring.style.setProperty('--p', String((p = Math.min(88, p + (88 - p) * 0.12)))), 250);
-      const state = ctx.renderState?.(g.version);
-      const { data } = await callRender({ state, formats: ['pdf'] });
-      clearInterval(creep);
-      if (!data.ok) {
-        card.replaceChildren(h('p', { class: 'gen-error' }, data.error || 'La préparation a échoué. Aucun crédit n’a été utilisé.'));
-        const retry = h('button', { type: 'button', class: 'btn-ghost' }, 'Réessayer');
-        retry.addEventListener('click', idle);
-        card.append(retry);
-        return;
-      }
-      if (data.balance != null) ctx.onSpent?.(data.balance);
-      ring.style.setProperty('--p', '100');
-      const wm = data.files.pdf.watermarked;
-      const blob = toBlob(data.files.pdf.base64, MIME.pdf);
-      const dl = h('button', { type: 'button', class: 'btn-primary gen-dl' }, `Télécharger le PDF${wm ? ' (filigrane)' : ''}`);
-      dl.addEventListener('click', () => save(blob, `CV-${name()}.pdf`));
-      card.replaceChildren(h('div', { class: 'gen-ready' }, h('span', { class: 'gen-check', 'aria-hidden': 'true' }), h('strong', {}, wm ? 'Ton CV est prêt (avec filigrane)' : 'Ton CV est prêt')), dl);
-    }
-    idle();
-    return card;
-  }
+  // Crédits ou génération : une petite carte d'action sous la réponse (voir gencard.js, partagée avec le direct).
+  const generateCard = (g) => makeGenerateCard(g, ctx);
 
   // Modèles proposés par l'IA : SON CV dessiné dans chaque modèle ; un toucher l'applique, puis on propose de générer.
   function templatesCard(msg) {
@@ -193,7 +140,7 @@ export function createAgentPanel(ctx) {
     // Réponses de l'agent en markdown ; messages de l'étudiant en texte brut.
     const body = msg.role === 'assistant' && !msg.error ? markdown(msg.text) : [msg.text && h('p', {}, msg.text)];
     if (msg.attached) body.unshift(h('span', { class: 'msg-attached' }, 'Image jointe'));
-    const node = h('div', { class: `msg msg-${msg.role}${msg.error ? ' msg-error' : ''}` }, body);
+    const node = h('div', { class: `msg msg-${msg.role}${msg.error ? ' msg-error' : ''}${msg.live ? ' msg-live' : ''}` }, body);
     if (msg.changes?.length) {
       node.append(
         h(
@@ -450,5 +397,12 @@ export function createAgentPanel(ctx) {
   }
 
   render();
-  return { el: root, focus: () => window.matchMedia('(hover: hover)').matches && root.querySelector('textarea, input')?.focus(), ask: (text) => askFn?.(text) };
+  // La conversation a changé ailleurs (le direct y a ajouté ses échanges) : on la relit.
+  const reload = () => {
+    if (pending) return;
+    chat = [...(ctx.getChat?.() ?? [])];
+    undo = null;
+    render();
+  };
+  return { el: root, reload, focus: () => window.matchMedia('(hover: hover)').matches && root.querySelector('textarea, input')?.focus(), ask: (text) => askFn?.(text) };
 }

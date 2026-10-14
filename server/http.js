@@ -91,6 +91,11 @@ export const ROUTES = {
     const ctx = context(req);
     return withCookie(render(payload, tokenOf(req), { ctx }), ctx);
   },
+  // Assistant en direct (voix) : jeton éphémère Gemini Live, outils du CV, compte rendu des tokens.
+  live: (payload, req) => {
+    const ctx = context(req);
+    return withCookie(web.live(payload, tokenOf(req), { ctx }), ctx);
+  },
   credits: (payload, req) => creditsRoute(tokenOf(req)),
   // Achat de crédits (LightPay) : packs en vente, achat, suivi d'une commande, webhook de LightPay.
   shop: (payload, req) => shopRoute(tokenOf(req)),

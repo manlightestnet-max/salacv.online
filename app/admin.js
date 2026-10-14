@@ -1225,6 +1225,7 @@ const ICON_PATHS = {
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3M14 9l2 2"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>',
   gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 17 4-5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
 };
 document.querySelectorAll('.ad-ico').forEach((el) => {
@@ -1263,7 +1264,118 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Navigation ----------------------------------------------------------------------------
-const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, boutique: shopView, ia: aiView, contact: contactView, journal: journalView };
+// --- Live (assistant vocal) ------------------------------------------------------------------
+// Gemini Live accepte peu de sessions par clé : chaque personne a ses N clés réservées (N ≥ 2), la moins chargée sert
+// d'abord, puis les autres clés du pool. Les clés elles-mêmes s'ajoutent dans « Clés IA » (fournisseur gemini).
+async function liveView() {
+  const r = await api('live');
+  if (!r.ok) return page('Live', null, null, notice(r.error, 'error'));
+  const setting = (key) => r.settings.find((s) => s.key === key);
+  const fail = (text) => {
+    const d = openDialog({ title: 'Impossible', content: h('p', { class: 'dialog-text' }, text), footer: [h('button', { type: 'button', class: 'btn-primary', onClick: () => d.close() }, 'OK')] });
+  };
+  const val = (k) => setting(k)?.value ?? '';
+  const perUser = Number(val('live.keysPerUser')) || 2;
+  const perKey = Number(val('live.maxSessionsPerKey')) || 3;
+  const load = new Map(r.stats.perKey.map((k) => [k.keyId, k]));
+  const usable = r.keys.filter((k) => !k.disabled && !k.exhaustedToday && !k.unreadable);
+  const active = r.stats.perKey.reduce((a, k) => a + k.active, 0);
+  const today = r.stats.perKey.reduce((a, k) => a + k.today, 0);
+  const tokensToday = r.stats.perKey.reduce((a, k) => a + k.tokensToday, 0);
+  const on = val('live.enabled') !== '0';
+
+  const summary = card(
+    'En ce moment',
+    h('span', { class: on ? 'tag' : 'tag danger' }, on ? 'Activé' : 'En pause'),
+    h(
+      'div',
+      { class: 'stat-grid' },
+      statCell('Sessions en cours', active, `capacité ${tokens(usable.length * perKey)} (${usable.length} clé${usable.length > 1 ? 's' : ''} × ${perKey})`, active >= usable.length * perKey && usable.length > 0),
+      statCell('Aujourd’hui', today, 'sessions ouvertes'),
+      statCell('Tokens du jour', tokens(tokensToday), 'rapportés par le direct'),
+      statCell('Clés Gemini', `${usable.length} / ${r.keys.length}`, h('a', { class: 's', href: '#cles' }, 'Ajouter des clés →')),
+    ),
+    usable.length < perUser &&
+      notice(`Il faut au moins ${perUser} clés Gemini utilisables pour que chaque personne ait ses ${perUser} clés réservées (aujourd’hui : ${usable.length}). Ajoute-les dans Clés IA, fournisseur « gemini » ; étiquette « public » pour les visiteurs.`, 'error'),
+  );
+
+  // Réglages : rotation et session.
+  const F = [
+    ['live.keysPerUser', 'Clés réservées à chaque personne', 'Au moins 2. Ses sessions tournent sur ces clés (la moins chargée d’abord), puis sur le reste du pool si elles sont pleines.', 'number'],
+    ['live.maxSessionsPerKey', 'Sessions en même temps par clé', 'Au-delà, la clé est sautée. Gemini Live en accepte peu par clé : 3 est prudent.', 'number'],
+    ['live.minutes', 'Durée maximale d’une session (minutes)', 'Le jeton expire ensuite ; l’étudiant relance le direct d’un toucher.', 'number'],
+    ['live.model', 'Modèle Gemini Live', 'Ex. gemini-3.8-live.', 'text'],
+    ['live.voice', 'Voix', 'Ex. Kore, Puck, Aoede, Charon.', 'text'],
+  ];
+  const inputs = F.map(([key, label, help, type]) => ({ key, label, help, input: h('input', { class: 'admin-input', type, ...(type === 'number' ? { min: 1, step: 1, inputmode: 'numeric' } : {}), value: val(key), 'aria-label': label }) }));
+  const enabled = h('select', { class: 'admin-input', 'aria-label': 'Direct' }, h('option', { value: '1' }, 'Activé'), h('option', { value: '0' }, 'En pause'));
+  enabled.value = on ? '1' : '0';
+  const save = h('button', { type: 'button', class: 'btn-primary' }, 'Enregistrer');
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    for (const [key, value] of [['live.enabled', enabled.value], ...inputs.map((i) => [i.key, i.input.value.trim()])]) {
+      const res = await api('setSetting', { key, value });
+      if (!res.ok) return ((save.disabled = false), fail(res.error));
+    }
+    render();
+  });
+  const settingsCard = card(
+    'Rotation et sessions',
+    null,
+    h(
+      'div',
+      { class: 'ad-form' },
+      h('label', { class: 'ad-label' }, 'Direct', enabled, h('span', { class: 'ad-sub' }, 'En pause : le bouton Live répond que le direct revient bientôt ; l’assistant écrit reste disponible.')),
+      ...inputs.map((i) => h('label', { class: 'ad-label' }, i.label, i.input, h('span', { class: 'ad-sub' }, i.help))),
+      save,
+    ),
+  );
+
+  // Clés Gemini : à qui elles servent et leur charge.
+  const keyName = (k) => `${k.label || 'Clé Gemini'} ····${k.last4}`;
+  const keyRows = r.keys.map((k) => {
+    const l = load.get(k.id) ?? { active: 0, today: 0, tokensToday: 0, last: null };
+    const status = k.unreadable ? ['Illisible', 'danger'] : k.disabled ? ['Désactivée', 'danger'] : k.exhaustedToday ? ['Épuisée aujourd’hui', 'danger'] : l.active >= perKey ? ['Pleine', 'danger'] : null;
+    const scope = k.owner ? `Attribuée à ${k.owner}` : k.public ? 'Pool · public (visiteurs)' : 'Pool';
+    return h(
+      'div',
+      { class: `row-item${status ? ' blocked' : ''}` },
+      h('span', { class: 'avatar', 'aria-hidden': 'true' }, String(l.active)),
+      h(
+        'div',
+        { class: 'row-main' },
+        h('strong', {}, keyName(k), status && h('span', { class: `tag ${status[1]}` }, status[0])),
+        h('small', {}, `${scope} · ${l.active}/${perKey} en cours · ${l.today} aujourd’hui · ${tokens(l.tokensToday)} tokens${l.last ? ` · dernière ${dateTime(l.last)}` : ''}`),
+      ),
+    );
+  });
+  const keysCard = card(`Clés Gemini (${r.keys.length})`, h('a', { class: 'btn-ghost', href: '#cles' }, 'Gérer dans Clés IA'), rowsOf(keyRows, 'Aucune clé Gemini : ajoute-en dans Clés IA (fournisseur « gemini »).'));
+
+  // Dernières sessions.
+  const keyById = new Map(r.keys.map((k) => [k.id, k]));
+  const now = Date.now();
+  const mins = (a, b) => Math.max(1, Math.round((b - a) / 60000));
+  const sessionRows = r.stats.recent.map((s) => {
+    const running = !s.endedAt && s.expiresAt > now;
+    const k = keyById.get(s.keyId);
+    return h(
+      'div',
+      { class: 'row-item' },
+      h(
+        'div',
+        { class: 'row-main' },
+        h('strong', {}, s.who.startsWith('ip:') ? 'Visiteur' : s.who, running && h('span', { class: 'tag' }, 'En cours')),
+        h('small', {}, `${k ? keyName(k) : s.keyId ? `clé ${s.keyId}` : 'clé de secours (.env)'} · ${running ? `${mins(s.startedAt, now)} min` : `${mins(s.startedAt, s.endedAt ?? s.expiresAt)} min`} · ${tokens(s.tokens)} tokens`),
+      ),
+      h('span', { class: 'row-meta' }, dateTime(s.startedAt)),
+    );
+  });
+  const sessionsCard = card('Dernières sessions', null, rowsOf(sessionRows, 'Aucune session pour le moment.'));
+
+  return page('Live', 'L’assistant vocal en direct (Gemini Live) : rotation des clés, capacité et sessions. Chaque personne a ses clés réservées ; les clés pleines ou épuisées sont sautées toutes seules.', null, summary, settingsCard, keysCard, sessionsCard);
+}
+
+const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, live: liveView, boutique: shopView, ia: aiView, contact: contactView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);

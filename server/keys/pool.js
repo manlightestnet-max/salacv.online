@@ -153,6 +153,10 @@ export async function keySourceFor(username, env = process.env, { anonymous = fa
       const e = list.find((k) => !skip.has(k.secret) && accept(providerOf(k.provider)));
       return e ? { provider: providerOf(e.provider), key: e.secret, id: e.id } : null;
     },
+    // Toutes les clés encore utilisables pour ce filtre (le direct choisit lui-même parmi elles : rotation par charge).
+    candidates(accept = () => true) {
+      return list.filter((k) => !skip.has(k.secret) && accept(providerOf(k.provider))).map((e) => ({ provider: providerOf(e.provider), key: e.secret, id: e.id }));
+    },
     async exhaust(entry) {
       skip.add(entry.key);
       if (entry.id) await query('UPDATE api_keys SET exhausted_on = CURRENT_DATE WHERE id = $1', [entry.id]).catch(() => {});

@@ -27,6 +27,7 @@ import { checkPacks, connectFinish, connectStart, lightpayConfig, listPacks, rec
 import { adminSetAi, allowances, checkAiPacks, listAiPacks, saveAiPacks } from './aiquota.js';
 import { CONTACT_KEYS, checkContact } from './contact.js';
 import { aiCosts } from './aitune.js';
+import { liveStats } from './agent/live.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -221,6 +222,17 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     }
 
     // --- Clés des fournisseurs IA : pool partagé, attribution à un utilisateur, réglages -------
+    // Assistant en direct : réglages, clés Gemini (chargées ou non) et dernières sessions. Jamais une clé en clair.
+    case 'live':
+      return [
+        200,
+        {
+          ok: true,
+          settings: (await listSettings(env)).filter((x) => x.key.startsWith('live.')),
+          keys: (await pool.listKeys()).filter((k) => k.provider === 'gemini'),
+          stats: await liveStats(),
+        },
+      ];
     case 'keys':
       return [200, { ok: true, r2: await r2Configured(env), keys: await pool.listKeys({ env }), providers: pool.providers(), settings: await listSettings(env), users: (await listUsers()).map((u) => u.username), recovery: await recoveryStatus(env) }];
     // --- Phrase de récupération de la clé maîtresse ----------------------------------------------
@@ -309,7 +321,10 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
         if (!c.ok) return [400, { ok: false, error: c.error }];
         payload.value = c.value;
       }
-      const RANGES = { 'ai.maxSteps': [1, 12], 'ai.historySent': [0, 12], 'ai.maxSkills': [0, 5], 'ai.maxTokensPerRequest': [0, 2_000_000], 'ai.alertDailyFcfa': [0, 10_000_000] };
+      if (key === 'live.enabled' && !['0', '1'].includes(String(payload.value))) return [400, { ok: false, error: 'Direct : 1 (activé) ou 0 (en pause).' }];
+      if (key === 'live.model' && !/^[a-z0-9][a-z0-9.-]{2,79}$/.test(String(payload.value))) return [400, { ok: false, error: 'Modèle : un nom comme gemini-3.8-live.' }];
+      if (key === 'live.voice' && !/^[A-Za-z]{2,30}$/.test(String(payload.value))) return [400, { ok: false, error: 'Voix : un nom comme Kore, Puck, Aoede.' }];
+      const RANGES = { 'live.keysPerUser': [2, 10], 'live.maxSessionsPerKey': [1, 50], 'live.minutes': [2, 30], 'ai.maxSteps': [1, 12], 'ai.historySent': [0, 12], 'ai.maxSkills': [0, 5], 'ai.maxTokensPerRequest': [0, 2_000_000], 'ai.alertDailyFcfa': [0, 10_000_000] };
       const isPrice = key.startsWith('ai.price.');
       if (RANGES[key] || isPrice) {
         const [min, max] = RANGES[key] ?? [0, 100_000_000];

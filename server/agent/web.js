@@ -18,6 +18,9 @@ import { addAnonUsage, anonUsage } from '../quota.js';
 import { addUserUsage, publicUserQuota, userQuota } from '../aiquota.js';
 import { verifyFirebaseIdToken } from '../accounts/firebase.js';
 import { activateOnlineKey } from '../accounts/keys.js';
+import { LIVE_WS, cleanStart, issueTicket, liveConfig, liveLoad, liveSetup, liveSkills, mintToken, noteSession, openSession, openTicket, orderKeys, runLiveTool } from './live.js';
+import { redact } from './secrets.js';
+import { keysFor as envKeys } from './llm/providers.js';
 
 export const MAX_BODY = 64 * 1024;
 
@@ -131,6 +134,94 @@ export const agent = (payload, token, opts = {}) => runAi('agent', payload, toke
 // Import d'un CV (PDF ou photo) : un appel à l'IA, compté dans la réserve du compte (compte Google obligatoire).
 export const importCv = (payload, token, opts = {}) => runAi('import', payload, token, { env: process.env, ...opts }, 'Connecte-toi avec Google pour importer ton CV.', importHandler);
 export const translate = (payload, token, opts = {}) => runAi('translate', payload, token, { env: process.env, ...opts }, 'Connecte-toi pour traduire ton CV.', translateCv);
+
+// Assistant en direct (Gemini Live, voir agent/live.js). Une seule route, trois actions :
+//   start : mêmes droits que l'assistant écrit (compte ou visiteur avec quota) → jeton éphémère + ticket de session.
+//           La clé est choisie par la rotation du direct (Admin → Live) et la session est notée (charge par clé).
+//   tool  : un appel d'outil de Gemini (CV sous garde-fous, crédits, historique, génération) — ticket requis
+//   usage : tokens consommés depuis le dernier compte rendu, ajoutés au quota ; end = la session est finie — ticket requis
+export const liveLimiter = new RateLimiter(4); // sessions ouvertes par minute
+export const liveToolLimiter = new RateLimiter(90); // appels d'outils par minute
+const MAX_USAGE_REPORT = 200_000;
+
+// Essais en local uniquement : SALACV_LIVE_ENV_KEY=1 laisse le direct utiliser GEMINI_API_KEY(S) de .env quand le pool
+// n'a aucune clé Gemini pour cette personne. Jamais en ligne (les clés se gèrent dans l'admin).
+function liveDevKeys(source, env) {
+  if (env.SALACV_LIVE_ENV_KEY !== '1' || env.VERCEL) return source;
+  if (source?.candidates((p) => p.name === 'gemini').length) return source;
+  const keys = envKeys('gemini', env);
+  if (!keys.length) return source;
+  const skip = new Set();
+  return {
+    mode: 'env',
+    lastUsedId: null,
+    candidates: (accept) => (accept({ name: 'gemini' }) ? keys.filter((k) => !skip.has(k)).map((key) => ({ provider: { name: 'gemini' }, key, id: null })) : []),
+    exhaust: async (e) => skip.add(e.key),
+    invalid: async (e) => skip.add(e.key),
+    used() {},
+    secrets: () => keys,
+  };
+}
+
+export async function live(payload, token, { env = process.env, ctx, fetchImpl } = {}) {
+  const action = payload?.action;
+  if (action === 'start') {
+    const config = await liveConfig(env);
+    if (!config.enabled) return [503, { ok: false, error: 'Le direct est en pause pour le moment. Utilise l’assistant écrit.' }];
+    const guard = await aiGuard(token, env, "Connecte-toi pour parler à l'assistant en direct.", ctx);
+    if (guard.error) return guard.error;
+    if (!liveLimiter.allow(guard.who)) return [429, { ok: false, error: 'Trop de sessions. Attends une minute.' }];
+    const keySource = liveDevKeys(await keysFor(guard.username, env, guard.anonymous), env);
+    if (!keySource) return [503, { ok: false, error: 'Le direct est indisponible pour le moment. Réessaie dans un instant.' }];
+    try {
+      const loggedIn = Boolean(guard.username);
+      const { history, versions } = cleanStart(payload);
+      const setup = liveSetup(payload.state, { config, loggedIn, history, versions, skills: await liveSkills({ loggedIn }) });
+      const { order, full } = orderKeys(keySource.candidates((p) => p.name === 'gemini'), guard.who, await liveLoad(), config);
+      const { token: liveToken, expiresAt, keyId } = await mintToken(setup, keySource, { order, full, minutes: config.minutes, fetchImpl });
+      const sid = await openSession({ who: guard.who, keyId, expiresAt });
+      logUsage(guard.who, keyId, 'live', true, 0, 'gemini');
+      return [
+        200,
+        { ok: true, token: liveToken, url: LIVE_WS, model: setup.model, expiresAt, ticket: issueTicket({ who: guard.who, username: guard.username, sid }, expiresAt, env) },
+      ];
+    } catch (err) {
+      console.error(`[live] ${redact(err.message, keySource.secrets())}`);
+      return [err.status ?? 503, { ok: false, error: err.userMessage ?? 'Le direct n’a pas pu démarrer. Réessaie.' }];
+    }
+  }
+
+  const session = openTicket(payload?.ticket, env);
+  if (!session) return [401, { ok: false, error: 'Session en direct expirée : relance le direct.' }];
+  // Le ticket appartient à celui qui l'a ouvert (compte, ou visiteur de cette IP).
+  const username = token ? verify(token, env) : null;
+  if ((session.username ?? null) !== (username ?? null) || (!session.username && ctx && session.who !== `ip:${ctx.ip}`)) {
+    return [403, { ok: false, error: 'Session en direct refusée.' }];
+  }
+
+  if (action === 'tool') {
+    if (!liveToolLimiter.allow(session.who)) return [429, { ok: false, error: 'Trop de modifications d’un coup.' }];
+    const { status, ...result } = await runLiveTool(payload, { username: session.username, env });
+    return [status ?? 200, result];
+  }
+
+  if (action === 'usage') {
+    const tokens = Math.max(0, Math.min(MAX_USAGE_REPORT, Math.round(Number(payload.tokens) || 0)));
+    if (tokens) logUsage(session.who, null, 'live', true, tokens, 'gemini');
+    await noteSession(session.sid, { tokens, end: payload.end === true });
+    if (session.username) {
+      await addUserUsage(session.username, tokens).catch((err) => console.error(`[quota] ${err.message}`));
+      const quota = await userQuota(session.username, env);
+      return [200, { ok: true, quota: publicUserQuota(quota), stop: quota.exhausted }];
+    }
+    if (!ctx) return [400, { ok: false, error: 'Requête invalide.' }];
+    await addAnonUsage(ctx, tokens).catch((err) => console.error(`[quota] ${err.message}`));
+    const quota = await anonUsage(ctx, env);
+    return [200, { ok: true, quota: publicQuota(quota), stop: quota.exhausted }];
+  }
+
+  return [400, { ok: false, error: 'Action inconnue.' }];
+}
 
 // Qui suis-je ? (le navigateur ne voit jamais le jeton, il demande son identité au serveur)
 export async function me(token, { env = process.env } = {}) {

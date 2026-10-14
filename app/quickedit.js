@@ -510,6 +510,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
         bar.hidden = true;
         outline.hidden = true;
         onClose?.();
+        target.onDone?.();
       };
       dialog = { close: closeIns, el: panel, inspector: true };
       editing = dialog;
@@ -534,6 +535,7 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
         outline.hidden = true;
         selected = null;
         onClose?.();
+        target.onDone?.(); // assistant en direct : il sait que l'étudiant a fini d'écrire
       },
     });
     editing = dialog;
@@ -557,6 +559,62 @@ export function initQuickEdit({ canvases, preview, fonts, getDoc, getState, mock
     if (target.focusAdd) requestAnimationFrame(() => dialog.el.querySelector('.items-entry .input, .input')?.focus());
     else if (!window.matchMedia('(pointer: coarse)').matches) requestAnimationFrame(() => dialog.el.querySelector('.input')?.focus());
   }
+
+  // Où est cet élément sur l'aperçu ? (sa saisie, sinon son exemple en gris) → ancre du contour, ou null.
+  function anchorOf(want) {
+    const doc = getDoc();
+    if (!doc) return null;
+    const state = getState();
+    const pools = [candidates(state, false), candidates(mockupState, true)];
+    const pages = [...canvases.querySelectorAll('canvas.page')];
+    const fits = (t) => {
+      if (want.kind === 'item') return (t.kind === 'item' || t.kind === 'section') && t.list === want.list && (t.ghost || want.index == null || t.index === want.index || t.kind === 'section');
+      if (want.kind === 'language') return t.kind === 'language' && (t.ghost || want.index == null || t.index === want.index);
+      return t.kind === want.kind;
+    };
+    let fallback = null;
+    for (let page = 0; page < pages.length; page++) {
+      const lines = textLines(doc.pages[page] ?? [], kit);
+      const resolve = lineResolver(lines, (text) => resolveTarget(text, state, mockupState, pools));
+      for (const line of lines) {
+        const t = resolve(line);
+        if (!t || !fits(t)) continue;
+        const anchor = { canvas: pages[page], b: groupBox(lines, line, t, resolve) || lineBox(line), docW: doc.width, raw: t };
+        if (!t.ghost && t.kind !== 'section') return anchor; // la vraie saisie avant l'exemple ou le titre de section
+        fallback ??= anchor;
+      }
+    }
+    return fallback;
+  }
+
+  // Ouvre, depuis l'extérieur (assistant en direct), la fenêtre d'édition d'une partie du CV, en la montrant sur l'aperçu.
+  //   spec : { kind: identity|contact|summary|skills|hobbies|photo|item|language, list?, index? } ; index absent → nouvel élément.
+  //   onDone() : appelé quand l'étudiant ferme la fenêtre. → titre de la fenêtre, ou null.
+  function spot(spec, onDone) {
+    const state = getState();
+    editing?.close();
+    let target;
+    if (spec.kind === 'item') target = state[spec.list]?.[spec.index] ? { kind: 'item', list: spec.list, index: spec.index } : addItem(state, spec.list);
+    else if (spec.kind === 'language') target = state.languages[spec.index] ? { kind: 'language', index: spec.index } : addLanguage(state);
+    else if (spec.kind === 'skills' || spec.kind === 'hobbies') target = { kind: spec.kind, focusAdd: true };
+    else if (TITLES[spec.kind]) target = { kind: spec.kind };
+    else return null;
+    if (target.fresh) changed();
+    const anchor = anchorOf(target);
+    anchor?.canvas.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    const box = anchor ? boxOf(anchor) : (() => {
+      const r = preview.getBoundingClientRect();
+      return { left: r.left + r.width / 2 - 40, top: r.top + 80, width: 80, height: 40 };
+    })();
+    if (anchor) {
+      selected = { raw: anchor.raw, box, anchor };
+      show(box, true);
+    }
+    open({ ...target, onDone }, box);
+    return target.kind === 'item' ? (target.list === 'education' ? 'Formation' : 'Expérience') : TITLES[target.kind];
+  }
+
+  return { spot };
 }
 
 // PC : la fenêtre se déplace en la tenant par son titre, pour dégager la partie du CV

@@ -20,6 +20,7 @@ import example from '../examples/etudiant.json';
 import { h, icon, fieldIndex, setInputError } from './dom.js';
 import { STEPS, reviewIssues, reviewStatus, stepLevels } from './steps.js';
 import { createAgentPanel } from './agent.js';
+import { createLive } from './live.js';
 import { askAgent } from './ai.js';
 import { initAiMeter, initQuotaBar, publishQuota } from './quotabar.js';
 import { openImport } from './import/flow.js';
@@ -38,6 +39,7 @@ const root = document.documentElement;
 let stepAi = false;
 let aiProposal = null; // { step, before, changed } : suggestion de l'IA en attente de Garder / Annuler
 let aiPop = null;
+let quickEdit = null; // fenêtres d'édition de l'aperçu (prêtes avec le moteur) ; l'assistant en direct les ouvre
 // Rail ouvert (titres visibles) au chargement pendant 20 s, puis replié ; le bouton en bas le garde ouvert ou fermé.
 let railOpen = true;
 let railTimer = setTimeout(() => setRailOpen(false), 20000);
@@ -349,7 +351,7 @@ async function initEngine() {
   try {
     engine = await trackWait(loadEngine());
     engineLoaded(engine);
-    initQuickEdit({
+    quickEdit = initQuickEdit({
       canvases,
       preview,
       fonts: engine.fonts,
@@ -591,6 +593,53 @@ function initKeyboard() {
   });
   document.addEventListener('focusout', () => setTimeout(sync, 50));
 }
+
+// --- Assistant en direct (voix) ----------------------------------------------
+
+
+// Comme l'assistant écrit : la photo et le modèle ne quittent pas le navigateur ; le CV modifié remplace celui du formulaire.
+const live = createLive({
+  getState: () => ({ ...state, template: undefined, profile: { ...state.profile, photo: undefined } }),
+  setState: (next) => {
+    const { photo } = state.profile;
+    const { template, lang } = state;
+    state = normalizeState(next);
+    state.profile.photo = photo;
+    state.template = template;
+    state.lang = lang;
+    schedule();
+    if (!agentOpen) renderStep();
+  },
+  snapshot: () => structuredClone(state),
+  restore: (snap) => {
+    state = normalizeState(snap);
+    schedule();
+    if (!agentOpen) renderStep();
+  },
+  // « Laisse-moi l'écrire » : la fenêtre d'édition de l'aperçu s'ouvre sur cette partie du CV.
+  openField: (spec, onDone) => quickEdit?.spot(spec, onDone) ?? null,
+  getFullState: () => state,
+  // La discussion du direct rejoint celle de l'assistant écrit (une conversation par CV, gardée avec lui).
+  getChat: () => project.chat ?? [],
+  setChat: (chat) => {
+    project.chat = chat.slice(-40);
+    saveCurrent();
+    agentPanel?.reload();
+  },
+  // Versions à générer, et l'état complet (modèle, photo) d'une version pour la carte « Générer ».
+  getContext: () => ({ versions: exportItems().map((it) => ({ key: it.key, label: `${it.label} — ${langName(it.lang)}` })) }),
+  renderState: (key) => (exportItems().find((it) => it.key === key) ?? exportItems()[0])?.state ?? state,
+  session: () => getSession(),
+});
+$('live-btn').addEventListener('click', () => live.toggle());
+if (import.meta.env.DEV) window.__salacvLive = live; // essais sans micro : outils simulés depuis la console
+window.addEventListener('salacv:live', (e) => {
+  const on = e.detail.status === 'connecting' || e.detail.status === 'live';
+  $('live-btn').setAttribute('aria-pressed', String(on));
+  $('live-btn').classList.toggle('on', e.detail.status === 'live');
+  // Mobile : le direct démarre, la feuille du formulaire se replie (le CV et le panneau du direct restent visibles).
+  if (e.detail.status === 'connecting' && !desktop.matches) setSheet('collapsed');
+});
 
 // --- Assistant ---------------------------------------------------------------
 

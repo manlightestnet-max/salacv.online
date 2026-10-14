@@ -28,6 +28,13 @@ export const DEFINITIONS = {
   'ai.price.gemini': { default: '0', secret: false, public: false, label: 'Gemini : FCFA par million de tokens' },
   'ai.price.groq': { default: '0', secret: false, public: false, label: 'Groq : FCFA par million de tokens' },
   'ai.alertDailyFcfa': { default: '0', secret: false, public: false, label: 'Alerte : coût du jour (FCFA, 0 = aucune)' },
+  // Assistant en direct (voix, Gemini Live) : Admin → Live. Les clés sont les clés Gemini de « Clés IA ».
+  'live.enabled': { default: '1', secret: false, public: false, label: 'Direct activé (1 = oui, 0 = non)' },
+  'live.keysPerUser': { default: '2', secret: false, public: false, label: 'Clés Gemini réservées à chaque personne' },
+  'live.maxSessionsPerKey': { default: '3', secret: false, public: false, label: 'Sessions en même temps par clé' },
+  'live.minutes': { default: '15', secret: false, public: false, label: 'Durée maximale d’une session (minutes)' },
+  'live.model': { default: 'gemini-3.8-live', secret: false, public: false, label: 'Modèle Gemini Live' },
+  'live.voice': { default: 'Kore', secret: false, public: false, label: 'Voix' },
   // Coordonnées de salacv, affichées sur le site (pied de page, aide) ; vide = n'apparaît pas. Validées dans contact.js.
   'contact.email': { default: '', secret: false, public: true, label: 'E-mail' },
   'contact.whatsapp': { default: '', secret: false, public: true, label: 'WhatsApp' },
