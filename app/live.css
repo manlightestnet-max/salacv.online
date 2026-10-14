@@ -141,3 +141,27 @@
 @media (max-width: 640px) {
   .live-panel.folded { left: 12px; right: 12px; width: auto; }
 }
+
+/* --- Mobile : replié = une bulle ----------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .live-panel.folded {
+    left: auto; right: 12px; bottom: var(--bubble-bottom, 160px); width: 56px; height: 56px; min-height: 0;
+    border-radius: 50%; cursor: pointer; overflow: visible;
+    box-shadow: 0 10px 28px rgb(15 23 42 / 0.28), 0 0 0 1px rgb(var(--gray-200));
+    transition: bottom 0.25s ease;
+  }
+  .live-panel.folded .live-head { padding: 0; width: 100%; height: 100%; justify-content: center; gap: 0; }
+  .live-panel.folded .live-title, .live-panel.folded .live-mini-row, .live-panel.folded .live-fold, .live-panel.folded .live-close { display: none !important; }
+  .live-panel.folded .live-orb { width: 40px; height: 40px; }
+  /* Pastille rouge : en direct ; pastille grise barrée : micro coupé. */
+  .live-panel.folded[data-status='live']::after {
+    content: ''; position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%;
+    background: rgb(239 68 68); box-shadow: 0 0 0 2px rgb(var(--surface)); animation: live-pulse 1.4s ease-out infinite;
+  }
+  .live-panel.folded.muted::before {
+    content: ''; position: absolute; bottom: -2px; right: -2px; width: 20px; height: 20px; border-radius: 50%;
+    background: rgb(var(--gray-900)) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5.5 11a6.5 6.5 0 0013 0M4 4l16 16'/%3E%3C/svg%3E") center / 12px no-repeat;
+    box-shadow: 0 0 0 2px rgb(var(--surface));
+  }
+}
+

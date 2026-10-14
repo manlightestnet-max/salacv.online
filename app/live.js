@@ -235,6 +235,7 @@ export function createLive(ctx) {
     foldBtn.setAttribute('aria-label', folded ? 'Déplier' : 'Replier');
     foldBtn.title = folded ? 'Déplier' : 'Replier';
     title.tabIndex = folded ? 0 : -1;
+    panel.setAttribute('aria-label', folded ? 'Assistant en direct (replié) : toucher pour déplier' : 'Assistant en direct');
     if (!folded) log.scrollTop = log.scrollHeight;
     if (remember) {
       autoFolded = false;
@@ -244,8 +245,29 @@ export function createLive(ctx) {
     }
   }
   setFolded(folded, { remember: false });
-  foldBtn.addEventListener('click', () => setFolded(!folded));
+  foldBtn.addEventListener('click', (e) => (e.stopPropagation(), setFolded(!folded)));
   title.addEventListener('click', () => folded && setFolded(false));
+
+  // Mobile : replié, le direct n'est plus qu'une bulle (l'orbe), posée à droite juste au-dessus de la feuille du
+  // formulaire (elle suit la feuille quand elle monte ou descend). Un toucher la déplie.
+  const phone = window.matchMedia('(max-width: 640px)');
+  const bubble = () => folded && phone.matches;
+  panel.addEventListener('click', (e) => {
+    if (!bubble() || e.target.closest('.live-mini')) return;
+    setFolded(false);
+  });
+  function placeBubble() {
+    const sheet = document.getElementById('sheet');
+    const top = sheet?.getBoundingClientRect().top ?? innerHeight;
+    // Feuille repliée : juste au-dessus ; feuille ouverte (elle couvre l'écran) : en bas, par-dessus.
+    const above = sheet && top > innerHeight * 0.45 ? innerHeight - top + 12 : 16;
+    panel.style.setProperty('--bubble-bottom', `${Math.round(above)}px`);
+  }
+  placeBubble();
+  window.addEventListener('resize', placeBubble);
+  const sheetEl = document.getElementById('sheet');
+  if (sheetEl) new MutationObserver(() => requestAnimationFrame(placeBubble)).observe(sheetEl, { attributes: true, attributeFilter: ['data-state', 'class', 'style'] });
+  sheetEl?.addEventListener('transitionend', placeBubble);
 
   // Une fenêtre du studio s'ouvre (saisie, recharge, export…) : le direct se replie pour lui laisser la place,
   // et se déplie de nouveau quand elle se ferme (s'il était déplié avant).
@@ -736,6 +758,7 @@ export function createLive(ctx) {
 
   function toggleMute() {
     muted = !muted;
+    panel.classList.toggle('muted', muted);
     for (const [btn, size] of [[muteBtn, 20], [miniMute, 16]]) {
       btn.setAttribute('aria-pressed', String(muted));
       btn.title = muted ? 'Rallumer le micro' : 'Couper le micro';
