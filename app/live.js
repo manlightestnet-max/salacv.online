@@ -206,20 +206,80 @@ export function createLive(ctx) {
   const stopBtn = h('button', { type: 'button', class: 'live-stop' }, 'Terminer');
   const undoBtn = h('button', { type: 'button', class: 'btn-ghost live-undo', hidden: true }, 'Annuler tout');
   const closeBtn = h('button', { type: 'button', class: 'live-close', 'aria-label': 'Fermer', title: 'Fermer' }, '×');
+  // Replié : une barre compacte (orbe, état, dernière phrase, micro, terminer) ; la discussion reste là, dépliable.
+  const caption = h('span', { class: 'live-caption' });
+  const foldBtn = h('button', { type: 'button', class: 'live-fold', 'aria-expanded': 'true', 'aria-label': 'Replier', title: 'Replier' }, chevron());
+  const miniMute = h('button', { type: 'button', class: 'live-mini live-mini-mute', 'aria-pressed': 'false', 'aria-label': 'Couper le micro', title: 'Couper le micro' }, micIcon(false, 16));
+  const miniStop = h('button', { type: 'button', class: 'live-mini live-mini-stop', 'aria-label': 'Terminer le direct', title: 'Terminer' }, h('span', { 'aria-hidden': 'true' }));
+  const title = h('button', { type: 'button', class: 'live-title', 'aria-label': 'Déplier la discussion' }, h('span', { class: 'live-title-row' }, state, clock), caption);
   const panel = h(
     'section',
     { class: 'live-panel', role: 'dialog', 'aria-label': 'Assistant en direct', hidden: true },
-    h('header', { class: 'live-head' }, orb, h('div', { class: 'live-title' }, state, clock), closeBtn),
+    h('header', { class: 'live-head' }, orb, title, h('div', { class: 'live-mini-row' }, miniMute, miniStop), foldBtn, closeBtn),
     log,
     h('footer', { class: 'live-foot' }, muteBtn, undoBtn, stopBtn),
   );
   document.body.append(panel);
 
-  function micIcon(off = false) {
+  // Préférence d'affichage (comme le thème) : replié ou déplié, retrouvé au prochain direct.
+  const FOLD_KEY = 'salacv:live-folded';
+  let folded = false;
+  try {
+    folded = localStorage.getItem(FOLD_KEY) === '1';
+  } catch {}
+  let autoFolded = false; // replié par une fenêtre du studio, pas par l'étudiant
+  function setFolded(next, { remember = true } = {}) {
+    folded = next;
+    panel.classList.toggle('folded', folded);
+    foldBtn.setAttribute('aria-expanded', String(!folded));
+    foldBtn.setAttribute('aria-label', folded ? 'Déplier' : 'Replier');
+    foldBtn.title = folded ? 'Déplier' : 'Replier';
+    title.tabIndex = folded ? 0 : -1;
+    if (!folded) log.scrollTop = log.scrollHeight;
+    if (remember) {
+      autoFolded = false;
+      try {
+        localStorage.setItem(FOLD_KEY, folded ? '1' : '0');
+      } catch {}
+    }
+  }
+  setFolded(folded, { remember: false });
+  foldBtn.addEventListener('click', () => setFolded(!folded));
+  title.addEventListener('click', () => folded && setFolded(false));
+
+  // Une fenêtre du studio s'ouvre (saisie, recharge, export…) : le direct se replie pour lui laisser la place,
+  // et se déplie de nouveau quand elle se ferme (s'il était déplié avant).
+  new MutationObserver(() => {
+    if (panel.hidden) return;
+    const open = Boolean(document.querySelector('.dialog-backdrop:not(.closing)'));
+    if (open && !folded) {
+      setFolded(true, { remember: false });
+      autoFolded = true;
+    } else if (!open && autoFolded) {
+      autoFolded = false;
+      setFolded(false, { remember: false });
+    }
+  }).observe(document.body, { childList: true });
+
+  function chevron() {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     s.setAttribute('viewBox', '0 0 24 24');
-    s.setAttribute('width', '20');
-    s.setAttribute('height', '20');
+    s.setAttribute('width', '18');
+    s.setAttribute('height', '18');
+    s.setAttribute('fill', 'none');
+    s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '2.2');
+    s.setAttribute('stroke-linecap', 'round');
+    s.setAttribute('stroke-linejoin', 'round');
+    s.innerHTML = '<path d="M6 9l6 6 6-6"/>';
+    return s;
+  }
+
+  function micIcon(off = false, size = 20) {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('width', String(size));
+    s.setAttribute('height', String(size));
     s.setAttribute('fill', 'none');
     s.setAttribute('stroke', 'currentColor');
     s.setAttribute('stroke-width', '2');
@@ -240,6 +300,15 @@ export function createLive(ctx) {
     log.append(node);
     log.scrollTop = log.scrollHeight;
     return node;
+  }
+
+  // La discussion d'avant (écrite ou en direct) sur ce CV : ses derniers échanges, en grisé, puis le direct reprend.
+  function earlier() {
+    const past = (ctx.getChat?.() ?? []).filter((m) => m.text && !m.error).slice(-6);
+    if (!past.length) return;
+    const box = h('div', { class: 'live-earlier' }, h('span', { class: 'live-earlier-label' }, 'Avant'));
+    for (const m of past) box.append(h('p', { class: `live-line live-${m.role === 'user' ? 'user' : 'bot'}` }, m.text));
+    log.append(box, h('div', { class: 'live-earlier-sep' }, h('span', {}, 'Reprise en direct')));
   }
 
   function note(text, cls = '') {
@@ -319,6 +388,8 @@ export function createLive(ctx) {
     if (status === 'connecting' || status === 'live') return;
     panel.hidden = false;
     log.replaceChildren();
+    caption.textContent = '';
+    earlier();
     undoBtn.hidden = true;
     changed = false;
     said = '';
@@ -408,6 +479,7 @@ export function createLive(ctx) {
         botLine = null;
         userLine ??= line('user');
         userLine.textContent += sc.inputTranscription.text;
+        caption.textContent = `Toi : ${userLine.textContent.trim()}`;
         said = `${said}${sc.inputTranscription.text}`.slice(-SAID_KEPT);
         turn.user += sc.inputTranscription.text;
         log.scrollTop = log.scrollHeight;
@@ -417,6 +489,7 @@ export function createLive(ctx) {
         userLine = null;
         botLine ??= line('bot');
         botLine.textContent += sc.outputTranscription.text;
+        caption.textContent = botLine.textContent.trim();
         turn.bot += sc.outputTranscription.text;
         log.scrollTop = log.scrollHeight;
       }
@@ -661,14 +734,20 @@ export function createLive(ctx) {
     panel.hidden = true;
   }
 
-  muteBtn.addEventListener('click', () => {
+  function toggleMute() {
     muted = !muted;
-    muteBtn.setAttribute('aria-pressed', String(muted));
-    muteBtn.title = muted ? 'Rallumer le micro' : 'Couper le micro';
-    muteBtn.replaceChildren(micIcon(muted));
+    for (const [btn, size] of [[muteBtn, 20], [miniMute, 16]]) {
+      btn.setAttribute('aria-pressed', String(muted));
+      btn.title = muted ? 'Rallumer le micro' : 'Couper le micro';
+      btn.setAttribute('aria-label', btn.title);
+      btn.replaceChildren(micIcon(muted, size));
+    }
     if (muted && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
-  });
+  }
+  muteBtn.addEventListener('click', toggleMute);
+  miniMute.addEventListener('click', toggleMute);
   stopBtn.addEventListener('click', () => finish('Direct terminé.'));
+  miniStop.addEventListener('click', () => finish('Direct terminé.'));
   closeBtn.addEventListener('click', close);
   undoBtn.addEventListener('click', () => {
     if (!snap || !changed) return;
@@ -682,7 +761,7 @@ export function createLive(ctx) {
 
   // Développement seulement (retiré du build) : rejouer des appels d'outils sans micro ni Gemini.
   const test = import.meta.env?.DEV
-    ? { show: () => ((panel.hidden = false), setStatus('live', 'En direct (test)')), runTools, setTicket: (t) => (ticket = t), tell: (t) => line('bot', t) }
+    ? { show: () => ((panel.hidden = false), log.replaceChildren(), earlier(), setStatus('live', 'En direct (test)')), runTools, line, caption, setTicket: (t) => (ticket = t), tell: (t) => line('bot', t) }
     : undefined;
 
   return { test, start, close, toggle: () => (status === 'connecting' || status === 'live' ? close() : start()), get status() { return status; } };

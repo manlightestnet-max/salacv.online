@@ -10,7 +10,9 @@
 }
 
 .live-panel {
-  position: fixed; z-index: 80; right: 20px; bottom: 76px; /* au-dessus de la barre flottante */
+  position: fixed; z-index: 48; right: 20px; bottom: 76px; /* au-dessus de la barre flottante */
+  /* 48 : au-dessus de la feuille (20), de la barre d'app (35) et des actions sur le CV (45) ;
+     SOUS les fenêtres du studio (50) et les suggestions (65) : une fenêtre ouverte passe toujours devant. */
   width: min(380px, calc(100vw - 32px)); max-height: min(560px, calc(100dvh - 120px));
   display: flex; flex-direction: column;
   background: rgb(var(--surface)); color: rgb(var(--gray-900));
@@ -21,7 +23,8 @@
 @keyframes live-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
 
 .live-head { display: flex; align-items: center; gap: 12px; padding: 14px 14px 10px 16px; }
-.live-title { display: flex; flex-direction: column; margin-right: auto; min-width: 0; }
+.live-title { display: flex; flex-direction: column; align-items: flex-start; margin-right: auto; min-width: 0; flex: 1; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: default; }
+.live-title-row { display: flex; align-items: baseline; gap: 8px; }
 .live-status { font-size: 14.5px; }
 .live-clock { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; color: rgb(var(--gray-500)); }
 .live-clock.late { color: rgb(220 38 38); }
@@ -73,7 +76,7 @@
 
 /* Mobile : le panneau prend le bas de l'écran, au-dessus de la feuille du formulaire. */
 @media (max-width: 640px) {
-  .live-panel { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); width: auto; max-height: 60dvh; z-index: 120; }
+  .live-panel { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); width: auto; max-height: 60dvh; }
 }
 
 /* Aperçu des outils : même langage que l'IA de salacv (étincelle, points qui tapent, pastille ✓ Modifié). */
@@ -104,3 +107,37 @@
 .msg-live::before { content: 'Live'; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(220 38 38); }
 .msg-user.msg-live::before { color: rgb(255 255 255 / 0.85); }
 .live-panel .gen-card { align-self: stretch; }
+
+/* --- Replier / déplier ------------------------------------------------------------------------- */
+.live-fold { border: 0; background: transparent; color: rgb(var(--gray-500)); width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; cursor: pointer; transition: transform 0.2s; }
+.live-fold:hover { background: rgb(var(--gray-100)); color: rgb(var(--gray-900)); }
+.live-caption { display: none; }
+.live-mini-row { display: none; gap: 6px; }
+.live-mini { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; border: 1px solid rgb(var(--gray-200)); background: rgb(var(--surface)); color: rgb(var(--gray-800)); }
+.live-mini[aria-pressed='true'] { background: rgb(var(--gray-900)); color: #fff; border-color: transparent; }
+.live-mini-stop { border: 0; background: rgb(239 68 68); }
+.live-mini-stop span { width: 10px; height: 10px; border-radius: 2px; background: #fff; }
+
+/* Replié : une barre compacte ; la discussion continue, on la voit en une ligne. */
+.live-panel.folded { max-height: none; width: min(360px, calc(100vw - 32px)); }
+.live-panel.folded .live-log, .live-panel.folded .live-foot { display: none; }
+.live-panel.folded .live-head { padding: 10px 10px 10px 12px; gap: 10px; }
+.live-panel.folded .live-orb { width: 34px; height: 34px; }
+.live-panel.folded .live-fold { transform: rotate(180deg); }
+.live-panel.folded .live-title { cursor: pointer; }
+.live-panel.folded .live-caption { display: block; max-width: 100%; font-size: 12.5px; color: rgb(var(--gray-600)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-panel.folded .live-caption:empty { display: none; }
+.live-panel.folded[data-status='live'] .live-mini-row, .live-panel.folded[data-status='connecting'] .live-mini-row { display: flex; }
+.live-panel.folded .live-close { display: none; }
+
+/* Ce qui s'est dit avant sur ce CV : en grisé, au-dessus du direct qui reprend. */
+.live-earlier { display: flex; flex-direction: column; gap: 6px; opacity: 0.55; }
+.live-earlier .live-line { font-size: 13px; padding: 6px 10px; }
+.live-earlier-label, .live-earlier-sep span { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: rgb(var(--gray-500)); }
+.live-earlier-label { align-self: center; }
+.live-earlier-sep { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+.live-earlier-sep::before, .live-earlier-sep::after { content: ''; flex: 1; height: 1px; background: rgb(var(--gray-200)); }
+
+@media (max-width: 640px) {
+  .live-panel.folded { left: 12px; right: 12px; width: auto; }
+}
