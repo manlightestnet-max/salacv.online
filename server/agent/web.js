@@ -98,9 +98,9 @@ async function aiGuard(token, env, loginMessage, ctx) {
 const publicQuota = (q) => ({ percent: q.percent, remaining: q.remaining, limit: q.limitSession, exhausted: q.exhausted });
 
 // Clés pour CETTE requête ; en cas d'échec de la base : null (clés d'environnement pour un connecté, refus pour un visiteur).
-async function keysFor(username, env, anonymous) {
+async function keysFor(username, env, anonymous, provider = null) {
   try {
-    return await keySourceFor(username, env, { anonymous });
+    return await keySourceFor(username, env, { anonymous, provider });
   } catch (err) {
     console.error(`[clés] ${err.message}`);
     return null;
@@ -174,7 +174,7 @@ export async function live(payload, token, { env = process.env, ctx, fetchImpl }
     const guard = await aiGuard(token, env, "Connecte-toi pour parler à l'assistant en direct.", ctx);
     if (guard.error) return guard.error;
     if (!liveLimiter.allow(guard.who)) return [429, { ok: false, error: 'Trop de sessions. Attends une minute.' }];
-    const keySource = liveDevKeys(await keysFor(guard.username, env, guard.anonymous), env);
+    const keySource = liveDevKeys(await keysFor(guard.username, env, guard.anonymous, 'gemini'), env);
     if (!keySource) return [503, { ok: false, error: 'Le direct est indisponible pour le moment. Réessaie dans un instant.' }];
     try {
       const loggedIn = Boolean(guard.username);

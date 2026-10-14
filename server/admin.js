@@ -233,7 +233,7 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
         {
           ok: true,
           settings: (await listSettings(env)).filter((x) => x.key.startsWith('live.')),
-          keys: (await pool.listKeys()).filter((k) => k.provider === 'gemini'),
+          keys: (await pool.listKeys({ env })).filter((k) => k.provider === 'gemini'),
           stats: await liveStats(),
         },
       ];

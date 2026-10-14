@@ -106,15 +106,22 @@ export async function deleteKey(id) {
 // retirent la clé fautive, used() retient laquelle a servi et combien de tokens elle a coûté (journal, quotas).
 //   anonymous : visiteur non connecté → UNIQUEMENT les clés étiquetées « public » (jamais celles des clients ni l'environnement).
 //   connecté  : ses clés attribuées s'il en a ; sinon le pool ; sinon les clés « public » ; sinon l'environnement (secours).
-export async function keySourceFor(username, env = process.env, { anonymous = false } = {}) {
-  const pick = (where, params = []) => query(`SELECT id, provider, secret_enc, exhausted_on FROM api_keys WHERE disabled = false AND ${where} ORDER BY id`, params);
-  const any = async (where, params = []) => (await query(`SELECT 1 FROM api_keys WHERE ${where} LIMIT 1`, params)).length > 0;
+//   provider (assistant en direct : 'gemini') : seulement les clés de ce fournisseur. Connecté : ses clés attribuées de ce
+//   fournisseur s'il en a ; sinon TOUT le pool de ce fournisseur, « public » compris (une clé publique sert aussi aux comptes).
+export async function keySourceFor(username, env = process.env, { anonymous = false, provider = null } = {}) {
+  const only = provider ? ` AND provider = '${providerNames().includes(provider) ? provider : '-'}'` : '';
+  const pick = (where, params = []) => query(`SELECT id, provider, secret_enc, exhausted_on FROM api_keys WHERE disabled = false AND ${where}${only} ORDER BY id`, params);
+  const any = async (where, params = []) => (await query(`SELECT 1 FROM api_keys WHERE ${where}${only} LIMIT 1`, params)).length > 0;
 
   let rows;
   let mode;
   if (anonymous) {
     rows = await pick('owner IS NULL AND public = true');
     mode = 'public';
+  } else if (provider) {
+    const own = await any('owner = $1', [username]);
+    rows = own ? await pick('owner = $1', [username]) : await pick('owner IS NULL');
+    mode = own ? 'own' : 'pool';
   } else if (await any('owner = $1', [username])) {
     rows = await pick('owner = $1', [username]);
     mode = 'own';

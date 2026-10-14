@@ -227,3 +227,24 @@ test('journal d’usage : chaque appel de l’IA est noté (prêt pour les futur
   assert.equal(rows[0].kind, 'agent');
   assert.equal(rows[0].ok, true);
 });
+
+test('direct (Gemini) : un compte connecté trouve les clés Gemini « public » même si le pool a des clés privées d’un autre fournisseur', async () => {
+  await query('DELETE FROM api_keys');
+  await addKey({ provider: 'ollama', secret: SK(80), createdBy: 'admin' }, ENV); // pool privé (autre fournisseur)
+  await addKey({ provider: 'gemini', secret: SK(81), createdBy: 'admin', public: true }, ENV);
+  await addKey({ provider: 'gemini', secret: SK(82), createdBy: 'admin', public: true }, ENV);
+
+  // Avant la correction : le compte ne voyait que le pool privé, donc aucune clé Gemini.
+  const general = await keySourceFor('ana@x.cg', ENV);
+  assert.equal(general.candidates((p) => p.name === 'gemini').length, 0);
+
+  const live = await keySourceFor('ana@x.cg', ENV, { provider: 'gemini' });
+  assert.deepEqual(live.candidates((p) => p.name === 'gemini').map((k) => k.key), [SK(81), SK(82)]);
+  assert.ok(live.candidates(() => true).every((k) => k.provider.name === 'gemini'));
+
+  // Visiteur : les clés publiques seulement ; une clé Gemini attribuée à un client reste à lui.
+  const assigned = await addKey({ provider: 'gemini', secret: SK(83), createdBy: 'admin', owner: 'bob@x.cg' }, ENV);
+  assert.equal((await keySourceFor(null, ENV, { anonymous: true, provider: 'gemini' })).candidates(() => true).length, 2);
+  assert.deepEqual((await keySourceFor('bob@x.cg', ENV, { provider: 'gemini' })).candidates(() => true).map((k) => k.id), [assigned.id]);
+  assert.ok(!(await keySourceFor('ana@x.cg', ENV, { provider: 'gemini' })).candidates(() => true).some((k) => k.key === SK(83)));
+});
