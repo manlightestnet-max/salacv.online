@@ -1225,6 +1225,7 @@ const ICON_PATHS = {
   key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3M14 9l2 2"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>',
   gauge: '<path d="M4 17a8 8 0 1 1 16 0"/><path d="m12 17 4-5"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
 };
@@ -1264,6 +1265,161 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Navigation ----------------------------------------------------------------------------
+// --- Visiteurs --------------------------------------------------------------------------------
+// Tout le monde, connecté ou non : d'où (pays, ville, IP masquée), sur quel appareil, combien de temps, quelles pages.
+let visitsRange = 'today';
+const regionName = (() => {
+  try {
+    const names = new Intl.DisplayNames(['fr'], { type: 'region' });
+    return (code) => (code && code !== '?' ? names.of(code) ?? code : 'Inconnu');
+  } catch {
+    return (code) => code || 'Inconnu';
+  }
+})();
+const flag = (code) => (/^[A-Z]{2}$/.test(code ?? '') ? String.fromCodePoint(...[...code].map((c) => 0x1f1a5 + c.charCodeAt(0))) : '🌐');
+const duration = (sec) => {
+  const s = Math.max(0, Math.round(sec));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s / 60)} min${s % 60 ? ` ${String(s % 60).padStart(2, '0')}` : ''}`;
+  return `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`;
+};
+const DEVICE_ICON = { mobile: '📱', tablette: '📱', ordinateur: '💻', 'app PC': '🖥️' };
+
+async function visitsView() {
+  const r = await api('visits', { range: visitsRange });
+  if (!r.ok) return page('Visiteurs', null, null, notice(r.error, 'error'));
+  const t = r.totals;
+  const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
+
+  // Période : une seule rangée de filtres, au-dessus de tout.
+  const ranges = h(
+    'div',
+    { class: 'vz-ranges', role: 'group', 'aria-label': 'Période' },
+    [['today', 'Aujourd’hui'], ['7d', '7 jours'], ['30d', '30 jours']].map(([k, label]) =>
+      h('button', { type: 'button', class: 'vz-range', 'aria-pressed': String(k === visitsRange), onClick: () => ((visitsRange = k), render()) }, label),
+    ),
+  );
+
+  const summary = card(
+    'En bref',
+    h('span', { class: t.online ? 'tag vz-live' : 'tag' }, `${t.online} en ligne`),
+    h(
+      'div',
+      { class: 'stat-grid' },
+      statCell('Visiteurs', tokens(t.visitors), `${tokens(t.new_visitors)} nouveaux`, true),
+      statCell('Visites', tokens(t.visits), `${tokens(t.pages)} pages vues`),
+      statCell('Durée moyenne', duration(t.avg_seconds), `rebond ${pct(t.bounces, t.visits)} %`),
+      statCell('Connectés', tokens(t.logged), `${pct(t.logged, t.visitors)} % des visiteurs`),
+    ),
+  );
+
+  // Visiteurs par jour, 30 jours : une seule série, une seule teinte ; la valeur au survol et en texte.
+  const byDay = new Map(r.days.map((d) => [d.d, d.n]));
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(Date.now() - (29 - i) * 86_400_000);
+    const key = d.toISOString().slice(0, 10);
+    return { key, label: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }), n: byDay.get(key) ?? 0 };
+  });
+  const max = Math.max(1, ...days.map((d) => d.n));
+  const best = days.reduce((a, b) => (b.n > a.n ? b : a), days[0]);
+  const chart = h(
+    'div',
+    { class: 'vz-chart', role: 'img', 'aria-label': `Visiteurs par jour sur 30 jours, maximum ${best.n} le ${best.label}` },
+    h('span', { class: 'vz-max' }, String(max)),
+    h(
+      'div',
+      { class: 'vz-bars' },
+      days.map((d) =>
+        h(
+          'span',
+          { class: 'vz-col', tabindex: '0', 'aria-label': `${d.label} : ${d.n} visiteur${d.n > 1 ? 's' : ''}` },
+          h('span', { class: 'vz-bar', style: `height:${d.n ? Math.max(4, (d.n / max) * 100) : 0}%` }),
+          h('span', { class: 'vz-tip' }, h('strong', {}, String(d.n)), ` ${d.label}`),
+        ),
+      ),
+    ),
+    h('div', { class: 'vz-axis' }, h('span', {}, days[0].label), h('span', {}, 'aujourd’hui')),
+  );
+  const chartCard = card('Visiteurs par jour', h('span', { class: 'row-meta' }, '30 derniers jours'), days.some((d) => d.n) ? chart : h('p', { class: 'rows-empty' }, 'Pas encore de visites sur les 30 derniers jours.'));
+
+  // Répartitions : nom, nombre, part, barre fine.
+  const share = (title, rows, name = (k) => k) => {
+    const total = rows.reduce((a, x) => a + x.n, 0);
+    return card(
+      title,
+      null,
+      rowsOf(
+        rows.map((x) =>
+          h(
+            'div',
+            { class: 'vz-share' },
+            h('span', { class: 'vz-name' }, name(x.k)),
+            h('span', { class: 'vz-num' }, `${tokens(x.n)} · ${pct(x.n, total)} %`),
+            h('span', { class: 'vz-track', 'aria-hidden': 'true' }, h('span', { style: `width:${pct(x.n, total)}%` })),
+          ),
+        ),
+        'Personne pour le moment.',
+      ),
+    );
+  };
+  const breakdown = h(
+    'div',
+    { class: 'vz-grid' },
+    share('Pays', r.countries, (k) => `${flag(k)} ${regionName(k)}`),
+    share('Appareils', r.devices, (k) => `${DEVICE_ICON[k] ?? '❔'} ${k}`),
+    share('Systèmes', r.os),
+    share('Navigateurs', r.browsers),
+    share('D’où ils viennent', r.sources, (k) => (k === '?' ? 'Direct (lien tapé, favori, appli)' : k)),
+    share('Pages', r.pages),
+  );
+
+  // Dernières visites : une ligne par visite, la plus récente en haut.
+  const recent = r.recent.map((v) =>
+    h(
+      'div',
+      { class: 'row-item' },
+      h('span', { class: 'avatar', 'aria-hidden': 'true', title: regionName(v.country) }, flag(v.country)),
+      h(
+        'div',
+        { class: 'row-main' },
+        h(
+          'strong',
+          {},
+          v.username ?? 'Visiteur',
+          v.online && h('span', { class: 'tag vz-live' }, 'En ligne'),
+          v.returning && h('span', { class: 'tag' }, 'Revenu'),
+        ),
+        h(
+          'small',
+          { class: 'vz-detail' },
+          [
+            `${regionName(v.country)}${v.city ? `, ${v.city}` : ''}`,
+            v.ip,
+            `${DEVICE_ICON[v.device] ?? ''} ${v.device} · ${v.os} · ${v.browser}`,
+            `${duration(v.seconds)} · ${v.pages} page${v.pages > 1 ? 's' : ''}`,
+            v.landing === v.lastPath ? v.landing : `${v.landing} → ${v.lastPath}`,
+            v.source && `via ${v.source}`,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        ),
+      ),
+      h('span', { class: 'row-meta' }, dateTime(v.startedAt)),
+    ),
+  );
+  const recentCard = card(`Dernières visites (${r.recent.length})`, null, rowsOf(recent, 'Aucune visite sur cette période.'));
+
+  return page(
+    'Visiteurs',
+    'Tout le monde, connecté ou non. L’adresse IP est masquée dès l’arrivée (jamais gardée en entier) ; pays et ville viennent de l’hébergeur ; les robots sont ignorés. Une visite s’arrête après 30 minutes sans activité ; les visites de plus de 90 jours sont effacées.',
+    ranges,
+    summary,
+    chartCard,
+    breakdown,
+    recentCard,
+  );
+}
+
 // --- Live (assistant vocal) ------------------------------------------------------------------
 // Gemini Live accepte peu de sessions par clé : chaque personne a ses N clés réservées (N ≥ 2), la moins chargée sert
 // d'abord, puis les autres clés du pool. Les clés elles-mêmes s'ajoutent dans « Clés IA » (fournisseur gemini).
@@ -1375,7 +1531,7 @@ async function liveView() {
   return page('Live', 'L’assistant vocal en direct (Gemini Live) : rotation des clés, capacité et sessions. Chaque personne a ses clés réservées ; les clés pleines ou épuisées sont sautées toutes seules.', null, summary, settingsCard, keysCard, sessionsCard);
 }
 
-const VIEWS = { apercu: overviewView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, live: liveView, boutique: shopView, ia: aiView, contact: contactView, journal: journalView };
+const VIEWS = { apercu: overviewView, visiteurs: visitsView, utilisateurs: usersView, cv: cvView, ressources: resourcesView, modeles: templatesView, skills: skillsView, cles: keysView, live: liveView, boutique: shopView, ia: aiView, contact: contactView, journal: journalView };
 
 async function render() {
   const logged = Boolean(token);

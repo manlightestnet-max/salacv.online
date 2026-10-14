@@ -11,6 +11,10 @@ import { db } from './db/index.js';
 import { configRoute } from './keys/routes.js';
 import { buyRoute, orderRoute, shopRoute, webhookRoute } from './shop.js';
 import { aiBuyRoute, aiQuotaRoute, aiResetRoute } from './airoutes.js';
+import { track } from './visits.js';
+import { RateLimiter } from './ratelimit.js';
+
+const trackLimiter = new RateLimiter(120); // signes par minute et par IP
 
 function send(res, status, body, headers = {}) {
   const data = JSON.stringify(body);
@@ -95,6 +99,13 @@ export const ROUTES = {
   live: (payload, req) => {
     const ctx = context(req);
     return withCookie(web.live(payload, tokenOf(req), { ctx }), ctx);
+  },
+  // Visiteurs (Admin → Visiteurs) : arrivée sur une page, signe de vie, départ. Jamais l'IP en entier.
+  track: async (payload, req) => {
+    const ctx = context(req);
+    if (!trackLimiter.allow(ctx.ip)) return [429, { ok: false }];
+    const r = await track(payload, req, ctx, web.verifyToken(tokenOf(req)));
+    return ctx.setCookie ? [200, r, { 'Set-Cookie': ctx.setCookie }] : [200, r];
   },
   credits: (payload, req) => creditsRoute(tokenOf(req)),
   // Achat de crédits (LightPay) : packs en vente, achat, suivi d'une commande, webhook de LightPay.

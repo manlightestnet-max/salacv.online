@@ -1,4 +1,5 @@
 // Page d'accueil de l'app desktop : connexion Google ou clé, avant l'éditeur.
+import { startTracking } from './lib/track.js';
 import { loginPanel } from './login.js';
 import { initSession } from './session.js';
 import { REQUIRE_LOGIN } from '../src/license/config.js';
@@ -15,3 +16,6 @@ document.getElementById('welcome-skip').hidden = REQUIRE_LOGIN;
 
 // Déjà connecté (retour de Google pendant que la page était ouverte, rechargement…) → tableau de bord.
 if (await initSession()) location.replace('/dashboard/');
+
+// Visiteurs (Admin → Visiteurs) : arrivée, durée, départ ; IP masquée par le serveur.
+startTracking();

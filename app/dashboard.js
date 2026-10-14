@@ -1,5 +1,6 @@
 // Tableau de bord : mes CV enregistrés, l'explorateur de formats (gratuits et premium à
 // venir), la gestion des crédits et le compte (menu en haut à droite, page « Mon compte »). Les miniatures sont rendues par le vrai moteur.
+import { startTracking } from './lib/track.js';
 import { openThemePicker } from './lib/theme.js';
 import { readSession } from './login.js';
 import { initSession, logout } from './session.js';
@@ -811,3 +812,6 @@ loadEngine()
     pending.splice(0).forEach((paint) => paint());
   })
   .catch((err) => console.error(err));
+
+// Visiteurs (Admin → Visiteurs) : arrivée, durée, départ ; IP masquée par le serveur.
+startTracking();

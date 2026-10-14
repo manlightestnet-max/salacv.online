@@ -2,6 +2,7 @@
 // sheet. PC : formulaire dans une barre de gauche redimensionnable. Aperçu
 // zoomable partout ; tant que l'étudiant n'a rien saisi, l'exemple s'affiche
 // en grisé pour montrer le format.
+import { startTracking } from './lib/track.js';
 import { syncBrowserBar, toggleTheme } from './lib/theme.js';
 import { trackWait } from './lib/progress.js';
 import { layoutResume } from '../src/index.js';
@@ -2252,3 +2253,6 @@ function initHorizontalScroll(el) {
   el.addEventListener('click', (e) => drag?.moved && (e.stopPropagation(), e.preventDefault()), true);
   window.addEventListener('pointerup', () => setTimeout(() => (drag = null)));
 }
+
+// Visiteurs (Admin → Visiteurs) : arrivée, durée, départ ; IP masquée par le serveur.
+startTracking();

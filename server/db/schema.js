@@ -205,4 +205,28 @@ export const STATEMENTS = [
     tokens integer NOT NULL DEFAULT 0
   )`,
   `CREATE INDEX IF NOT EXISTS live_sessions_key_idx ON live_sessions (key_id, started_at DESC)`,
+
+  // Visiteurs du site (Admin → Visiteurs, voir server/visits.js) : une ligne par visite. IP toujours masquée.
+  `CREATE TABLE IF NOT EXISTS visits (
+    id text PRIMARY KEY,
+    visitor text NOT NULL,
+    username text,
+    ip_masked text NOT NULL DEFAULT '',
+    country text NOT NULL DEFAULT '',
+    city text NOT NULL DEFAULT '',
+    device text NOT NULL DEFAULT '',
+    os text NOT NULL DEFAULT '',
+    browser text NOT NULL DEFAULT '',
+    source text NOT NULL DEFAULT '',
+    landing text NOT NULL DEFAULT '/',
+    last_path text NOT NULL DEFAULT '/',
+    paths text[] NOT NULL DEFAULT '{}',
+    pages integer NOT NULL DEFAULT 1,
+    came_back boolean NOT NULL DEFAULT false,
+    started_at timestamptz NOT NULL DEFAULT now(),
+    last_seen timestamptz NOT NULL DEFAULT now(),
+    ended_at timestamptz
+  )`,
+  `CREATE INDEX IF NOT EXISTS visits_visitor_idx ON visits (visitor, last_seen DESC)`,
+  `CREATE INDEX IF NOT EXISTS visits_started_idx ON visits (started_at DESC)`,
 ];

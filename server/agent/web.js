@@ -65,6 +65,9 @@ export async function keyLogin(payload, client, env = process.env, now = Date.no
   return [200, { ok: true, token, username, kind: 'key', expiresAt: body.expiresAt }];
 }
 
+// Compte d'un jeton de session (ou null), sans autre vérification : sert seulement à noter qui visite.
+export const verifyToken = (token, env = process.env) => (token ? verify(token, env) : null);
+
 export const bearer = (authorization) => String(authorization ?? '').replace(/^Bearer\s+/i, '').trim();
 
 // Accès à l'IA. Connecté : compte non suspendu, accès accordé (par défaut à la connexion, retirable par l'admin).

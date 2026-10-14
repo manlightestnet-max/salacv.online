@@ -6,6 +6,7 @@
 // Google s'ouvre dans CET onglet (redirection), pas dans une fenêtre surgissante que le navigateur peut bloquer.
 // La redirection exige que la page de retour de Firebase soit sur notre propre domaine : /__/auth/* est relayé vers
 // firebaseapp.com (vercel.json), et https://<site>/__/auth/handler doit être autorisé dans Google Cloud.
+import { startTracking } from './lib/track.js';
 import { initializeApp } from 'firebase/app';
 import {
   GoogleAuthProvider,
@@ -269,3 +270,6 @@ function showTemplates() {
 }
 
 start().catch((err) => fail(friendly(err)));
+
+// Visiteurs (Admin → Visiteurs) : arrivée, durée, départ ; IP masquée par le serveur.
+startTracking();

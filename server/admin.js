@@ -28,6 +28,7 @@ import { adminSetAi, allowances, checkAiPacks, listAiPacks, saveAiPacks } from '
 import { CONTACT_KEYS, checkContact } from './contact.js';
 import { aiCosts } from './aitune.js';
 import { liveStats } from './agent/live.js';
+import { visitStats } from './visits.js';
 import { parseTemplateSpec } from '../src/templates/spec.js';
 import { BUILTIN_SPECS } from '../src/templates/congo.js';
 import SEED from '../resources/congo-brazzaville.json' with { type: 'json' };
@@ -222,6 +223,9 @@ async function adminRoute(payload, token, env, { verifyToken = verifyFirebaseIdT
     }
 
     // --- Clés des fournisseurs IA : pool partagé, attribution à un utilisateur, réglages -------
+    // Visiteurs du site : d'où, sur quel appareil, combien de temps (IP masquée).
+    case 'visits':
+      return [200, { ok: true, ...(await visitStats(['today', '7d', '30d'].includes(payload.range) ? payload.range : 'today')) }];
     // Assistant en direct : réglages, clés Gemini (chargées ou non) et dernières sessions. Jamais une clé en clair.
     case 'live':
       return [

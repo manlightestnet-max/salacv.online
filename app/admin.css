@@ -175,3 +175,32 @@ select.admin-input { cursor: pointer; }
 
 .skill-test-out { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
 .skill-test-reply { margin: 0; padding: 0.8rem; border-radius: 12px; white-space: pre-wrap; font: 0.85rem/1.5 var(--font-sans, inherit); background: rgb(var(--gray-100)); max-height: 40vh; overflow: auto; }
+
+/* --- Visiteurs ------------------------------------------------------------------------------ */
+.vz-ranges { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: rgb(var(--gray-100)); }
+.vz-range { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; font: inherit; font-size: 0.85rem; font-weight: 600; color: rgb(var(--gray-600)); cursor: pointer; }
+.vz-range[aria-pressed='true'] { background: rgb(var(--surface)); color: rgb(var(--gray-900)); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+.tag.vz-live { border-color: rgb(16 185 129); color: rgb(5 150 105); }
+
+/* Barres par jour : une teinte, haut arrondi (4px), 2px d'écart, grille absente ; la valeur au survol. */
+.vz-chart { position: relative; padding: 18px 16px 10px; }
+.vz-max { position: absolute; top: 2px; left: 16px; font-size: 0.72rem; color: rgb(var(--gray-500)); }
+.vz-bars { height: 140px; display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; align-items: end; border-bottom: 1px solid rgb(var(--gray-200)); }
+.vz-col { position: relative; height: 100%; display: flex; align-items: flex-end; outline: none; cursor: default; }
+.vz-col::before { content: ''; position: absolute; inset: 0 -1px; } /* zone de survol plus large que la barre */
+.vz-bar { width: 100%; border-radius: 4px 4px 0 0; background: rgb(var(--primary-500)); transition: opacity 0.15s; }
+.vz-bars:hover .vz-bar { opacity: 0.45; }
+.vz-col:hover .vz-bar, .vz-col:focus-visible .vz-bar { opacity: 1; }
+.vz-tip { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 4px 8px; border-radius: 8px; font-size: 0.75rem; background: rgb(var(--gray-900)); color: rgb(var(--surface)); pointer-events: none; opacity: 0; transition: opacity 0.12s; z-index: 2; }
+.vz-col:hover .vz-tip, .vz-col:focus-visible .vz-tip { opacity: 1; }
+.vz-axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.72rem; color: rgb(var(--gray-500)); }
+
+/* Répartitions : nom, nombre et part en texte, barre fine dessous. */
+.vz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.vz-grid > .card-sec { margin: 0; }
+.vz-share { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 9px 16px; }
+.vz-name { font-size: 0.88rem; color: rgb(var(--gray-900)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vz-num { font-size: 0.8rem; color: rgb(var(--gray-500)); font-variant-numeric: tabular-nums; }
+.vz-track { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: rgb(var(--gray-100)); overflow: hidden; }
+.vz-track > span { display: block; height: 100%; border-radius: 4px; background: rgb(var(--primary-500)); }
+.row-main small.vz-detail { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.45; }

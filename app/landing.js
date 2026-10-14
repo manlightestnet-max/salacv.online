@@ -1,6 +1,7 @@
 // Landing : le CV d'exemple change de style tout seul et le nom tapé y apparaît en direct (vrai moteur, celui du
 // studio). Tout le reste vient du serveur : chiffres, prix des crédits, cadeau d'inscription, avis. Une tuile ou
 // une section dont la donnée n'existe pas reste cachée : rien n'est inventé.
+import { startTracking } from './lib/track.js';
 import { openThemePicker } from './lib/theme.js';
 import { layoutResume } from '../src/index.js';
 import example from '../examples/etudiant.json';
@@ -290,3 +291,6 @@ post('shop')
     reveal($('prix'));
   })
   .catch(() => {});
+
+// Visiteurs (Admin → Visiteurs) : arrivée, durée, départ ; IP masquée par le serveur.
+startTracking();
